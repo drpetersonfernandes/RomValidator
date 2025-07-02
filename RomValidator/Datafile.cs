@@ -2,7 +2,7 @@
 
 namespace RomValidator;
 
-// These classes are designed to match the No-Intro DAT file XML structure.
+// These classes are designed to match the DAT file XML structure.
 // Using XmlSerializer attributes to map XML elements and attributes to C# properties.
 
 [XmlRoot("datafile")]

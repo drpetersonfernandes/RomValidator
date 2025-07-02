@@ -4,7 +4,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
-        Title="No-Intro ROM Validator" Height="650" Width="800" MinHeight="600" MinWidth="700"
+        Title="ROM Validator" Height="650" Width="800" MinHeight="600" MinWidth="700"
         WindowStartupLocation="CenterScreen"
         Closing="Window_Closing">
     <Grid>
@@ -53,7 +53,7 @@
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
-                    <Label Grid.Column="0" Content="No-Intro DAT File:" VerticalAlignment="Center"/>
+                    <Label Grid.Column="0" Content="DAT File:" VerticalAlignment="Center"/>
                     <TextBox x:Name="DatFileTextBox" Grid.Column="1" Margin="5,0,5,0" Padding="5" IsReadOnly="True"/>
                     <Button x:Name="BrowseDatFileButton" Grid.Column="2" Content="Browse..." Click="BrowseDatFileButton_Click" Padding="10,5"/>
                 </Grid>

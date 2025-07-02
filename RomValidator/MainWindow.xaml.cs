@@ -24,28 +24,25 @@ public partial class MainWindow : IDisposable
     private readonly Stopwatch _operationTimer = new();
 
     // Bug Reporting Service
-    private BugReportService? _bugReportService;
+    private readonly BugReportService? _bugReportService;
 
     public MainWindow()
     {
         InitializeComponent();
         DisplayInstructions();
 
-        // Initialize BugReportService
-        // TODO: For a production application, these values should be loaded from a configuration file (e.g., appsettings.json)
-        // or user settings, not hardcoded.
-        const string apiUrl = "https://your-bug-report-api.com/api/bugreport"; // REPLACE WITH YOUR ACTUAL API URL
-        const string apiKey = "YOUR_SECRET_API_KEY"; // REPLACE WITH YOUR ACTUAL API Key
-        const string applicationName = "No-Intro ROM Validator";
+        const string apiUrl = "https://www.purelogiccode.com/bugreport/api/send-bug-report";
+        const string apiKey = "hjh7yu6t56tyr540o9u8767676r5674534453235264c75b6t7ggghgg76trf564e";
+        const string applicationName = "ROM Validator";
         _bugReportService = new BugReportService(apiUrl, apiKey, applicationName);
 
-        ClearDatInfoDisplay(); // Initialize DAT info display
+        ClearDatInfoDisplay();
     }
 
     private void DisplayInstructions()
     {
-        LogMessage("Welcome to the No-Intro ROM Validator.");
-        LogMessage("This tool validates your ROM files against a standard No-Intro DAT file to ensure they are accurate and uncorrupted.");
+        LogMessage("Welcome to the ROM Validator.");
+        LogMessage("This tool validates your ROM files against a standard DAT file to ensure they are accurate and uncorrupted.");
         LogMessage("");
         LogMessage("How it works:");
         LogMessage("- It checks each file's size and hash (SHA1, MD5, or CRC32) against the DAT file.");
@@ -54,7 +51,7 @@ public partial class MainWindow : IDisposable
         LogMessage("");
         LogMessage("Please follow these steps:");
         LogMessage("1. Select the folder containing the ROM files you want to scan.");
-        LogMessage("2. Select the corresponding No-Intro .dat file.");
+        LogMessage("2. Select the corresponding .dat file.");
         LogMessage("3. Choose your file moving preferences using the checkboxes.");
         LogMessage("4. Click 'Start Validation'.");
         LogMessage("");
@@ -119,7 +116,8 @@ public partial class MainWindow : IDisposable
             {
                 LogMessage($"An unexpected error occurred: {ex.Message}");
                 ShowError($"An unexpected error occurred during validation: {ex.Message}");
-                _ = _bugReportService?.SendBugReportAsync($"Exception during PerformValidationAsync: {ex}");
+                // Bug Report Call 1: Exception during PerformValidationAsync
+                _ = _bugReportService?.SendBugReportAsync("Exception during PerformValidationAsync", ex);
             }
             finally
             {
@@ -133,7 +131,8 @@ public partial class MainWindow : IDisposable
         {
             LogMessage($"An unhandled error occurred in StartValidationButton_Click: {ex.Message}");
             ShowError($"An unhandled error occurred: {ex.Message}");
-            _ = _bugReportService?.SendBugReportAsync($"Unhandled exception in StartValidationButton_Click: {ex}");
+            // Bug Report Call 2: Unhandled exception in StartValidationButton_Click
+            _ = _bugReportService?.SendBugReportAsync("Unhandled exception in StartValidationButton_Click", ex);
         }
     }
 
@@ -251,8 +250,9 @@ public partial class MainWindow : IDisposable
         catch (Exception ex)
         {
             // Catching exceptions during hash computation for a specific file
-            _ = _bugReportService?.SendBugReportAsync($"Error checking hashes for file '{filePath}': {ex}");
-            return (false, $"Error during hash check: {ex.Message}");
+            // Bug Report Call 3: Error checking hashes for file
+            _ = _bugReportService?.SendBugReportAsync($"Error checking hashes for file '{filePath}'", ex); // Refined message
+            return (false, "Error during hash check");
         }
     }
 
@@ -280,7 +280,7 @@ public partial class MainWindow : IDisposable
                 .ToDictionary(g => g.Key, g => g.First().Rom);
 
             // Update DAT Info Display
-            Application.Current.Dispatcher.InvokeAsync(() =>
+            await Application.Current.Dispatcher.InvokeAsync(() =>
             {
                 DatNameTextBlock.Text = datafile.Header?.Name ?? "N/A";
                 DatDescriptionTextBlock.Text = datafile.Header?.Description ?? "N/A";
@@ -297,7 +297,8 @@ public partial class MainWindow : IDisposable
         catch (Exception ex)
         {
             LogMessage($"Error reading DAT file: {ex.Message}");
-            _ = _bugReportService?.SendBugReportAsync($"Error loading DAT file '{datFilePath}': {ex}");
+            // Bug Report Call 4: Error loading DAT file (during validation start or explicit load)
+            _ = _bugReportService?.SendBugReportAsync($"Error loading DAT file '{datFilePath}'", ex);
             ClearDatInfoDisplay(); // Clear info on error
             return false;
         }
@@ -331,7 +332,8 @@ public partial class MainWindow : IDisposable
         catch (Exception ex)
         {
             LogMessage($"   -> FAILED to move {Path.GetFileName(sourcePath)}. Error: {ex.Message}");
-            _ = _bugReportService?.SendBugReportAsync($"Error moving file from '{sourcePath}' to '{destPath}': {ex}");
+            // Bug Report Call 5: Error moving file
+            _ = _bugReportService?.SendBugReportAsync($"Error moving file from '{sourcePath}' to '{destPath}'", ex);
         }
     }
 
@@ -360,18 +362,30 @@ public partial class MainWindow : IDisposable
     // MODIFIED METHOD: Make it async and call LoadDatFileAsync
     private async void BrowseDatFileButton_Click(object sender, RoutedEventArgs e)
     {
-        var dialog = new OpenFileDialog
+        string? selectedDatFileName = null; // Declare outside try-catch
+        try
         {
-            Title = "Select the No-Intro DAT file",
-            Filter = "DAT Files (*.dat)|*.dat|All files (*.*)|*.*"
-        };
-        if (dialog.ShowDialog() != true) return;
+            var dialog = new OpenFileDialog
+            {
+                Title = "Select the DAT file",
+                Filter = "DAT Files (*.dat)|*.dat|All files (*.*)|*.*"
+            };
+            if (dialog.ShowDialog() != true) return;
 
-        DatFileTextBox.Text = dialog.FileName;
-        LogMessage($"DAT file selected: {dialog.FileName}");
-        
-        // Immediately load and display DAT info after selection
-        await LoadDatFileAsync(dialog.FileName); 
+            selectedDatFileName = dialog.FileName; // Assign to the outer variable
+            DatFileTextBox.Text = selectedDatFileName;
+            LogMessage($"DAT file selected: {selectedDatFileName}");
+
+            // Immediately load and display DAT info after selection
+            await LoadDatFileAsync(selectedDatFileName);
+        }
+        catch (Exception ex)
+        {
+            // Bug Report Call 6: Error loading DAT file (during browse)
+            // Use selectedDatFileName for more context,
+            // it might be null if the exception occurred very early
+            _ = _bugReportService?.SendBugReportAsync($"Error loading DAT file '{selectedDatFileName ?? "N/A"}'", ex);
+        }
     }
 
     private void CancelButton_Click(object sender, RoutedEventArgs e)
