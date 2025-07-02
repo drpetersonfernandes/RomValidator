@@ -3,7 +3,7 @@ using System.Windows;
 
 namespace RomValidator;
 
-public partial class AboutWindow : Window
+public partial class AboutWindow
 {
     public AboutWindow()
     {

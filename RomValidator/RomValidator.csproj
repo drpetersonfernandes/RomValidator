@@ -22,10 +22,13 @@
     <Resource Include="images\about.png" />
     <None Remove="images\exit.png" />
     <Resource Include="images\exit.png" />
+    <None Remove="images\logo.png" />
+    <Resource Include="images\logo.png" />
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="System.IO.Hashing" Version="9.0.0" />
+    <PackageReference Include="System.Net.Http.Json" Version="9.0.6" />
   </ItemGroup>
 
 </Project>

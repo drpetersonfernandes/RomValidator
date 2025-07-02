@@ -11,7 +11,7 @@ using System.Xml.Serialization;
 
 namespace RomValidator;
 
-public partial class MainWindow : Window, IDisposable
+public partial class MainWindow : IDisposable
 {
     private Dictionary<string, Rom> _romDatabase = [];
     private CancellationTokenSource _cts = new();
@@ -23,10 +23,23 @@ public partial class MainWindow : Window, IDisposable
     private int _unknownCount;
     private readonly Stopwatch _operationTimer = new();
 
+    // Bug Reporting Service
+    private BugReportService? _bugReportService;
+
     public MainWindow()
     {
         InitializeComponent();
         DisplayInstructions();
+
+        // Initialize BugReportService
+        // TODO: For a production application, these values should be loaded from a configuration file (e.g., appsettings.json)
+        // or user settings, not hardcoded.
+        const string apiUrl = "https://your-bug-report-api.com/api/bugreport"; // REPLACE WITH YOUR ACTUAL API URL
+        const string apiKey = "YOUR_SECRET_API_KEY"; // REPLACE WITH YOUR ACTUAL API Key
+        const string applicationName = "No-Intro ROM Validator";
+        _bugReportService = new BugReportService(apiUrl, apiKey, applicationName);
+
+        ClearDatInfoDisplay(); // Initialize DAT info display
     }
 
     private void DisplayInstructions()
@@ -50,68 +63,91 @@ public partial class MainWindow : Window, IDisposable
 
     private async void StartValidationButton_Click(object sender, RoutedEventArgs e)
     {
-        var romsFolderPath = RomsFolderTextBox.Text;
-        var datFilePath = DatFileTextBox.Text;
-        var moveSuccess = MoveSuccessCheckBox.IsChecked == true;
-        var moveFailed = MoveFailedCheckBox.IsChecked == true;
-
-        if (string.IsNullOrEmpty(romsFolderPath) || string.IsNullOrEmpty(datFilePath))
-        {
-            ShowError("Please select both a ROMs folder and a DAT file.");
-            return;
-        }
-
-        if (!Directory.Exists(romsFolderPath))
-        {
-            ShowError($"The selected ROMs folder does not exist: {romsFolderPath}");
-            return;
-        }
-
-        if (!File.Exists(datFilePath))
-        {
-            ShowError($"The selected DAT file does not exist: {datFilePath}");
-            return;
-        }
-
-        _cts = new CancellationTokenSource();
-        ResetOperationStats();
-        SetControlsState(false);
-        _operationTimer.Restart();
-
-        LogViewer.Clear();
-        LogMessage("--- Starting Validation Process ---");
-
         try
         {
-            await PerformValidationAsync(romsFolderPath, datFilePath, moveSuccess, moveFailed, _cts.Token);
-        }
-        catch (OperationCanceledException)
-        {
-            LogMessage("Validation operation was canceled by the user.");
+            var romsFolderPath = RomsFolderTextBox.Text;
+            var datFilePath = DatFileTextBox.Text;
+            var moveSuccess = MoveSuccessCheckBox.IsChecked == true;
+            var moveFailed = MoveFailedCheckBox.IsChecked == true;
+
+            if (string.IsNullOrEmpty(romsFolderPath) || string.IsNullOrEmpty(datFilePath))
+            {
+                ShowError("Please select both a ROMs folder and a DAT file.");
+                return;
+            }
+
+            if (!Directory.Exists(romsFolderPath))
+            {
+                ShowError($"The selected ROMs folder does not exist: {romsFolderPath}");
+                return;
+            }
+
+            if (!File.Exists(datFilePath))
+            {
+                ShowError($"The selected DAT file does not exist: {datFilePath}");
+                return;
+            }
+
+            _cts = new CancellationTokenSource();
+            ResetOperationStats();
+            SetControlsState(false);
+            _operationTimer.Restart();
+
+            LogViewer.Clear();
+            LogMessage("--- Starting Validation Process ---");
+
+            try
+            {
+                // The DAT file is already loaded and displayed when selected.
+                // We just need to ensure _romDatabase is populated for validation.
+                // If the user changes the DAT file after selecting it but before starting validation,
+                // LoadDatFileAsync will be called again here, which is fine.
+                var datLoaded = await LoadDatFileAsync(datFilePath);
+                if (!datLoaded)
+                {
+                    ShowError("Failed to load or parse the DAT file. Please check the log for details.");
+                    return; // Stop the process
+                }
+
+                await PerformValidationAsync(romsFolderPath, datFilePath, moveSuccess, moveFailed, _cts.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                LogMessage("Validation operation was canceled by the user.");
+            }
+            catch (Exception ex)
+            {
+                LogMessage($"An unexpected error occurred: {ex.Message}");
+                ShowError($"An unexpected error occurred during validation: {ex.Message}");
+                _ = _bugReportService?.SendBugReportAsync($"Exception during PerformValidationAsync: {ex}");
+            }
+            finally
+            {
+                _operationTimer.Stop();
+                UpdateProcessingTimeDisplay();
+                SetControlsState(true);
+                LogOperationSummary();
+            }
         }
         catch (Exception ex)
         {
-            LogMessage($"An unexpected error occurred: {ex.Message}");
-            ShowError($"An unexpected error occurred during validation: {ex.Message}");
-        }
-        finally
-        {
-            _operationTimer.Stop();
-            UpdateProcessingTimeDisplay();
-            SetControlsState(true);
-            LogOperationSummary();
+            LogMessage($"An unhandled error occurred in StartValidationButton_Click: {ex.Message}");
+            ShowError($"An unhandled error occurred: {ex.Message}");
+            _ = _bugReportService?.SendBugReportAsync($"Unhandled exception in StartValidationButton_Click: {ex}");
         }
     }
 
     private async Task PerformValidationAsync(string romsFolderPath, string datFilePath, bool moveSuccess, bool moveFailed, CancellationToken token)
     {
-        // 1. Load DAT file
-        var datLoaded = await LoadDatFileAsync(datFilePath);
-        if (!datLoaded)
-        {
-            ShowError("Failed to load or parse the DAT file. Please check the log for details.");
-            return; // Stop the process
-        }
+        // 1. Load the DAT file (already done on selection, but re-confirm for robustness)
+        // This call ensures _romDatabase is fresh in case the user selected a DAT, then changed it,
+        // or if the app started with a pre-filled path without explicit selection.
+        // It also handles the initial load if StartValidation is clicked without prior browse.
+        // The display update is handled within LoadDatFileAsync.
+        // Removed the redundant LoadDatFileAsync call here as it's now handled by BrowseDatFileButton_Click
+        // and the _romDatabase will be populated.
+        // If you want to ensure the DAT is re-loaded *every* time validation starts, keep the call here.
+        // For this request, we assume it's loaded on browse.
         token.ThrowIfCancellationRequested();
 
         // 2. Prepare output directories
@@ -119,7 +155,7 @@ public partial class MainWindow : Window, IDisposable
         var failPath = Path.Combine(romsFolderPath, "_fail");
         if (moveSuccess) Directory.CreateDirectory(successPath);
         if (moveFailed) Directory.CreateDirectory(failPath);
-        
+
         LogMessage($"Move successful files: {moveSuccess}" + (moveSuccess ? $" (to {successPath})" : ""));
         LogMessage($"Move failed/unknown files: {moveFailed}" + (moveFailed ? $" (to {failPath})" : ""));
 
@@ -184,35 +220,47 @@ public partial class MainWindow : Window, IDisposable
 
     private async Task<(bool, string)> CheckHashesAsync(string filePath, Rom expectedRom, CancellationToken token)
     {
-        if (!string.IsNullOrEmpty(expectedRom.Sha1))
+        try
         {
-            var actualSha1 = await ComputeHashAsync(filePath, SHA1.Create(), token);
-            if (actualSha1.Equals(expectedRom.Sha1, StringComparison.OrdinalIgnoreCase))
-                return (true, $"SHA1: {actualSha1}");
-        }
-        token.ThrowIfCancellationRequested();
+            if (!string.IsNullOrEmpty(expectedRom.Sha1))
+            {
+                var actualSha1 = await ComputeHashAsync(filePath, SHA1.Create(), token);
+                if (actualSha1.Equals(expectedRom.Sha1, StringComparison.OrdinalIgnoreCase))
+                    return (true, $"SHA1: {actualSha1}");
+            }
 
-        if (!string.IsNullOrEmpty(expectedRom.Md5))
-        {
-            var actualMd5 = await ComputeHashAsync(filePath, MD5.Create(), token);
-            if (actualMd5.Equals(expectedRom.Md5, StringComparison.OrdinalIgnoreCase))
-                return (true, $"MD5: {actualMd5}");
-        }
-        token.ThrowIfCancellationRequested();
+            token.ThrowIfCancellationRequested();
 
-        if (!string.IsNullOrEmpty(expectedRom.Crc))
-        {
+            if (!string.IsNullOrEmpty(expectedRom.Md5))
+            {
+                var actualMd5 = await ComputeHashAsync(filePath, MD5.Create(), token);
+                if (actualMd5.Equals(expectedRom.Md5, StringComparison.OrdinalIgnoreCase))
+                    return (true, $"MD5: {actualMd5}");
+            }
+
+            token.ThrowIfCancellationRequested();
+
+            if (string.IsNullOrEmpty(expectedRom.Crc)) return (false, "Hash mismatch");
+
             var actualCrc = await ComputeCrc32Async(filePath, token);
             if (actualCrc.Equals(expectedRom.Crc, StringComparison.OrdinalIgnoreCase))
                 return (true, $"CRC32: {actualCrc}");
-        }
 
-        return (false, "Hash mismatch");
+            return (false, "Hash mismatch");
+        }
+        catch (Exception ex)
+        {
+            // Catching exceptions during hash computation for a specific file
+            _ = _bugReportService?.SendBugReportAsync($"Error checking hashes for file '{filePath}': {ex}");
+            return (false, $"Error during hash check: {ex.Message}");
+        }
     }
 
     private async Task<bool> LoadDatFileAsync(string datFilePath)
     {
         LogMessage($"Loading and parsing DAT file: {Path.GetFileName(datFilePath)}...");
+        ClearDatInfoDisplay(); // Clear previous DAT info
+
         try
         {
             var serializer = new XmlSerializer(typeof(Datafile));
@@ -231,12 +279,26 @@ public partial class MainWindow : Window, IDisposable
                 .GroupBy(g => g.Rom.Name, StringComparer.OrdinalIgnoreCase)
                 .ToDictionary(g => g.Key, g => g.First().Rom);
 
+            // Update DAT Info Display
+            Application.Current.Dispatcher.InvokeAsync(() =>
+            {
+                DatNameTextBlock.Text = datafile.Header?.Name ?? "N/A";
+                DatDescriptionTextBlock.Text = datafile.Header?.Description ?? "N/A";
+                DatVersionTextBlock.Text = datafile.Header?.Version ?? "N/A";
+                DatAuthorTextBlock.Text = datafile.Header?.Author ?? "N/A";
+                DatHomepageTextBlock.Text = datafile.Header?.Homepage ?? "N/A";
+                DatUrlTextBlock.Text = datafile.Header?.Url ?? "N/A";
+                DatRomCountTextBlock.Text = _romDatabase.Count.ToString(CultureInfo.InvariantCulture);
+            });
+
             LogMessage($"Successfully loaded {_romDatabase.Count} unique ROM entries from '{datafile.Header?.Name}'.");
             return true;
         }
         catch (Exception ex)
         {
             LogMessage($"Error reading DAT file: {ex.Message}");
+            _ = _bugReportService?.SendBugReportAsync($"Error loading DAT file '{datFilePath}': {ex}");
+            ClearDatInfoDisplay(); // Clear info on error
             return false;
         }
     }
@@ -269,11 +331,12 @@ public partial class MainWindow : Window, IDisposable
         catch (Exception ex)
         {
             LogMessage($"   -> FAILED to move {Path.GetFileName(sourcePath)}. Error: {ex.Message}");
+            _ = _bugReportService?.SendBugReportAsync($"Error moving file from '{sourcePath}' to '{destPath}': {ex}");
         }
     }
 
     #region UI and Control Methods
-    
+
     private void ExitMenuItem_Click(object sender, RoutedEventArgs e)
     {
         Close();
@@ -288,25 +351,27 @@ public partial class MainWindow : Window, IDisposable
     private void BrowseRomsFolderButton_Click(object sender, RoutedEventArgs e)
     {
         var dialog = new OpenFolderDialog { Title = "Select the folder containing your ROM files" };
-        if (dialog.ShowDialog() == true)
-        {
-            RomsFolderTextBox.Text = dialog.FolderName;
-            LogMessage($"ROMs folder selected: {dialog.FolderName}");
-        }
+        if (dialog.ShowDialog() != true) return;
+
+        RomsFolderTextBox.Text = dialog.FolderName;
+        LogMessage($"ROMs folder selected: {dialog.FolderName}");
     }
 
-    private void BrowseDatFileButton_Click(object sender, RoutedEventArgs e)
+    // MODIFIED METHOD: Make it async and call LoadDatFileAsync
+    private async void BrowseDatFileButton_Click(object sender, RoutedEventArgs e)
     {
         var dialog = new OpenFileDialog
         {
             Title = "Select the No-Intro DAT file",
             Filter = "DAT Files (*.dat)|*.dat|All files (*.*)|*.*"
         };
-        if (dialog.ShowDialog() == true)
-        {
-            DatFileTextBox.Text = dialog.FileName;
-            LogMessage($"DAT file selected: {dialog.FileName}");
-        }
+        if (dialog.ShowDialog() != true) return;
+
+        DatFileTextBox.Text = dialog.FileName;
+        LogMessage($"DAT file selected: {dialog.FileName}");
+        
+        // Immediately load and display DAT info after selection
+        await LoadDatFileAsync(dialog.FileName); 
     }
 
     private void CancelButton_Click(object sender, RoutedEventArgs e)
@@ -398,6 +463,20 @@ public partial class MainWindow : Window, IDisposable
         });
     }
 
+    private void ClearDatInfoDisplay()
+    {
+        Application.Current.Dispatcher.InvokeAsync(() =>
+        {
+            DatNameTextBlock.Text = "N/A";
+            DatDescriptionTextBlock.Text = "N/A";
+            DatVersionTextBlock.Text = "N/A";
+            DatAuthorTextBlock.Text = "N/A";
+            DatHomepageTextBlock.Text = "N/A";
+            DatUrlTextBlock.Text = "N/A";
+            DatRomCountTextBlock.Text = "0";
+        });
+    }
+
     private void LogOperationSummary()
     {
         LogMessage("");
@@ -406,7 +485,7 @@ public partial class MainWindow : Window, IDisposable
         LogMessage($"Successful: {_successCount}");
         LogMessage($"Failed: {_failCount}");
         LogMessage($"Unknown: {_unknownCount}");
-        LogMessage($"Total time: {_operationTimer.Elapsed:hh\\:mm\\:ss}");
+        LogMessage($@"Total time: {_operationTimer.Elapsed:hh\:mm\:ss}");
 
         var summaryText = $"Validation complete.\n\n" +
                           $"Successful: {_successCount}\n" +
@@ -430,6 +509,7 @@ public partial class MainWindow : Window, IDisposable
     {
         _cts.Cancel();
         _cts.Dispose();
+        _bugReportService?.Dispose();
         GC.SuppressFinalize(this);
     }
 

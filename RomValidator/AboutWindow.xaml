@@ -1,7 +1,7 @@
 <Window x:Class="RomValidator.AboutWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="About No-Intro ROM Validator"
+        Title="About ROM Validator"
         Width="450"
         Height="350"
         ResizeMode="NoResize"
@@ -14,13 +14,13 @@
         </Grid.RowDefinitions>
 
         <StackPanel Grid.Row="0" Margin="10" HorizontalAlignment="Center" Orientation="Horizontal">
-            <Image Width="64" Height="64" Source="pack://application:,,,/icon.ico" />
+            <Image Width="64" Height="64" Source="pack://application:,,,/images/logo.png" />
         </StackPanel>
 
         <StackPanel Grid.Row="1" Margin="20,10,20,10">
-            <TextBlock FontWeight="Bold" FontSize="18" Text="No-Intro ROM Validator" />
+            <TextBlock FontWeight="Bold" FontSize="18" Text="ROM Validator" />
             <TextBlock x:Name="DescriptionTextBlock" TextWrapping="Wrap" Margin="0,5,0,0" 
-                       Text="A utility for validating ROM files against No-Intro standard DAT files using SHA1, MD5, and CRC32 hashes." />
+                       Text="A utility for validating ROM files against standard DAT files using SHA1, MD5, and CRC32 hashes." />
             <TextBlock Name="AppVersionTextBlock" Margin="0,10,0,0" Text="Version: 1.1.0.0" />
             <TextBlock Margin="0,20,0,0" Text="This tool helps ensure your ROM collection is complete and accurate." />
             <TextBlock Margin="0,10,0,0" Text="© 2025 Your Name/Company. All rights reserved." />
