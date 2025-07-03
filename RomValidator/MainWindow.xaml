@@ -4,7 +4,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
-        Title="ROM Validator" Height="650" Width="800" MinHeight="600" MinWidth="700"
+        Title="ROM Validator" Height="720" Width="1200" MinHeight="600" MinWidth="700"
         WindowStartupLocation="CenterScreen"
         Closing="Window_Closing">
     <Grid>
@@ -65,11 +65,14 @@
                     <CheckBox x:Name="ParallelProcessingCheckBox" Content="Enable Parallel Processing (3 files at a time)" IsChecked="False" Margin="0,5,0,0" VerticalAlignment="Center"/>
                 </StackPanel>
 
-                <Button x:Name="StartValidationButton" Content="Start Validation" Click="StartValidationButton_Click" Margin="0,15,0,0" Padding="15,8" HorizontalAlignment="Center" FontWeight="Bold"/>
+                <StackPanel Margin="0,10,0,0" Orientation="Horizontal" HorizontalAlignment="Center">
+                    <Button x:Name="StartValidationButton" Content="Start Validation" Click="StartValidationButton_Click" Margin="0,15,0,0" Padding="15,8" HorizontalAlignment="Center" FontWeight="Bold"/>
+                    <Button x:Name="DownloadDatFilesButton" Content="Download Dat Files" Click="DownloadDatFilesButton_Click" Margin="15,15,0,0" Padding="10,5" HorizontalAlignment="Center" FontWeight="Bold"/>
+                </StackPanel>
+                
             </StackPanel>
         </Border>
 
-        <!-- NEW: Grid for LogViewer and DAT Info Section -->
         <Grid Grid.Row="2" Margin="10,0,10,10">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" MinWidth="300"/> <!-- LogViewer column -->
@@ -80,7 +83,8 @@
             <TextBox x:Name="LogViewer"
                      Grid.Column="0"
                      AcceptsReturn="True"
-                     VerticalScrollBarVisibility="Visible"
+                     VerticalScrollBarVisibility="Auto"
+                     HorizontalScrollBarVisibility="Auto"
                      IsReadOnly="True"
                      FontFamily="Consolas"/>
 
@@ -91,46 +95,41 @@
                           ShowsPreview="True"/>
 
             <Border Grid.Column="2" BorderBrush="LightGray" BorderThickness="1" Padding="10" Margin="5,0,0,0">
-                <StackPanel>
-                    <TextBlock Text="DAT File Information" FontWeight="Bold" FontSize="14" Margin="0,0,0,10"/>
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                        </Grid.RowDefinitions>
-
-                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Name:" FontWeight="SemiBold" Margin="0,0,5,2"/>
-                        <TextBlock x:Name="DatNameTextBlock" Grid.Row="0" Grid.Column="1" TextWrapping="Wrap" Text="N/A" Margin="0,0,0,2"/>
-
-                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Description:" FontWeight="SemiBold" Margin="0,0,5,2"/>
-                        <TextBlock x:Name="DatDescriptionTextBlock" Grid.Row="1" Grid.Column="1" TextWrapping="Wrap" Text="N/A" Margin="0,0,0,2"/>
-
-                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Version:" FontWeight="SemiBold" Margin="0,0,5,2"/>
-                        <TextBlock x:Name="DatVersionTextBlock" Grid.Row="2" Grid.Column="1" Text="N/A" Margin="0,0,0,2"/>
-
-                        <TextBlock Grid.Row="3" Grid.Column="0" Text="Author:" FontWeight="SemiBold" Margin="0,0,5,2"/>
-                        <TextBlock x:Name="DatAuthorTextBlock" Grid.Row="3" Grid.Column="1" TextWrapping="Wrap" Text="N/A" Margin="0,0,0,2"/>
-
-                        <TextBlock Grid.Row="4" Grid.Column="0" Text="Homepage:" FontWeight="SemiBold" Margin="0,0,5,2"/>
-                        <TextBlock x:Name="DatHomepageTextBlock" Grid.Row="4" Grid.Column="1" Text="N/A" Margin="0,0,0,2"/>
-
-                        <TextBlock Grid.Row="5" Grid.Column="0" Text="URL:" FontWeight="SemiBold" Margin="0,0,5,2"/>
-                        <TextBlock x:Name="DatUrlTextBlock" Grid.Row="5" Grid.Column="1" TextWrapping="Wrap" Text="N/A" Margin="0,0,0,2"/>
-                        
-                        <TextBlock Grid.Row="6" Grid.Column="0" Text="ROM Entries:" FontWeight="SemiBold" Margin="0,10,5,0"/>
-                        <TextBlock x:Name="DatRomCountTextBlock" Grid.Row="6" Grid.Column="1" Text="0" Margin="0,10,0,0"/>
-                    </Grid>
-                </StackPanel>
-            </Border>
+                       <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
+                           <StackPanel>
+                               <TextBlock Text="DAT File Information" FontWeight="Bold" FontSize="14" Margin="0,0,0,10"/>
+                               <Grid>
+                                   <Grid.ColumnDefinitions>
+                                       <ColumnDefinition Width="Auto"/>
+                                       <ColumnDefinition Width="*"/>
+                                   </Grid.ColumnDefinitions>
+                                   <Grid.RowDefinitions>
+                                       <RowDefinition Height="Auto"/>
+                                       <RowDefinition Height="Auto"/>
+                                       <RowDefinition Height="Auto"/>
+                                       <RowDefinition Height="Auto"/>
+                                       <RowDefinition Height="Auto"/>
+                                       <RowDefinition Height="Auto"/>
+                                       <RowDefinition Height="Auto"/>
+                                   </Grid.RowDefinitions>
+                                   <TextBlock Grid.Row="0" Grid.Column="0" Text="Name:" FontWeight="SemiBold" Margin="0,0,5,2"/>
+                                   <TextBlock x:Name="DatNameTextBlock" Grid.Row="0" Grid.Column="1" TextWrapping="Wrap" Text="N/A" Margin="0,0,0,2"/>
+                                   <TextBlock Grid.Row="1" Grid.Column="0" Text="Description:" FontWeight="SemiBold" Margin="0,0,5,2"/>
+                                   <TextBlock x:Name="DatDescriptionTextBlock" Grid.Row="1" Grid.Column="1" TextWrapping="Wrap" Text="N/A" Margin="0,0,0,2"/>
+                                   <TextBlock Grid.Row="2" Grid.Column="0" Text="Version:" FontWeight="SemiBold" Margin="0,0,5,2"/>
+                                   <TextBlock x:Name="DatVersionTextBlock" Grid.Row="2" Grid.Column="1" Text="N/A" Margin="0,0,0,2"/>
+                                   <TextBlock Grid.Row="3" Grid.Column="0" Text="Author:" FontWeight="SemiBold" Margin="0,0,5,2"/>
+                                   <TextBlock x:Name="DatAuthorTextBlock" Grid.Row="3" Grid.Column="1" TextWrapping="Wrap" Text="N/A" Margin="0,0,0,2"/>
+                                   <TextBlock Grid.Row="4" Grid.Column="0" Text="Homepage:" FontWeight="SemiBold" Margin="0,0,5,2"/>
+                                   <TextBlock x:Name="DatHomepageTextBlock" Grid.Row="4" Grid.Column="1" Text="N/A" Margin="0,0,0,2"/>
+                                   <TextBlock Grid.Row="5" Grid.Column="0" Text="URL:" FontWeight="SemiBold" Margin="0,0,5,2"/>
+                                   <TextBlock x:Name="DatUrlTextBlock" Grid.Row="5" Grid.Column="1" TextWrapping="Wrap" Text="N/A" Margin="0,0,0,2"/>
+                                   <TextBlock Grid.Row="6" Grid.Column="0" Text="ROM Entries:" FontWeight="SemiBold" Margin="0,10,5,0"/>
+                                   <TextBlock x:Name="DatRomCountTextBlock" Grid.Row="6" Grid.Column="1" Text="0" Margin="0,10,0,0"/>
+                               </Grid>
+                           </StackPanel>
+                       </ScrollViewer>
+                   </Border>
         </Grid>
         <!-- END NEW -->
 

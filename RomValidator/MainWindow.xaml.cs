@@ -8,6 +8,7 @@ using System.Security.Cryptography;
 using System.Windows;
 using System.Xml;
 using System.Xml.Serialization;
+using System.Reflection; // Added for GetExecutingAssembly().GetName().Version
 
 namespace RomValidator;
 
@@ -26,6 +27,12 @@ public partial class MainWindow : IDisposable
     // Bug Reporting Service
     private readonly BugReportService? _bugReportService;
 
+    // New: GitHub Version Checker
+    private readonly GitHubVersionChecker _versionChecker;
+    private const string GitHubRepoOwner = "drpetersonfernandes";
+    private const string GitHubRepoName = "RomValidator";
+
+
     public MainWindow()
     {
         InitializeComponent();
@@ -36,8 +43,13 @@ public partial class MainWindow : IDisposable
         const string applicationName = "ROM Validator";
         _bugReportService = new BugReportService(apiUrl, apiKey, applicationName);
 
+        _versionChecker = new GitHubVersionChecker(GitHubRepoOwner, GitHubRepoName); // Initialize version checker
+
         ClearDatInfoDisplay();
         UpdateStatusBarMessage("Ready."); // Initialize status bar message
+
+        // Check for updates on startup
+        _ = CheckForUpdatesOnStartupAsync(); // Fire and forget, does not block UI
     }
 
     private void DisplayInstructions()
@@ -57,7 +69,49 @@ public partial class MainWindow : IDisposable
         LogMessage("4. Click 'Start Validation'.");
         LogMessage("");
         LogMessage("--- Ready for validation ---");
+        LogMessage("");
     }
+
+    // New method to check for updates on startup
+    private async Task CheckForUpdatesOnStartupAsync()
+    {
+        UpdateStatusBarMessage("Checking for updates...");
+        var (isNewVersionAvailable, releaseUrl, latestVersionTag) = await _versionChecker.CheckForNewVersionAsync();
+
+        if (isNewVersionAvailable && releaseUrl != null && latestVersionTag != null)
+        {
+            var currentVersion = Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "Unknown";
+            LogMessage($"A new version ({latestVersionTag}) is available! Your current version is {currentVersion}.");
+            UpdateStatusBarMessage($"New version {latestVersionTag} available!");
+
+            var result = MessageBox.Show(
+                $"A new version ({latestVersionTag}) of ROM Validator is available!\n\n" +
+                $"Your current version: {currentVersion}\n\n" +
+                "Would you like to go to the release page to download it?",
+                "New Version Available",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Information);
+
+            if (result == MessageBoxResult.Yes)
+            {
+                try
+                {
+                    Process.Start(new ProcessStartInfo(releaseUrl) { UseShellExecute = true });
+                }
+                catch (Exception ex)
+                {
+                    ShowError($"Could not open release page: {ex.Message}");
+                    _ = _bugReportService?.SendBugReportAsync($"Error opening GitHub release page: {releaseUrl}", ex);
+                }
+            }
+        }
+        else
+        {
+            LogMessage("No new version found or unable to check for updates.");
+            UpdateStatusBarMessage("Application is up to date.");
+        }
+    }
+
 
     private async void StartValidationButton_Click(object sender, RoutedEventArgs e)
     {
@@ -432,6 +486,25 @@ public partial class MainWindow : IDisposable
         }
     }
 
+    // NEW: Handler for the "Download Dat Files" button
+    private void DownloadDatFilesButton_Click(object sender, RoutedEventArgs e)
+    {
+        const string noIntroUrl = "https://no-intro.org/";
+        try
+        {
+            Process.Start(new ProcessStartInfo(noIntroUrl) { UseShellExecute = true });
+            LogMessage($"Opened browser to download DAT files from: {noIntroUrl}");
+            UpdateStatusBarMessage("Opened no-intro.org for DAT files.");
+        }
+        catch (Exception ex)
+        {
+            ShowError($"Unable to open browser to {noIntroUrl}: {ex.Message}");
+            LogMessage($"ERROR: Failed to open browser for DAT download. {ex.Message}");
+            UpdateStatusBarMessage("Failed to open browser for DAT files.");
+            _ = _bugReportService?.SendBugReportAsync($"Error opening no-intro.org for DAT files: {noIntroUrl}", ex);
+        }
+    }
+
     private void CancelButton_Click(object sender, RoutedEventArgs e)
     {
         _cts.Cancel();
@@ -449,6 +522,7 @@ public partial class MainWindow : IDisposable
         MoveSuccessCheckBox.IsEnabled = enabled;
         MoveFailedCheckBox.IsEnabled = enabled;
         ParallelProcessingCheckBox.IsEnabled = enabled;
+        DownloadDatFilesButton.IsEnabled = enabled; // Ensure this button is also controlled
 
         // Progress bar and text visibility
         ProgressText.Visibility = enabled ? Visibility.Collapsed : Visibility.Visible;
@@ -587,6 +661,7 @@ public partial class MainWindow : IDisposable
         _cts.Cancel();
         _cts.Dispose();
         _bugReportService?.Dispose();
+        _versionChecker?.Dispose(); // Dispose the new version checker
         GC.SuppressFinalize(this);
     }
 

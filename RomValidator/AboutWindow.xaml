@@ -3,7 +3,7 @@
                                                 xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                                                 Title="About ROM Validator"
                                                 Width="500"
-                                                Height="400"
+                                                Height="450"
                                                 ResizeMode="NoResize"
                                                 WindowStartupLocation="CenterScreen">
                                             <Grid>
@@ -13,7 +13,7 @@
                                                     <RowDefinition Height="Auto" />
                                                 </Grid.RowDefinitions>
                                         
-                                                <StackPanel Grid.Row="0" Margin="10" HorizontalAlignment="Center" Orientation="Horizontal">
+                                                <StackPanel Grid.Row="0" Margin="10,20,10,10" HorizontalAlignment="Center" Orientation="Horizontal">
                                                     <Image Width="128" Height="128" Source="pack://application:,,,/images/logo.png" />
                                                 </StackPanel>
                                         
@@ -22,7 +22,7 @@
                                                     <TextBlock x:Name="DescriptionTextBlock" TextWrapping="Wrap" Margin="0,5,0,0" 
                                                                Text="A utility for validating ROM files against standard DAT files using SHA1, MD5, and CRC32 hashes." />
                                                     <TextBlock Name="AppVersionTextBlock" Margin="0,10,0,0" Text="Version: 1.1.0.0" />
-                                                    <TextBlock Margin="0,20,0,0" Text="This tool helps ensure your ROM collection is complete and accurate." />
+                                                    <TextBlock Margin="0,10,0,0" Text="This tool helps ensure your ROM collection is complete and accurate." />
                                                     <TextBlock Margin="0,10,0,0" Text="© 2025 Pure Logic Code. All rights reserved." />
                                                     <TextBlock Margin="0,10,0,0">
                                                         <Hyperlink NavigateUri="http://www.purelogiccode.com" RequestNavigate="Hyperlink_RequestNavigate">
@@ -31,6 +31,6 @@
                                                     </TextBlock>
                                                 </StackPanel>
                                         
-                                                <Button Grid.Row="2" Width="100" Margin="10" HorizontalAlignment="Center" Click="CloseButton_Click" Content="Close" />
+                                                <Button Grid.Row="2" Width="100" Margin="10,10,10,20" HorizontalAlignment="Center" Click="CloseButton_Click" Content="Close" />
                                             </Grid>
                                         </Window>
