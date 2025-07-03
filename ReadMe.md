@@ -1,6 +1,6 @@
 # ROM Validator
 
-A Windows desktop utility for validating ROM files against DAT files to ensure they are accurate and uncorrupted.
+A Windows desktop utility for validating ROM files against No-Intro DAT files to ensure they are accurate and uncorrupted.
 
 ![ROM Validator](screenshot.png)
 
@@ -17,7 +17,8 @@ The ROM Validator is a Windows application that allows users to validate their R
 - **Parallel Processing**: Uses multi-threading for faster validation of large collections
 - **Detailed Logging**: Provides real-time validation results with timestamps
 - **Statistics Tracking**: Displays counts of successful, failed, and unknown files
-- **Progress Monitoring**: Shows real-time progress and estimated completion time
+- **Progress Monitoring**: Shows real-time progress of file validation with a progress bar and current file name.
+- **Status Bar**: Provides concise, real-time application status messages at the bottom of the window.
 
 ## Supported File Formats
 
@@ -42,8 +43,9 @@ The ROM Validator is a Windows application that allows users to validate their R
 3. **Configure Options**:
    - Check "Move successful items" to automatically move valid ROMs to `_success`
    - Check "Move failed/unknown items" to move invalid ROMs to `_fail`
+   - Check "Enable Parallel Processing" for faster validation (processes 3 files concurrently).
 4. **Start Validation**: Click "Start Validation" to begin the process
-5. **Review Results**: Check the log window and statistics panel for validation results
+5. **Review Results**: Check the log window, statistics panel, and status bar for validation results and application status.
 
 ## Validation Process
 
@@ -75,7 +77,3 @@ Files are categorized as:
 
 - Uses [System.IO.Hashing](https://www.nuget.org/packages/System.IO.Hashing) for CRC32 computation
 - Inspired by ROM preservation efforts of the community
-
----
-
-For support and documentation, visit the [project repository](https://github.com/yourusername/rom-validator).
