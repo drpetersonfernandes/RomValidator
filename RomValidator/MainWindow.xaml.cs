@@ -37,6 +37,7 @@ public partial class MainWindow : IDisposable
         _bugReportService = new BugReportService(apiUrl, apiKey, applicationName);
 
         ClearDatInfoDisplay();
+        UpdateStatusBarMessage("Ready."); // Initialize status bar message
     }
 
     private void DisplayInstructions()
@@ -70,52 +71,58 @@ public partial class MainWindow : IDisposable
             if (string.IsNullOrEmpty(romsFolderPath) || string.IsNullOrEmpty(datFilePath))
             {
                 ShowError("Please select both a ROMs folder and a DAT file.");
+                UpdateStatusBarMessage("Error: Please select paths.");
                 return;
             }
 
             if (!Directory.Exists(romsFolderPath))
             {
                 ShowError($"The selected ROMs folder does not exist: {romsFolderPath}");
+                UpdateStatusBarMessage("Error: ROMs folder not found.");
                 return;
             }
 
             if (!File.Exists(datFilePath))
             {
                 ShowError($"The selected DAT file does not exist: {datFilePath}");
+                UpdateStatusBarMessage("Error: DAT file not found.");
                 return;
             }
 
             _cts = new CancellationTokenSource();
             ResetOperationStats();
-            SetControlsState(false);
+            SetControlsState(false); // Disable controls and show progress
             _operationTimer.Restart();
 
             LogViewer.Clear();
             LogMessage("--- Starting Validation Process ---");
+            UpdateStatusBarMessage("Validation started...");
 
             try
             {
-                // The DAT file is already loaded and displayed when selected.
-                // We just need to ensure _romDatabase is populated for validation.
-                // If the user changes the DAT file after selecting it but before starting validation,
-                // LoadDatFileAsync will be called again here, which is fine.
+                UpdateStatusBarMessage("Loading DAT file...");
                 var datLoaded = await LoadDatFileAsync(datFilePath);
                 if (!datLoaded)
                 {
                     ShowError("Failed to load or parse the DAT file. Please check the log for details.");
+                    UpdateStatusBarMessage("DAT file load failed.");
                     return; // Stop the process
                 }
+
+                UpdateStatusBarMessage("DAT file loaded. Starting ROM validation...");
 
                 await PerformValidationAsync(romsFolderPath, datFilePath, moveSuccess, moveFailed, _cts.Token);
             }
             catch (OperationCanceledException)
             {
                 LogMessage("Validation operation was canceled by the user.");
+                UpdateStatusBarMessage("Validation canceled.");
             }
             catch (Exception ex)
             {
                 LogMessage($"An unexpected error occurred: {ex.Message}");
                 ShowError($"An unexpected error occurred during validation: {ex.Message}");
+                UpdateStatusBarMessage("Validation failed with an error.");
                 // Bug Report Call 1: Exception during PerformValidationAsync
                 _ = _bugReportService?.SendBugReportAsync("Exception during PerformValidationAsync", ex);
             }
@@ -123,7 +130,7 @@ public partial class MainWindow : IDisposable
             {
                 _operationTimer.Stop();
                 UpdateProcessingTimeDisplay();
-                SetControlsState(true);
+                SetControlsState(true); // Re-enable controls and hide progress
                 LogOperationSummary();
             }
         }
@@ -131,6 +138,7 @@ public partial class MainWindow : IDisposable
         {
             LogMessage($"An unhandled error occurred in StartValidationButton_Click: {ex.Message}");
             ShowError($"An unhandled error occurred: {ex.Message}");
+            UpdateStatusBarMessage("An unhandled error occurred.");
             // Bug Report Call 2: Unhandled exception in StartValidationButton_Click
             _ = _bugReportService?.SendBugReportAsync("Unhandled exception in StartValidationButton_Click", ex);
         }
@@ -138,15 +146,6 @@ public partial class MainWindow : IDisposable
 
     private async Task PerformValidationAsync(string romsFolderPath, string datFilePath, bool moveSuccess, bool moveFailed, CancellationToken token)
     {
-        // 1. Load the DAT file (already done on selection, but re-confirm for robustness)
-        // This call ensures _romDatabase is fresh in case the user selected a DAT, then changed it,
-        // or if the app started with a pre-filled path without explicit selection.
-        // It also handles the initial load if StartValidation is clicked without prior browse.
-        // The display update is handled within LoadDatFileAsync.
-        // Removed the redundant LoadDatFileAsync call here as it's now handled by BrowseDatFileButton_Click
-        // and the _romDatabase will be populated.
-        // If you want to ensure the DAT is re-loaded *every* time validation starts, keep the call here.
-        // For this request, we assume it's loaded on browse.
         token.ThrowIfCancellationRequested();
 
         // 2. Prepare output directories
@@ -165,18 +164,54 @@ public partial class MainWindow : IDisposable
         ProgressBar.Maximum = _totalFilesToProcess;
         UpdateStatsDisplay();
         LogMessage($"Found {_totalFilesToProcess} files to validate.");
+        UpdateStatusBarMessage($"Found {_totalFilesToProcess} files. Starting validation...");
 
-        if (_totalFilesToProcess == 0) return;
+
+        if (_totalFilesToProcess == 0)
+        {
+            UpdateStatusBarMessage("No files found to validate.");
+            return;
+        }
 
         var filesActuallyProcessedCount = 0;
-        await Parallel.ForEachAsync(filesToScan, new ParallelOptions { CancellationToken = token }, async (filePath, ct) =>
+
+        // Determine parallel processing option
+        var enableParallelProcessing = ParallelProcessingCheckBox.IsChecked == true;
+
+        if (enableParallelProcessing)
         {
-            await ProcessFileAsync(filePath, successPath, failPath, moveSuccess, moveFailed, ct);
-            var processedSoFar = Interlocked.Increment(ref filesActuallyProcessedCount);
-            UpdateProgressDisplay(processedSoFar, _totalFilesToProcess, Path.GetFileName(filePath));
-            UpdateStatsDisplay();
-            UpdateProcessingTimeDisplay();
-        });
+            // Parallel processing with a max degree of parallelism
+            await Parallel.ForEachAsync(filesToScan,
+                new ParallelOptions
+                {
+                    CancellationToken = token,
+                    MaxDegreeOfParallelism = 3 // Limit to 3 files at a time
+                },
+                async (filePath, ct) =>
+                {
+                    await ProcessFileAsync(filePath, successPath, failPath, moveSuccess, moveFailed, ct);
+                    var processedSoFar = Interlocked.Increment(ref filesActuallyProcessedCount);
+                    UpdateProgressDisplay(processedSoFar, _totalFilesToProcess, Path.GetFileName(filePath));
+                    UpdateStatsDisplay();
+                    UpdateProcessingTimeDisplay();
+                });
+        }
+        else
+        {
+            // Sequential processing
+            foreach (var filePath in filesToScan)
+            {
+                token.ThrowIfCancellationRequested();
+
+                await ProcessFileAsync(filePath, successPath, failPath, moveSuccess, moveFailed, token);
+                var processedSoFar = Interlocked.Increment(ref filesActuallyProcessedCount);
+                UpdateProgressDisplay(processedSoFar, _totalFilesToProcess, Path.GetFileName(filePath));
+                UpdateStatsDisplay();
+                UpdateProcessingTimeDisplay();
+            }
+        }
+
+        UpdateStatusBarMessage("Validation complete.");
     }
 
     private async Task ProcessFileAsync(string filePath, string successPath, string failPath, bool moveSuccess, bool moveFailed, CancellationToken token)
@@ -259,6 +294,7 @@ public partial class MainWindow : IDisposable
     private async Task<bool> LoadDatFileAsync(string datFilePath)
     {
         LogMessage($"Loading and parsing DAT file: {Path.GetFileName(datFilePath)}...");
+        UpdateStatusBarMessage($"Loading DAT: {Path.GetFileName(datFilePath)}...");
         ClearDatInfoDisplay(); // Clear previous DAT info
 
         try
@@ -271,6 +307,7 @@ public partial class MainWindow : IDisposable
             if (datafile?.Games is null)
             {
                 LogMessage("Error: DAT file is empty or has an invalid structure.");
+                UpdateStatusBarMessage("Error: DAT file empty or invalid.");
                 return false;
             }
 
@@ -292,6 +329,7 @@ public partial class MainWindow : IDisposable
             });
 
             LogMessage($"Successfully loaded {_romDatabase.Count} unique ROM entries from '{datafile.Header?.Name}'.");
+            UpdateStatusBarMessage($"DAT loaded: {datafile.Header?.Name} ({_romDatabase.Count} ROMs).");
             return true;
         }
         catch (Exception ex)
@@ -300,6 +338,7 @@ public partial class MainWindow : IDisposable
             // Bug Report Call 4: Error loading DAT file (during validation start or explicit load)
             _ = _bugReportService?.SendBugReportAsync($"Error loading DAT file '{datFilePath}'", ex);
             ClearDatInfoDisplay(); // Clear info on error
+            UpdateStatusBarMessage($"Error loading DAT: {ex.Message}");
             return false;
         }
     }
@@ -332,6 +371,7 @@ public partial class MainWindow : IDisposable
         catch (Exception ex)
         {
             LogMessage($"   -> FAILED to move {Path.GetFileName(sourcePath)}. Error: {ex.Message}");
+            UpdateStatusBarMessage($"Failed to move {Path.GetFileName(sourcePath)}.");
             // Bug Report Call 5: Error moving file
             _ = _bugReportService?.SendBugReportAsync($"Error moving file from '{sourcePath}' to '{destPath}'", ex);
         }
@@ -357,6 +397,7 @@ public partial class MainWindow : IDisposable
 
         RomsFolderTextBox.Text = dialog.FolderName;
         LogMessage($"ROMs folder selected: {dialog.FolderName}");
+        UpdateStatusBarMessage($"ROMs folder selected: {Path.GetFileName(dialog.FolderName)}");
     }
 
     // MODIFIED METHOD: Make it async and call LoadDatFileAsync
@@ -375,9 +416,11 @@ public partial class MainWindow : IDisposable
             selectedDatFileName = dialog.FileName; // Assign to the outer variable
             DatFileTextBox.Text = selectedDatFileName;
             LogMessage($"DAT file selected: {selectedDatFileName}");
+            UpdateStatusBarMessage($"DAT file selected: {Path.GetFileName(selectedDatFileName)}. Loading...");
 
             // Immediately load and display DAT info after selection
             await LoadDatFileAsync(selectedDatFileName);
+            // Status updated by LoadDatFileAsync or its error handling
         }
         catch (Exception ex)
         {
@@ -385,6 +428,7 @@ public partial class MainWindow : IDisposable
             // Use selectedDatFileName for more context,
             // it might be null if the exception occurred very early
             _ = _bugReportService?.SendBugReportAsync($"Error loading DAT file '{selectedDatFileName ?? "N/A"}'", ex);
+            UpdateStatusBarMessage($"Error selecting DAT: {ex.Message}");
         }
     }
 
@@ -392,6 +436,7 @@ public partial class MainWindow : IDisposable
     {
         _cts.Cancel();
         LogMessage("Cancellation requested. Finishing current operations...");
+        UpdateStatusBarMessage("Validation canceled.");
     }
 
     private void SetControlsState(bool enabled)
@@ -403,7 +448,9 @@ public partial class MainWindow : IDisposable
         StartValidationButton.IsEnabled = enabled;
         MoveSuccessCheckBox.IsEnabled = enabled;
         MoveFailedCheckBox.IsEnabled = enabled;
+        ParallelProcessingCheckBox.IsEnabled = enabled;
 
+        // Progress bar and text visibility
         ProgressText.Visibility = enabled ? Visibility.Collapsed : Visibility.Visible;
         ProgressBar.Visibility = enabled ? Visibility.Collapsed : Visibility.Visible;
         CancelButton.Visibility = enabled ? Visibility.Collapsed : Visibility.Visible;
@@ -411,6 +458,11 @@ public partial class MainWindow : IDisposable
         if (enabled)
         {
             ClearProgressDisplay();
+            UpdateStatusBarMessage("Ready."); // Reset status bar when controls are enabled
+        }
+        else
+        {
+            UpdateStatusBarMessage("Validation in progress..."); // Set status bar when validation starts
         }
     }
 
@@ -421,6 +473,16 @@ public partial class MainWindow : IDisposable
         {
             LogViewer.AppendText($"{timestampedMessage}{Environment.NewLine}");
             LogViewer.ScrollToEnd();
+            // The status bar is updated by UpdateStatusBarMessage for specific, concise messages.
+            // LogViewer shows detailed, timestamped messages.
+        });
+    }
+
+    private void UpdateStatusBarMessage(string message)
+    {
+        Application.Current.Dispatcher.InvokeAsync(() =>
+        {
+            StatusBarMessageTextBlock.Text = message;
         });
     }
 
@@ -500,6 +562,7 @@ public partial class MainWindow : IDisposable
         LogMessage($"Failed: {_failCount}");
         LogMessage($"Unknown: {_unknownCount}");
         LogMessage($@"Total time: {_operationTimer.Elapsed:hh\:mm\:ss}");
+        UpdateStatusBarMessage("Validation complete.");
 
         var summaryText = $"Validation complete.\n\n" +
                           $"Successful: {_successCount}\n" +

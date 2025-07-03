@@ -15,6 +15,7 @@
             <RowDefinition Height="Auto"/> <!-- Stats Panel -->
             <RowDefinition Height="Auto"/> <!-- ProgressText -->
             <RowDefinition Height="Auto"/> <!-- ProgressBar Grid -->
+            <RowDefinition Height="Auto"/> <!-- NEW: Status Bar -->
         </Grid.RowDefinitions>
 
         <Menu Grid.Row="0">
@@ -58,9 +59,10 @@
                     <Button x:Name="BrowseDatFileButton" Grid.Column="2" Content="Browse..." Click="BrowseDatFileButton_Click" Padding="10,5"/>
                 </Grid>
 
-                <StackPanel Margin="0,10,0,0" Orientation="Horizontal">
+                <StackPanel Margin="0,10,0,0" Orientation="Vertical">
                     <CheckBox x:Name="MoveSuccessCheckBox" Content="Move successful items to '_success' folder" IsChecked="True" VerticalAlignment="Center"/>
-                    <CheckBox x:Name="MoveFailedCheckBox" Content="Move failed/unknown items to '_fail' folder" IsChecked="True" Margin="20,0,0,0" VerticalAlignment="Center"/>
+                    <CheckBox x:Name="MoveFailedCheckBox" Content="Move failed/unknown items to '_fail' folder" IsChecked="True" Margin="0,5,0,0" VerticalAlignment="Center"/>
+                    <CheckBox x:Name="ParallelProcessingCheckBox" Content="Enable Parallel Processing (3 files at a time)" IsChecked="False" Margin="0,5,0,0" VerticalAlignment="Center"/>
                 </StackPanel>
 
                 <Button x:Name="StartValidationButton" Content="Start Validation" Click="StartValidationButton_Click" Margin="0,15,0,0" Padding="15,8" HorizontalAlignment="Center" FontWeight="Bold"/>
@@ -191,5 +193,12 @@
             <ProgressBar x:Name="ProgressBar" Height="25" Grid.Column="0" Visibility="Collapsed"/>
             <Button x:Name="CancelButton" Content="Cancel" Width="100" Height="25" Grid.Column="1" Margin="10,0,0,0" Visibility="Collapsed" Click="CancelButton_Click"/>
         </Grid>
+
+        <!-- NEW: Status Bar at the very bottom -->
+        <StatusBar Grid.Row="6" Background="{DynamicResource {x:Static SystemColors.ControlBrushKey}}" Padding="5">
+            <StatusBarItem>
+                <TextBlock x:Name="StatusBarMessageTextBlock" Text="Ready."/>
+            </StatusBarItem>
+        </StatusBar>
     </Grid>
 </Window>
