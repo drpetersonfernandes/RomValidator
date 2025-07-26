@@ -4,6 +4,15 @@ A Windows desktop utility for validating ROM files against No-Intro DAT files to
 
 ![ROM Validator](screenshot.png)
 
+## ⭐ Support This Project
+
+If you find ROM Validator useful, please consider:
+
+- **Giving us a star** ⭐ on GitHub to help others discover this project
+- **Making a donation** at [https://www.purelogiccode.com/donate](https://www.purelogiccode.com/donate) to support continued development
+
+Your support helps keep this project alive and enables us to add new features and improvements!
+
 ## Overview
 
 The ROM Validator is a Windows application that allows users to validate their ROM collection against DAT files. It checks each file's size and hash (SHA1, MD5, or CRC32) to verify authenticity and integrity. The application can automatically organize files based on validation results for easy management of ROM collections.
