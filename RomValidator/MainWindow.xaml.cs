@@ -418,17 +418,76 @@ public partial class MainWindow : IDisposable
 
     private async Task MoveFileAsync(string sourcePath, string destPath)
     {
-        try
+        const int maxRetries = 5;
+        const int delayMs = 100;
+
+        // Check if file exists and is accessible
+        if (!File.Exists(sourcePath))
         {
-            await Task.Run(() => File.Move(sourcePath, destPath, true));
+            LogMessage($"   -> File not found, cannot move: {Path.GetFileName(sourcePath)}");
+            return;
         }
-        catch (Exception ex)
+
+        for (var attempt = 1; attempt <= maxRetries; attempt++)
         {
-            LogMessage($"   -> FAILED to move {Path.GetFileName(sourcePath)}. Error: {ex.Message}");
-            UpdateStatusBarMessage($"Failed to move {Path.GetFileName(sourcePath)}.");
-            // Bug Report Call 5: Error moving file
-            _ = _bugReportService?.SendBugReportAsync($"Error moving file from '{sourcePath}' to '{destPath}'", ex);
+            try
+            {
+                // Ensure destination directory exists
+                var destDir = Path.GetDirectoryName(destPath);
+                if (destDir != null && !Directory.Exists(destDir))
+                {
+                    Directory.CreateDirectory(destDir);
+                }
+
+                await Task.Run(() => File.Move(sourcePath, destPath, true));
+                return; // Success
+            }
+            catch (IOException ex) when (IsFileLocked(ex))
+            {
+                if (attempt == maxRetries)
+                {
+                    LogMessage($"   -> FAILED to move {Path.GetFileName(sourcePath)} after {maxRetries} attempts. File appears to be in use by another process. Error: {ex.Message}");
+                    UpdateStatusBarMessage($"Failed to move {Path.GetFileName(sourcePath)} - file in use.");
+                    // Bug Report Call 5: Error moving file due to file lock
+                    _ = _bugReportService?.SendBugReportAsync($"Error moving file from '{sourcePath}' to '{destPath}' - file locked after {maxRetries} attempts", ex);
+                    return;
+                }
+
+                // Wait before retrying with exponential backoff
+                await Task.Delay(delayMs * attempt);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                LogMessage($"   -> ACCESS DENIED moving {Path.GetFileName(sourcePath)}. Error: {ex.Message}");
+                UpdateStatusBarMessage($"Access denied moving {Path.GetFileName(sourcePath)}.");
+                _ = _bugReportService?.SendBugReportAsync($"Access denied moving file from '{sourcePath}' to '{destPath}'", ex);
+                return;
+            }
+            catch (DirectoryNotFoundException ex)
+            {
+                LogMessage($"   -> Directory not found when moving {Path.GetFileName(sourcePath)}. Error: {ex.Message}");
+                UpdateStatusBarMessage($"Directory error moving {Path.GetFileName(sourcePath)}.");
+                _ = _bugReportService?.SendBugReportAsync($"Directory not found when moving file from '{sourcePath}' to '{destPath}'", ex);
+                return;
+            }
+            catch (Exception ex)
+            {
+                LogMessage($"   -> FAILED to move {Path.GetFileName(sourcePath)}. Error: {ex.Message}");
+                UpdateStatusBarMessage($"Failed to move {Path.GetFileName(sourcePath)}.");
+                _ = _bugReportService?.SendBugReportAsync($"Error moving file from '{sourcePath}' to '{destPath}'", ex);
+                return;
+            }
         }
+    }
+
+    // Helper method to determine if an IOException is caused by file locking
+    private static bool IsFileLocked(IOException ex)
+    {
+        const int errorSharingViolation = 32;
+        const int errorLockViolation = 33;
+
+        var errorCode = System.Runtime.InteropServices.Marshal.GetHRForException(ex) & 0xFFFF;
+        return errorCode == errorSharingViolation || errorCode == errorLockViolation;
     }
 
     #region UI and Control Methods
