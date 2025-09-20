@@ -573,30 +573,43 @@ public partial class MainWindow : IDisposable
 
     private void SetControlsState(bool enabled)
     {
+        // Enable/Disable input controls
         RomsFolderTextBox.IsEnabled = enabled;
         BrowseRomsFolderButton.IsEnabled = enabled;
         DatFileTextBox.IsEnabled = enabled;
         BrowseDatFileButton.IsEnabled = enabled;
-        StartValidationButton.IsEnabled = enabled;
         MoveSuccessCheckBox.IsEnabled = enabled;
         MoveFailedCheckBox.IsEnabled = enabled;
         ParallelProcessingCheckBox.IsEnabled = enabled;
-        DownloadDatFilesButton.IsEnabled = enabled; // Ensure this button is also controlled
+        DownloadDatFilesButton.IsEnabled = enabled;
+        StartValidationButton.IsEnabled = enabled; // Ensure Start button state is managed
 
-        // Progress bar and text visibility
-        ProgressText.Visibility = enabled ? Visibility.Collapsed : Visibility.Visible;
-        ProgressBar.Visibility = enabled ? Visibility.Collapsed : Visibility.Visible;
-        CancelButton.Visibility = enabled ? Visibility.Collapsed : Visibility.Visible;
-
+        // Visibility logic for progress elements (combined area)
         if (enabled)
         {
-            ClearProgressDisplay();
-            UpdateStatusBarMessage("Ready."); // Reset status bar when controls are enabled
+            // Validation finished or ready state
+            CancelButton.Visibility = Visibility.Collapsed;
+            ProgressBar.Visibility = Visibility.Visible; // Keep visible but at 0
+            ProgressText.Visibility = Visibility.Visible; // Keep visible but empty
+            ProgressBar.Value = 0; // Reset bar
+            ProgressText.Text = ""; // Clear text
+            UpdateStatusBarMessage("Ready."); // Reset status bar
         }
         else
         {
-            UpdateStatusBarMessage("Validation in progress..."); // Set status bar when validation starts
+            // Validation started
+            CancelButton.Visibility = Visibility.Visible;
+            ProgressBar.Visibility = Visibility.Visible;
+            ProgressText.Visibility = Visibility.Visible;
+            UpdateStatusBarMessage("Validation in progress...");
         }
+
+        // Enable/Disable Start button explicitly based on state
+        // (It's already handled by the general loop above, but good for clarity)
+        // StartValidationButton.IsEnabled = enabled;
+
+        // Enable/Disable Cancel button explicitly based on state
+        CancelButton.IsEnabled = !enabled; // Enabled when validation is running (enabled = false)
     }
 
     private void LogMessage(string message)
