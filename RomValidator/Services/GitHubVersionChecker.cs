@@ -3,8 +3,9 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Reflection;
 using System.Text.Json.Serialization;
+using RomValidator.Models;
 
-namespace RomValidator;
+namespace RomValidator.Services;
 
 public class GitHubAsset
 {

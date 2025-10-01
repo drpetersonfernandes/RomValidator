@@ -1,8 +1,8 @@
 using System.Net.Http;
 using System.Net.Http.Json;
-using System.Text.Json.Serialization; // Needed for JsonPropertyName
+using System.Text.Json.Serialization;
 
-namespace RomValidator;
+namespace RomValidator.Services;
 
 // Define the payload structure expected by the BugReport API
 // This mirrors the 'BugReport' class in the BugReportEmailService's Program.cs

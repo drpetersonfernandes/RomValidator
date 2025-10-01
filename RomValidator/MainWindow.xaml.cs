@@ -8,7 +8,9 @@ using System.Security.Cryptography;
 using System.Windows;
 using System.Xml;
 using System.Xml.Serialization;
-using System.Reflection; // Added for GetExecutingAssembly().GetName().Version
+using System.Reflection;
+using RomValidator.Models;
+using RomValidator.Services; // Added for GetExecutingAssembly().GetName().Version
 
 namespace RomValidator;
 
@@ -72,7 +74,6 @@ public partial class MainWindow : IDisposable
         LogMessage("");
     }
 
-    // New method to check for updates on startup
     private async Task CheckForUpdatesOnStartupAsync()
     {
         UpdateStatusBarMessage("Checking for updates...");
@@ -210,7 +211,6 @@ public partial class MainWindow : IDisposable
 
         LogMessage($"Move successful files: {moveSuccess}" + (moveSuccess ? $" (to {successPath})" : ""));
         LogMessage($"Move failed/unknown files: {moveFailed}" + (moveFailed ? $" (to {failPath})" : ""));
-
 
         // 3. Get files and start processing
         var filesToScan = Directory.GetFiles(romsFolderPath);
@@ -353,6 +353,26 @@ public partial class MainWindow : IDisposable
 
         try
         {
+            // NEW: Pre-validation to check for No-Intro XML format
+            await using var validationStream = new FileStream(datFilePath, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, true);
+            using var validationReader = XmlReader.Create(validationStream, new XmlReaderSettings { DtdProcessing = DtdProcessing.Ignore, XmlResolver = null });
+
+            // Move to the root element and check if it's <datafile> (No-Intro standard)
+            if (!validationReader.ReadToFollowing("datafile"))
+            {
+                const string errorMsg = "The selected DAT file is not in the supported No-Intro XML format. " +
+                                        "Please ensure you are using a DAT file from No-Intro or a compatible preservation project. " +
+                                        "Other formats (e.g., MAME DAT files) are not supported.";
+                LogMessage($"Error: {errorMsg}");
+                ShowError(errorMsg); // NEW: Show user-friendly error dialog
+                UpdateStatusBarMessage("DAT file format not supported.");
+                return false;
+            }
+
+            // Reset stream for actual deserialization
+            validationStream.Position = 0;
+
+            // Proceed with existing deserialization logic
             var serializer = new XmlSerializer(typeof(Datafile));
             await using var fileStream = new FileStream(datFilePath, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, true);
             using var xmlReader = XmlReader.Create(fileStream, new XmlReaderSettings { DtdProcessing = DtdProcessing.Ignore, XmlResolver = null });
@@ -388,8 +408,11 @@ public partial class MainWindow : IDisposable
         }
         catch (Exception ex)
         {
-            LogMessage($"Error reading DAT file: {ex.Message}");
-            // Bug Report Call 4: Error loading DAT file (during validation start or explicit load)
+            // UPDATED: More specific error handling
+            var errorMsg = $"Error reading DAT file: {ex.Message}. " +
+                           "Ensure the file is a valid No-Intro XML DAT file. Other formats are not supported.";
+            LogMessage(errorMsg);
+            ShowError(errorMsg); // NEW: Ensure error is shown to user
             _ = _bugReportService?.SendBugReportAsync($"Error loading DAT file '{datFilePath}'", ex);
             ClearDatInfoDisplay(); // Clear info on error
             UpdateStatusBarMessage($"Error loading DAT: {ex.Message}");

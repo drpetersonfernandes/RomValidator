@@ -1,6 +1,7 @@
 using System.Text.Json.Serialization;
+using RomValidator.Services;
 
-namespace RomValidator;
+namespace RomValidator.Models;
 
 public class GitHubRelease
 {
