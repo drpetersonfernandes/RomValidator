@@ -22,7 +22,6 @@ public partial class AboutWindow
     {
         try
         {
-            // Launch the default browser with the URL
             Process.Start(new ProcessStartInfo
             {
                 FileName = e.Uri.AbsoluteUri,

@@ -2,33 +2,15 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Reflection;
-using System.Text.Json.Serialization;
 using RomValidator.Models;
 
 namespace RomValidator.Services;
 
-public class GitHubAsset
-{
-    [JsonPropertyName("name")]
-    public string? Name { get; set; }
-
-    [JsonPropertyName("browser_download_url")]
-    public string? BrowserDownloadUrl { get; set; }
-}
-
-/// <summary>
-/// Service responsible for checking for new application versions on GitHub.
-/// </summary>
 public class GitHubVersionChecker : IDisposable
 {
     private readonly HttpClient _httpClient;
     private readonly string _apiBaseUrl;
 
-    /// <summary>
-    /// Initializes a new instance of the <see cref="GitHubVersionChecker"/> class.
-    /// </summary>
-    /// <param name="repoOwner">The owner of the GitHub repository (e.g., "drpetersonfernandes").</param>
-    /// <param name="repoName">The name of the GitHub repository (e.g., "RomValidator").</param>
     public GitHubVersionChecker(string repoOwner, string repoName)
     {
         _apiBaseUrl = $"https://api.github.com/repos/{repoOwner}/{repoName}/releases/latest";
@@ -39,11 +21,6 @@ public class GitHubVersionChecker : IDisposable
         _httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github.v3+json"));
     }
 
-    /// <summary>
-    /// Checks for a new version of the application on GitHub.
-    /// </summary>
-    /// <returns>A tuple indicating if a new version is available, the URL to the release page, and the latest version tag.
-    /// Returns (false, null, null) if no new version or an error occurred.</returns>
     public async Task<(bool IsNewVersionAvailable, string? ReleaseUrl, string? LatestVersionTag)> CheckForNewVersionAsync()
     {
         try
@@ -96,19 +73,11 @@ public class GitHubVersionChecker : IDisposable
         }
     }
 
-    /// <summary>
-    /// Gets the current application version from the executing assembly.
-    /// </summary>
-    /// <returns>The current application's <see cref="Version"/> object, or null if it cannot be determined.</returns>
     private static Version? GetCurrentApplicationVersion()
     {
         return Assembly.GetExecutingAssembly().GetName().Version;
     }
 
-    /// <inheritdoc />
-    /// <summary>
-    /// Releases all resources used by the current instance of the class.
-    /// </summary>
     public void Dispose()
     {
         _httpClient?.Dispose();

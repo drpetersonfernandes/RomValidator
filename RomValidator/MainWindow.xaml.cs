@@ -29,11 +29,10 @@ public partial class MainWindow : IDisposable
     // Bug Reporting Service
     private readonly BugReportService? _bugReportService;
 
-    // New: GitHub Version Checker
+    // GitHub Version Checker
     private readonly GitHubVersionChecker _versionChecker;
     private const string GitHubRepoOwner = "drpetersonfernandes";
     private const string GitHubRepoName = "RomValidator";
-
 
     public MainWindow()
     {
@@ -44,14 +43,11 @@ public partial class MainWindow : IDisposable
         const string apiKey = "hjh7yu6t56tyr540o9u8767676r5674534453235264c75b6t7ggghgg76trf564e";
         const string applicationName = "ROM Validator";
         _bugReportService = new BugReportService(apiUrl, apiKey, applicationName);
-
-        _versionChecker = new GitHubVersionChecker(GitHubRepoOwner, GitHubRepoName); // Initialize version checker
+        _versionChecker = new GitHubVersionChecker(GitHubRepoOwner, GitHubRepoName);
 
         ClearDatInfoDisplay();
-        UpdateStatusBarMessage("Ready."); // Initialize status bar message
-
-        // Check for updates on startup
-        _ = CheckForUpdatesOnStartupAsync(); // Fire and forget, does not block UI
+        UpdateStatusBarMessage("Ready.");
+        _ = CheckForUpdatesOnStartupAsync();
     }
 
     private void DisplayInstructions()
@@ -89,9 +85,7 @@ public partial class MainWindow : IDisposable
                 $"A new version ({latestVersionTag}) of ROM Validator is available!\n\n" +
                 $"Your current version: {currentVersion}\n\n" +
                 "Would you like to go to the release page to download it?",
-                "New Version Available",
-                MessageBoxButton.YesNo,
-                MessageBoxImage.Information);
+                "New Version Available", MessageBoxButton.YesNo, MessageBoxImage.Information);
 
             if (result == MessageBoxResult.Yes)
             {
@@ -112,7 +106,6 @@ public partial class MainWindow : IDisposable
             UpdateStatusBarMessage("Application is up to date.");
         }
     }
-
 
     private async void StartValidationButton_Click(object sender, RoutedEventArgs e)
     {
@@ -178,7 +171,7 @@ public partial class MainWindow : IDisposable
                 LogMessage($"An unexpected error occurred: {ex.Message}");
                 ShowError($"An unexpected error occurred during validation: {ex.Message}");
                 UpdateStatusBarMessage("Validation failed with an error.");
-                // Bug Report Call 1: Exception during PerformValidationAsync
+
                 _ = _bugReportService?.SendBugReportAsync("Exception during PerformValidationAsync", ex);
             }
             finally
@@ -194,7 +187,7 @@ public partial class MainWindow : IDisposable
             LogMessage($"An unhandled error occurred in StartValidationButton_Click: {ex.Message}");
             ShowError($"An unhandled error occurred: {ex.Message}");
             UpdateStatusBarMessage("An unhandled error occurred.");
-            // Bug Report Call 2: Unhandled exception in StartValidationButton_Click
+
             _ = _bugReportService?.SendBugReportAsync("Unhandled exception in StartValidationButton_Click", ex);
         }
     }
@@ -203,7 +196,7 @@ public partial class MainWindow : IDisposable
     {
         token.ThrowIfCancellationRequested();
 
-        // 2. Prepare output directories
+        // Prepare output directories
         var successPath = Path.Combine(romsFolderPath, "_success");
         var failPath = Path.Combine(romsFolderPath, "_fail");
         if (moveSuccess) Directory.CreateDirectory(successPath);
@@ -212,14 +205,13 @@ public partial class MainWindow : IDisposable
         LogMessage($"Move successful files: {moveSuccess}" + (moveSuccess ? $" (to {successPath})" : ""));
         LogMessage($"Move failed/unknown files: {moveFailed}" + (moveFailed ? $" (to {failPath})" : ""));
 
-        // 3. Get files and start processing
+        // Get files and start processing
         var filesToScan = Directory.GetFiles(romsFolderPath);
         _totalFilesToProcess = filesToScan.Length;
         ProgressBar.Maximum = _totalFilesToProcess;
         UpdateStatsDisplay();
         LogMessage($"Found {_totalFilesToProcess} files to validate.");
         UpdateStatusBarMessage($"Found {_totalFilesToProcess} files. Starting validation...");
-
 
         if (_totalFilesToProcess == 0)
         {
@@ -339,7 +331,7 @@ public partial class MainWindow : IDisposable
         catch (Exception ex)
         {
             // Catching exceptions during hash computation for a specific file
-            // Bug Report Call 3: Error checking hashes for file
+            // Error checking hashes for file
             _ = _bugReportService?.SendBugReportAsync($"Error checking hashes for file '{filePath}'", ex); // Refined message
             return (false, "Error during hash check");
         }
@@ -353,7 +345,7 @@ public partial class MainWindow : IDisposable
 
         try
         {
-            // NEW: Pre-validation to check for No-Intro XML format
+            // Pre-validation to check for No-Intro XML format
             await using var validationStream = new FileStream(datFilePath, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, true);
             using var validationReader = XmlReader.Create(validationStream, new XmlReaderSettings { DtdProcessing = DtdProcessing.Ignore, XmlResolver = null });
 
@@ -364,7 +356,7 @@ public partial class MainWindow : IDisposable
                                         "Please ensure you are using a DAT file from No-Intro or a compatible preservation project. " +
                                         "Other formats (e.g., MAME DAT files) are not supported.";
                 LogMessage($"Error: {errorMsg}");
-                ShowError(errorMsg); // NEW: Show user-friendly error dialog
+                ShowError(errorMsg);
                 UpdateStatusBarMessage("DAT file format not supported.");
                 return false;
             }
@@ -408,14 +400,16 @@ public partial class MainWindow : IDisposable
         }
         catch (Exception ex)
         {
-            // UPDATED: More specific error handling
             var errorMsg = $"Error reading DAT file: {ex.Message}. " +
                            "Ensure the file is a valid No-Intro XML DAT file. Other formats are not supported.";
             LogMessage(errorMsg);
-            ShowError(errorMsg); // NEW: Ensure error is shown to user
+            ShowError(errorMsg);
+
             _ = _bugReportService?.SendBugReportAsync($"Error loading DAT file '{datFilePath}'", ex);
+
             ClearDatInfoDisplay(); // Clear info on error
             UpdateStatusBarMessage($"Error loading DAT: {ex.Message}");
+
             return false;
         }
     }
@@ -444,7 +438,6 @@ public partial class MainWindow : IDisposable
         const int maxRetries = 5;
         const int delayMs = 100;
 
-        // Check if file exists and is accessible
         if (!File.Exists(sourcePath))
         {
             LogMessage($"   -> File not found, cannot move: {Path.GetFileName(sourcePath)}");
@@ -455,7 +448,6 @@ public partial class MainWindow : IDisposable
         {
             try
             {
-                // Ensure destination directory exists
                 var destDir = Path.GetDirectoryName(destPath);
                 if (destDir != null && !Directory.Exists(destDir))
                 {
@@ -471,7 +463,8 @@ public partial class MainWindow : IDisposable
                 {
                     LogMessage($"   -> FAILED to move {Path.GetFileName(sourcePath)} after {maxRetries} attempts. File appears to be in use by another process. Error: {ex.Message}");
                     UpdateStatusBarMessage($"Failed to move {Path.GetFileName(sourcePath)} - file in use.");
-                    // Bug Report Call 5: Error moving file due to file lock
+
+                    // Error moving file due to file lock
                     _ = _bugReportService?.SendBugReportAsync($"Error moving file from '{sourcePath}' to '{destPath}' - file locked after {maxRetries} attempts", ex);
                     return;
                 }
@@ -536,10 +529,9 @@ public partial class MainWindow : IDisposable
         UpdateStatusBarMessage($"ROMs folder selected: {Path.GetFileName(dialog.FolderName)}");
     }
 
-    // MODIFIED METHOD: Make it async and call LoadDatFileAsync
     private async void BrowseDatFileButton_Click(object sender, RoutedEventArgs e)
     {
-        string? selectedDatFileName = null; // Declare outside try-catch
+        string? selectedDatFileName = null;
         try
         {
             var dialog = new OpenFileDialog
@@ -549,26 +541,25 @@ public partial class MainWindow : IDisposable
             };
             if (dialog.ShowDialog() != true) return;
 
-            selectedDatFileName = dialog.FileName; // Assign to the outer variable
+            selectedDatFileName = dialog.FileName;
             DatFileTextBox.Text = selectedDatFileName;
             LogMessage($"DAT file selected: {selectedDatFileName}");
             UpdateStatusBarMessage($"DAT file selected: {Path.GetFileName(selectedDatFileName)}. Loading...");
 
             // Immediately load and display DAT info after selection
             await LoadDatFileAsync(selectedDatFileName);
-            // Status updated by LoadDatFileAsync or its error handling
         }
         catch (Exception ex)
         {
-            // Bug Report Call 6: Error loading DAT file (during browse)
+            // Error loading DAT file (during browse)
             // Use selectedDatFileName for more context,
             // it might be null if the exception occurred very early
             _ = _bugReportService?.SendBugReportAsync($"Error loading DAT file '{selectedDatFileName ?? "N/A"}'", ex);
+
             UpdateStatusBarMessage($"Error selecting DAT: {ex.Message}");
         }
     }
 
-    // NEW: Handler for the "Download Dat Files" button
     private void DownloadDatFilesButton_Click(object sender, RoutedEventArgs e)
     {
         const string noIntroUrl = "https://no-intro.org/";
@@ -627,12 +618,7 @@ public partial class MainWindow : IDisposable
             UpdateStatusBarMessage("Validation in progress...");
         }
 
-        // Enable/Disable Start button explicitly based on state
-        // (It's already handled by the general loop above, but good for clarity)
-        // StartValidationButton.IsEnabled = enabled;
-
-        // Enable/Disable Cancel button explicitly based on state
-        CancelButton.IsEnabled = !enabled; // Enabled when validation is running (enabled = false)
+        CancelButton.IsEnabled = !enabled;
     }
 
     private void LogMessage(string message)
@@ -642,8 +628,6 @@ public partial class MainWindow : IDisposable
         {
             LogViewer.AppendText($"{timestampedMessage}{Environment.NewLine}");
             LogViewer.ScrollToEnd();
-            // The status bar is updated by UpdateStatusBarMessage for specific, concise messages.
-            // LogViewer shows detailed, timestamped messages.
         });
     }
 
@@ -756,7 +740,7 @@ public partial class MainWindow : IDisposable
         _cts.Cancel();
         _cts.Dispose();
         _bugReportService?.Dispose();
-        _versionChecker?.Dispose(); // Dispose the new version checker
+        _versionChecker?.Dispose();
         GC.SuppressFinalize(this);
     }
 
