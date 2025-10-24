@@ -1,36 +1,33 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-  <PropertyGroup>
-    <OutputType>WinExe</OutputType>
-    <TargetFramework>net9.0-windows</TargetFramework>
-    <UseWPF>true</UseWPF>
-    <LangVersion>13</LangVersion>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
-    <ApplicationIcon>icon\icon.ico</ApplicationIcon>
-    <AssemblyVersion>1.1</AssemblyVersion>
-    <FileVersion>1.1</FileVersion>
-    <DebugType>embedded</DebugType>
-    <DebugSymbols>true</DebugSymbols>
-    <IsPackable>false</IsPackable>
-    <NeutralLanguage>en</NeutralLanguage>
-    <DebugType>embedded</DebugType>
-    <DebugSymbols>true</DebugSymbols>
-  </PropertyGroup>
+    <PropertyGroup>
+        <OutputType>WinExe</OutputType>
+        <TargetFramework>net9.0-windows</TargetFramework>
+        <UseWPF>true</UseWPF>
+        <LangVersion>13</LangVersion>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <ApplicationIcon>icon\icon.ico</ApplicationIcon>
+        <AssemblyVersion>2.0</AssemblyVersion>
+        <FileVersion>2.0</FileVersion>
+        <DebugType>embedded</DebugType>
+        <DebugSymbols>true</DebugSymbols>
+        <IsPackable>false</IsPackable>
+        <NeutralLanguage>en</NeutralLanguage>
+    </PropertyGroup>
 
-  <ItemGroup>
-    <None Remove="icon.ico" />
-    <None Remove="images\about.png" />
-    <Resource Include="images\about.png" />
-    <None Remove="images\exit.png" />
-    <Resource Include="images\exit.png" />
-    <None Remove="images\logo.png" />
-    <Resource Include="images\logo.png" />
-  </ItemGroup>
+    <ItemGroup>
+        <None Remove="icon.ico" />
+        <None Remove="images\about.png" />
+        <Resource Include="images\about.png" />
+        <None Remove="images\exit.png" />
+        <Resource Include="images\exit.png" />
+        <None Remove="images\logo.png" />
+        <Resource Include="images\logo.png" />
+    </ItemGroup>
 
-  <ItemGroup>
-    <PackageReference Include="System.IO.Hashing" Version="9.0.9" />
-    <PackageReference Include="System.Net.Http.Json" Version="9.0.9" />
-  </ItemGroup>
+    <ItemGroup>
+        <PackageReference Include="System.Net.Http.Json" Version="9.0.9" />
+    </ItemGroup>
 
 </Project>

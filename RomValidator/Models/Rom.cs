@@ -18,4 +18,7 @@ public class Rom
 
     [XmlAttribute("sha1")]
     public string Sha1 { get; set; } = string.Empty;
+
+    [XmlAttribute("sha256")]
+    public string Sha256 { get; set; } = string.Empty;
 }

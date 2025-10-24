@@ -4,127 +4,52 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
-        Title="ROM Validator" Height="720" Width="1200" MinHeight="600" MinWidth="700"
+        Title="ROM Validator" Height="720" Width="1200" MinHeight="600" MinWidth="900"
         WindowStartupLocation="CenterScreen"
         Closing="Window_Closing">
     <Window.Resources>
-        <!-- Button Style (Similar to HashCheckMyFolder) -->
-        <Style x:Key="ActionButtonStyle" TargetType="Button">
-            <Setter Property="Padding" Value="15,8" />
+        <Style x:Key="MenuButtonStyle" TargetType="Button">
+            <Setter Property="Padding" Value="12,8" />
             <Setter Property="Margin" Value="5" />
-            <Setter Property="FontSize" Value="13" />
-            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Background" Value="#2979FF" />
             <Setter Property="Foreground" Value="White" />
-            <Setter Property="Background" Value="#2979FF" /> <!-- Default Blue -->
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="BorderThickness" Value="0" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
                         <Border Background="{TemplateBinding Background}"
                                 BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="4"> <!-- Rounded corners -->
+                                CornerRadius="4">
                             <ContentPresenter HorizontalAlignment="Center"
                                             VerticalAlignment="Center"
                                             Margin="{TemplateBinding Padding}" />
                         </Border>
                         <ControlTemplate.Triggers>
-                            <Trigger Property="IsEnabled" Value="False">
-                                <Setter Property="Background" Value="#BDBDBD" />
-                                <Setter Property="Opacity" Value="0.7" />
-                            </Trigger>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter Property="Background" Value="#1E88E5" /> <!-- Hover Blue -->
+                                <Setter Property="Background" Value="#1E88E5" />
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
-                                <Setter Property="Background" Value="#1565C0" /> <!-- Pressed Blue -->
+                                <Setter Property="Background" Value="#1565C0" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
         </Style>
-
-        <!-- Specific Button Colors -->
-        <Style x:Key="StartButtonStyle" BasedOn="{StaticResource ActionButtonStyle}" TargetType="Button">
-            <Setter Property="Background" Value="#4CAF50" /> <!-- Green -->
-            <Style.Triggers>
-                <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#43A047" /> <!-- Hover Green -->
-                </Trigger>
-                <Trigger Property="IsPressed" Value="True">
-                    <Setter Property="Background" Value="#388E3C" /> <!-- Pressed Green -->
-                </Trigger>
-            </Style.Triggers>
-        </Style>
-        <Style x:Key="CancelButtonStyle" BasedOn="{StaticResource ActionButtonStyle}" TargetType="Button">
-            <Setter Property="Background" Value="#F44336" /> <!-- Red -->
-            <Style.Triggers>
-                <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#E53935" /> <!-- Hover Red -->
-                </Trigger>
-                <Trigger Property="IsPressed" Value="True">
-                    <Setter Property="Background" Value="#D32F2F" /> <!-- Pressed Red -->
-                </Trigger>
-            </Style.Triggers>
-        </Style>
-        <Style x:Key="DownloadButtonStyle" BasedOn="{StaticResource ActionButtonStyle}" TargetType="Button">
-             <Setter Property="Background" Value="#FF9800" /> <!-- Orange -->
-            <Style.Triggers>
-                <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#FB8C00" /> <!-- Hover Orange -->
-                </Trigger>
-                <Trigger Property="IsPressed" Value="True">
-                    <Setter Property="Background" Value="#F57C00" /> <!-- Pressed Orange -->
-                </Trigger>
-            </Style.Triggers>
-        </Style>
-         <Style x:Key="AboutButtonStyle" BasedOn="{StaticResource ActionButtonStyle}" TargetType="Button">
-             <Setter Property="Background" Value="#9C27B0" /> <!-- Purple -->
-            <Style.Triggers>
-                <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#8E24AA" /> <!-- Hover Purple -->
-                </Trigger>
-                <Trigger Property="IsPressed" Value="True">
-                    <Setter Property="Background" Value="#7B1FA2" /> <!-- Pressed Purple -->
-                </Trigger>
-            </Style.Triggers>
-        </Style>
-        <Style x:Key="ExitButtonStyle" BasedOn="{StaticResource ActionButtonStyle}" TargetType="Button">
-             <Setter Property="Background" Value="#607D8B" /> <!-- Blue Grey -->
-            <Style.Triggers>
-                <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#546E7A" /> <!-- Hover Blue Grey -->
-                </Trigger>
-                <Trigger Property="IsPressed" Value="True">
-                    <Setter Property="Background" Value="#455A64" /> <!-- Pressed Blue Grey -->
-                </Trigger>
-            </Style.Triggers>
-        </Style>
-
-        <!-- TextBox Style (Similar to HashCheckMyFolder) -->
-        <Style x:Key="CustomTextBoxStyle" TargetType="TextBox">
-            <Setter Property="Padding" Value="10,8" />
-            <Setter Property="FontSize" Value="13" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="BorderBrush" Value="#BDBDBD" />
-            <Setter Property="Background" Value="White" />
-            <Setter Property="VerticalContentAlignment" Value="Center" />
-            <Setter Property="IsReadOnlyCaretVisible" Value="True" /> <!-- Optional: Better caret visibility in read-only -->
-        </Style>
     </Window.Resources>
 
     <Grid>
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/> <!-- NEW: Header -->
-            <RowDefinition Height="Auto"/> <!-- Main Controls -->
-            <RowDefinition Height="*"/>    <!-- LogViewer & DAT Info Section -->
-            <RowDefinition Height="Auto"/> <!-- Stats Panel -->
-            <RowDefinition Height="Auto"/> <!-- Progress Bar Area (Combined) -->
-            <RowDefinition Height="Auto"/> <!-- Status Bar -->
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <!-- NEW: Header Area -->
-        <Border Grid.Row="0" Background="#1976D2" Padding="15"> <!-- Blue Header -->
+        <!-- Header with application title and navigation buttons -->
+        <Border Grid.Row="0" Background="#1976D2" Padding="15">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
@@ -132,193 +57,29 @@
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
 
-                <TextBlock Grid.Column="0" Text="ROM Validator" FontSize="20" FontWeight="Bold" Foreground="White" VerticalAlignment="Center" Margin="0,0,30,0" />
+                <StackPanel Grid.Column="0" Orientation="Horizontal">
+                    <TextBlock Text="ROM Validator" FontSize="20" FontWeight="Bold" Foreground="White" VerticalAlignment="Center" Margin="0,0,30,0" />
+                    <Button Content="Validate ROMs" Click="ValidateRoms_Click" Style="{StaticResource MenuButtonStyle}" ToolTip="Validate ROMs against a DAT file" />
+                    <Button Content="Generate DAT" Click="GenerateDat_Click" Style="{StaticResource MenuButtonStyle}" ToolTip="Generate a DAT file from a folder of ROMs" />
+                </StackPanel>
 
                 <StackPanel Grid.Column="2" Orientation="Horizontal">
-                    <Button Content="About" Click="AboutMenuItem_Click" Style="{StaticResource AboutButtonStyle}" ToolTip="About ROM Validator" />
-                    <Button Content="Exit" Click="ExitMenuItem_Click" Style="{StaticResource ExitButtonStyle}" ToolTip="Exit the application" />
+                    <Button Content="About" Click="About_Click" Style="{StaticResource MenuButtonStyle}" Background="#9C27B0" ToolTip="View application information" />
+                    <Button Content="Exit" Click="Exit_Click" Style="{StaticResource MenuButtonStyle}" Background="#607D8B" ToolTip="Close the application" />
                 </StackPanel>
             </Grid>
         </Border>
 
-        <!-- Main Controls (Adjusted Styling) -->
-        <Border Grid.Row="1" Margin="10" Padding="15" BorderBrush="#BDBDBD" BorderThickness="1" CornerRadius="4"> <!-- Styled Border -->
-            <StackPanel>
-                <Grid Margin="0,0,0,10">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="150"/>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="Auto"/>
-                    </Grid.ColumnDefinitions>
-                    <Label Grid.Column="0" Content="ROMs Folder to Scan:" VerticalAlignment="Center" FontWeight="SemiBold"/>
-                    <TextBox x:Name="RomsFolderTextBox" Grid.Column="1" Margin="5,0,5,0" Style="{StaticResource CustomTextBoxStyle}" IsReadOnly="True"/>
-                    <Button x:Name="BrowseRomsFolderButton" Grid.Column="2" Content="Browse..." Click="BrowseRomsFolderButton_Click" Style="{StaticResource ActionButtonStyle}" ToolTip="Select the folder containing your ROM files"/>
-                </Grid>
+        <!-- Main content frame -->
+        <Frame Grid.Row="1"
+               Name="MainContentFrame"
+               NavigationUIVisibility="Hidden"
+               Background="#F5F5F5" />
 
-                <Grid Margin="0,10,0,10">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="150"/>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="Auto"/>
-                    </Grid.ColumnDefinitions>
-                    <Label Grid.Column="0" Content="DAT File:" VerticalAlignment="Center" FontWeight="SemiBold"/>
-                    <TextBox x:Name="DatFileTextBox" Grid.Column="1" Margin="5,0,5,0" Style="{StaticResource CustomTextBoxStyle}" IsReadOnly="True"/>
-                    <Button x:Name="BrowseDatFileButton" Grid.Column="2" Content="Browse..." Click="BrowseDatFileButton_Click" Style="{StaticResource ActionButtonStyle}" ToolTip="Select the DAT file for validation"/>
-                </Grid>
-
-                <StackPanel Margin="0,15,0,0" Orientation="Vertical">
-                    <CheckBox x:Name="MoveSuccessCheckBox" Content="Move successful items to '_success' folder" IsChecked="True" VerticalAlignment="Center" Margin="0,2,0,2"/>
-                    <CheckBox x:Name="MoveFailedCheckBox" Content="Move failed/unknown items to '_fail' folder" IsChecked="True" Margin="0,8,0,8" VerticalAlignment="Center"/>
-                    <CheckBox x:Name="ParallelProcessingCheckBox" Content="Enable Parallel Processing (3 files at a time)" IsChecked="False" Margin="0,2,0,2" VerticalAlignment="Center"/>
-                </StackPanel>
-
-                <StackPanel Margin="0,15,0,0" Orientation="Horizontal" HorizontalAlignment="Center">
-                    <Button x:Name="StartValidationButton" Content="Start Validation" Click="StartValidationButton_Click" Style="{StaticResource StartButtonStyle}" ToolTip="Begin validating ROMs against the DAT file"/>
-                    <Button x:Name="DownloadDatFilesButton" Content="Download Dat Files" Click="DownloadDatFilesButton_Click" Style="{StaticResource DownloadButtonStyle}" ToolTip="Open browser to download DAT files"/>
-                </StackPanel>
-
-            </StackPanel>
-        </Border>
-
-        <!-- LogViewer & DAT Info Section -->
-        <Grid Grid.Row="2" Margin="10,0,10,10">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" MinWidth="300"/> <!-- LogViewer column -->
-                <ColumnDefinition Width="5"/> <!-- GridSplitter column -->
-                <ColumnDefinition Width="250" MinWidth="200"/> <!-- DAT Info column -->
-            </Grid.ColumnDefinitions>
-
-            <!-- Styled LogViewer Border -->
-            <Border Grid.Column="0" BorderBrush="#BDBDBD" BorderThickness="1" CornerRadius="4">
-                <TextBox x:Name="LogViewer"
-                         AcceptsReturn="True"
-                         VerticalScrollBarVisibility="Auto"
-                         HorizontalScrollBarVisibility="Auto"
-                         IsReadOnly="True"
-                         FontFamily="Consolas"
-                         Background="White"/> <!-- Ensure background -->
-            </Border>
-
-            <GridSplitter Grid.Column="1"
-                          HorizontalAlignment="Stretch"
-                          VerticalAlignment="Stretch"
-                          Background="#E0E0E0"
-                          ShowsPreview="True"/>
-
-            <!-- Styled DAT Info Border -->
-            <Border Grid.Column="2" BorderBrush="#BDBDBD" BorderThickness="1" Padding="10" Margin="5,0,0,0" CornerRadius="4">
-                <ScrollViewer VerticalScrollBarVisibility="Auto">
-                    <StackPanel>
-                        <TextBlock Text="DAT File Information" FontWeight="Bold" FontSize="14" Margin="0,0,0,10"/>
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto"/>
-                                <ColumnDefinition Width="*"/>
-                            </Grid.ColumnDefinitions>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                            </Grid.RowDefinitions>
-                            <TextBlock Grid.Row="0" Grid.Column="0" Text="Name:" FontWeight="SemiBold" Margin="0,0,5,5"/>
-                            <TextBlock x:Name="DatNameTextBlock" Grid.Row="0" Grid.Column="1" TextWrapping="Wrap" Text="N/A" Margin="0,0,0,5"/>
-                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Description:" FontWeight="SemiBold" Margin="0,0,5,5"/>
-                            <TextBlock x:Name="DatDescriptionTextBlock" Grid.Row="1" Grid.Column="1" TextWrapping="Wrap" Text="N/A" Margin="0,0,0,5"/>
-                            <TextBlock Grid.Row="2" Grid.Column="0" Text="Version:" FontWeight="SemiBold" Margin="0,0,5,5"/>
-                            <TextBlock x:Name="DatVersionTextBlock" Grid.Row="2" Grid.Column="1" Text="N/A" Margin="0,0,0,5"/>
-                            <TextBlock Grid.Row="3" Grid.Column="0" Text="Author:" FontWeight="SemiBold" Margin="0,0,5,5"/>
-                            <TextBlock x:Name="DatAuthorTextBlock" Grid.Row="3" Grid.Column="1" TextWrapping="Wrap" Text="N/A" Margin="0,0,0,5"/>
-                            <TextBlock Grid.Row="4" Grid.Column="0" Text="Homepage:" FontWeight="SemiBold" Margin="0,0,5,5"/>
-                            <TextBlock x:Name="DatHomepageTextBlock" Grid.Row="4" Grid.Column="1" Text="N/A" Margin="0,0,0,5"/>
-                            <TextBlock Grid.Row="5" Grid.Column="0" Text="URL:" FontWeight="SemiBold" Margin="0,0,5,5"/>
-                            <TextBlock x:Name="DatUrlTextBlock" Grid.Row="5" Grid.Column="1" TextWrapping="Wrap" Text="N/A" Margin="0,0,0,5"/>
-                            <TextBlock Grid.Row="6" Grid.Column="0" Text="ROM Entries:" FontWeight="SemiBold" Margin="0,10,5,0"/>
-                            <TextBlock x:Name="DatRomCountTextBlock" Grid.Row="6" Grid.Column="1" Text="0" Margin="0,10,0,0"/>
-                        </Grid>
-                    </StackPanel>
-                </ScrollViewer>
-            </Border>
-        </Grid>
-
-        <!-- Stats Panel (Keep mostly as is, just ensure consistent border styling) -->
-        <Grid Grid.Row="3" Margin="10,0,10,10">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="*" />
-            </Grid.ColumnDefinitions>
-
-            <Border Grid.Column="0" BorderBrush="#BDBDBD" BorderThickness="1" Margin="2" Padding="8" CornerRadius="4">
-                <StackPanel Orientation="Vertical" HorizontalAlignment="Center">
-                    <TextBlock Text="Total Files:" FontWeight="SemiBold" HorizontalAlignment="Center"/>
-                    <TextBlock x:Name="TotalFilesValue" Text="0" HorizontalAlignment="Center"/>
-                </StackPanel>
-            </Border>
-
-            <Border Grid.Column="1" BorderBrush="#BDBDBD" BorderThickness="1" Margin="2" Padding="8" CornerRadius="4">
-                <StackPanel Orientation="Vertical" HorizontalAlignment="Center">
-                    <TextBlock Text="Success:" FontWeight="SemiBold" Foreground="Green" HorizontalAlignment="Center"/>
-                    <TextBlock x:Name="SuccessValue" Text="0" HorizontalAlignment="Center"/>
-                </StackPanel>
-            </Border>
-
-            <Border Grid.Column="2" BorderBrush="#BDBDBD" BorderThickness="1" Margin="2" Padding="8" CornerRadius="4">
-                <StackPanel Orientation="Vertical" HorizontalAlignment="Center">
-                    <TextBlock Text="Failed:" FontWeight="SemiBold" Foreground="Red" HorizontalAlignment="Center"/>
-                    <TextBlock x:Name="FailedValue" Text="0" HorizontalAlignment="Center"/>
-                </StackPanel>
-            </Border>
-
-            <Border Grid.Column="3" BorderBrush="#BDBDBD" BorderThickness="1" Margin="2" Padding="8" CornerRadius="4">
-                <StackPanel Orientation="Vertical" HorizontalAlignment="Center">
-                    <TextBlock Text="Unknown:" FontWeight="SemiBold" Foreground="Goldenrod" HorizontalAlignment="Center"/>
-                    <TextBlock x:Name="UnknownValue" Text="0" HorizontalAlignment="Center"/>
-                </StackPanel>
-            </Border>
-
-            <Border Grid.Column="4" BorderBrush="#BDBDBD" BorderThickness="1" Margin="2" Padding="8" CornerRadius="4">
-                <StackPanel Orientation="Vertical" HorizontalAlignment="Center">
-                    <TextBlock Text="Processing Time:" FontWeight="SemiBold" HorizontalAlignment="Center"/>
-                    <TextBlock x:Name="ProcessingTimeValue" Text="00:00:00" HorizontalAlignment="Center"/>
-                </StackPanel>
-            </Border>
-        </Grid>
-
-        <!-- Combined Progress Bar Area -->
-        <Grid Grid.Row="4" Margin="10,0,10,10">
-             <Grid.ColumnDefinitions>
-                 <ColumnDefinition Width="*"/>
-                 <ColumnDefinition Width="Auto"/>
-             </Grid.ColumnDefinitions>
-
-             <!-- Styled Progress Bar Container with Overlay Text -->
-             <Border Grid.Column="0" BorderBrush="#BDBDBD" BorderThickness="1" CornerRadius="4" Padding="1">
-                 <Grid>
-                     <ProgressBar x:Name="ProgressBar" Height="24" Background="White" Foreground="#4CAF50" BorderThickness="0" />
-                     <TextBlock x:Name="ProgressText" HorizontalAlignment="Center" VerticalAlignment="Center" FontWeight="SemiBold" Text="" />
-                 </Grid>
-             </Border>
-
-             <!-- Cancel Button -->
-             <Button x:Name="CancelButton" Grid.Column="1"
-                     Content="Cancel"
-                     Click="CancelButton_Click"
-                     Style="{StaticResource CancelButtonStyle}"
-                     Margin="10,0,0,0"
-                     Visibility="Collapsed"
-                     ToolTip="Cancel the validation process"/>
-         </Grid>
-
-        <!-- Status Bar -->
-        <StatusBar Grid.Row="5" Background="#E0E0E0" Padding="5"> <!-- Light Grey Background -->
+        <!-- Status bar -->
+        <StatusBar Grid.Row="2" Background="#E0E0E0" Padding="5">
             <StatusBarItem>
-                <TextBlock x:Name="StatusBarMessageTextBlock" Text="Ready."/>
+                <TextBlock x:Name="StatusBarMessageTextBlock" Text="Ready." />
             </StatusBarItem>
         </StatusBar>
     </Grid>
