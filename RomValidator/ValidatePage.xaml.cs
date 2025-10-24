@@ -16,7 +16,7 @@ public partial class ValidatePage : IDisposable
 {
     private readonly MainWindow _mainWindow;
     private Dictionary<string, Rom> _romDatabase = [];
-    private CancellationTokenSource _cts = new();
+    private CancellationTokenSource? _cts;
 
     // Statistics
     private int _totalFilesToProcess;
@@ -116,7 +116,10 @@ public partial class ValidatePage : IDisposable
                 return;
             }
 
+            // FIX 2: Dispose previous CancellationTokenSource if any, then create a new one
+            _cts?.Dispose();
             _cts = new CancellationTokenSource();
+
             ResetOperationStats();
             SetControlsState(false);
             _operationTimer.Restart();
@@ -201,7 +204,8 @@ public partial class ValidatePage : IDisposable
                 {
                     await ProcessFileAsync(filePath, successPath, failPath, moveSuccess, moveFailed, ct);
                     var processedSoFar = Interlocked.Increment(ref filesActuallyProcessedCount);
-                    UpdateProgressDisplay(processedSoFar, _totalFilesToProcess, Path.GetFileName(filePath));
+                    // FIX 1: Pass enableParallelProcessing flag to UpdateProgressDisplay
+                    UpdateProgressDisplay(processedSoFar, _totalFilesToProcess, Path.GetFileName(filePath), enableParallelProcessing);
                     UpdateStatsDisplay();
                     UpdateProcessingTimeDisplay();
                 });
@@ -213,7 +217,8 @@ public partial class ValidatePage : IDisposable
                 token.ThrowIfCancellationRequested();
                 await ProcessFileAsync(filePath, successPath, failPath, moveSuccess, moveFailed, token);
                 var processedSoFar = Interlocked.Increment(ref filesActuallyProcessedCount);
-                UpdateProgressDisplay(processedSoFar, _totalFilesToProcess, Path.GetFileName(filePath));
+                // FIX 1: Pass enableParallelProcessing flag to UpdateProgressDisplay
+                UpdateProgressDisplay(processedSoFar, _totalFilesToProcess, Path.GetFileName(filePath), enableParallelProcessing);
                 UpdateStatsDisplay();
                 UpdateProcessingTimeDisplay();
             }
@@ -471,7 +476,8 @@ public partial class ValidatePage : IDisposable
 
     private void CancelButton_Click(object sender, RoutedEventArgs e)
     {
-        _cts.Cancel();
+        // FIX 2: Safely cancel the CancellationTokenSource
+        _cts?.Cancel();
         LogMessage("Cancellation requested. Finishing current operations...");
         _mainWindow.UpdateStatusBarMessage("Validation canceled.");
     }
@@ -540,12 +546,23 @@ public partial class ValidatePage : IDisposable
         Application.Current.Dispatcher.InvokeAsync(() => { ProcessingTimeValue.Text = $@"{elapsed:hh\:mm\:ss}"; });
     }
 
-    private void UpdateProgressDisplay(int current, int total, string currentFileName)
+    // FIX 1: Add a parameter to indicate parallel processing and adjust text accordingly
+    private void UpdateProgressDisplay(int current, int total, string currentFileName, bool isParallel)
     {
         var percentage = total == 0 ? 0 : (double)current / total * 100;
         Application.Current.Dispatcher.InvokeAsync(() =>
         {
-            ProgressText.Text = $"Validating file {current} of {total}: {currentFileName} ({percentage:F1}%)";
+            if (isParallel)
+            {
+                // Generic message for parallel processing as filename cannot be reliably tied to the exact count
+                ProgressText.Text = $"Validating files {current} of {total} ({percentage:F1}%)";
+            }
+            else
+            {
+                // Detailed message for sequential processing
+                ProgressText.Text = $"Validating file {current} of {total}: {currentFileName} ({percentage:F1}%)";
+            }
+
             ProgressBar.Value = current;
         });
     }

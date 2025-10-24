@@ -29,14 +29,6 @@ The ROM Validator is a Windows application that allows users to validate their R
 -   **Progress Monitoring**: Shows real-time progress of file validation with a progress bar and current file name.
 -   **Status Bar**: Provides concise, real-time application status messages at the bottom of the window.
 
-## 🚀 What's New in Release 2.0 (2025-10-01)
-
--   **Codebase Refactor**: Significant internal refactoring for easier future updates and improved code readability.
--   **Enhanced DAT File Handling**: Added pre-validation for DAT files to ensure No-Intro XML format compatibility before processing, preventing errors early.
--   **Robust File Operations**: Enhanced file move operations with retry logic and better handling of locked files, improving reliability.
--   **User Interface Refresh**: Redesigned interface with custom button styles and color-coded actions for a more intuitive experience.
--   **Streamlined Error Handling**: Improved overall error handling across the application.
-
 ## Supported File Formats
 
 -   All ROM file formats supported by DAT specifications
@@ -89,8 +81,3 @@ Files are categorized as:
 -   **File Access Errors**: Run as Administrator if encountering permission issues
 -   **Validation Errors**: Check log details for specific failure reasons
 -   **Slow Performance**: Reduce system load during validation for better performance
-
-## Acknowledgements
-
--   Uses [System.IO.Hashing](https://www.nuget.org/packages/System.IO.Hashing) for CRC32 computation
--   Inspired by ROM preservation efforts of the community

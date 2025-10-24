@@ -1,7 +1,4 @@
 @echo off
-echo ===================================
-echo  Publishing Simple Launcher
-echo ===================================
 
 rmdir /s /q ./bin/Publish 2>nul
 
