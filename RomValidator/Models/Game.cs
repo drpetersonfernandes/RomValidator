@@ -11,5 +11,22 @@ public class Game
     public string Description { get; set; } = string.Empty;
 
     [XmlElement("rom")]
-    public Rom Rom { get; set; } = new();
+    public List<Rom> Roms { get; set; } = [];
+
+    // MAME specific optional attributes
+    [XmlAttribute("isbios")]
+    public string? IsBios { get; set; }
+
+    [XmlAttribute("isdevice")]
+    public string? IsDevice { get; set; }
+
+    [XmlAttribute("runnable")]
+    public string? Runnable { get; set; }
+
+    // MAME specific optional elements
+    [XmlElement("year")]
+    public string? Year { get; set; }
+
+    [XmlElement("manufacturer")]
+    public string? Manufacturer { get; set; }
 }

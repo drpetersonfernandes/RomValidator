@@ -336,9 +336,10 @@ public partial class ValidatePage : IDisposable
             }
 
             _romDatabase = datafile.Games
-                .Where(g => g.Rom is { Name.Length: > 0 })
-                .GroupBy(g => g.Rom.Name, StringComparer.OrdinalIgnoreCase)
-                .ToDictionary(g => g.Key, g => g.First().Rom);
+                .SelectMany(g => g.Roms)
+                .Where(r => r.Name.Length > 0)
+                .GroupBy(r => r.Name, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(g => g.Key, g => g.First());
 
             await Application.Current.Dispatcher.InvokeAsync(() =>
             {

@@ -9,5 +9,6 @@ public class Datafile
     public Header? Header { get; set; }
 
     [XmlElement("game")]
+    [XmlElement("machine")]
     public List<Game> Games { get; set; } = [];
 }

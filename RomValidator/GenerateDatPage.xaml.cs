@@ -232,15 +232,18 @@ public partial class GenerateDatPage : IDisposable
                     {
                         Name = file.GameName,
                         Description = file.GameName,
-                        Rom = new Rom
-                        {
-                            Name = file.FileName,
-                            Size = file.FileSize,
-                            Crc = file.Crc32,
-                            Md5 = file.Md5,
-                            Sha1 = file.Sha1,
-                            Sha256 = file.Sha256
-                        }
+                        Roms =
+                        [
+                            new Rom
+                            {
+                                Name = file.FileName,
+                                Size = file.FileSize,
+                                Crc = file.Crc32,
+                                Md5 = file.Md5,
+                                Sha1 = file.Sha1,
+                                Sha256 = file.Sha256
+                            }
+                        ]
                     }));
 
                 var serializer = new XmlSerializer(typeof(Datafile));
