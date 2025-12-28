@@ -8,7 +8,7 @@ public class Datafile
     [XmlElement("header")]
     public Header? Header { get; set; }
 
-    [XmlElement("game")]
-    [XmlElement("machine")]
+    [XmlElement("game", typeof(Game))]
+    [XmlElement("machine", typeof(Game))]
     public List<Game> Games { get; set; } = [];
 }

@@ -295,6 +295,11 @@ public partial class ValidatePage : IDisposable
 
             return (false, "Hash mismatch");
         }
+        catch (OperationCanceledException)
+        {
+            // Do not log it as an error
+            return (false, "Operation canceled");
+        }
         catch (Exception ex)
         {
             _ = _mainWindow.BugReportService.SendBugReportAsync($"Error checking hashes for file '{filePath}'", ex);
@@ -356,14 +361,29 @@ public partial class ValidatePage : IDisposable
             _mainWindow.UpdateStatusBarMessage($"DAT loaded: {datafile.Header?.Name} ({_romDatabase.Count} ROMs).");
             return true;
         }
-        catch (Exception ex)
+        catch (XmlException ex)
         {
-            var errorMsg = $"Error reading DAT file: {ex.Message}.";
-            LogMessage(errorMsg);
-            ShowError(errorMsg);
-            _ = _mainWindow.BugReportService.SendBugReportAsync($"Error loading DAT file '{datFilePath}'", ex);
+            const string userErrorMsg = "The selected file does not appear to be a valid XML DAT file. This tool supports XML-formatted DATs (e.g., from No-Intro). Please check the file format.";
+            LogMessage($"Error: {userErrorMsg} - Details: {ex.Message}");
+            ShowError(userErrorMsg);
+
+            // Try to read a sample of the invalid file for the bug report
+            string fileSample;
+            try
+            {
+                var lines = File.ReadLines(datFilePath).Take(50);
+                fileSample = string.Join(Environment.NewLine, lines);
+            }
+            catch
+            {
+                fileSample = "Could not read a sample from the file.";
+            }
+
+            var reportMessage = $"Invalid DAT file format detected.\n\n--- DAT File Sample (First 50 Lines) ---\n{fileSample}";
+            _ = _mainWindow.BugReportService.SendBugReportAsync(reportMessage, ex);
+
             ClearDatInfoDisplay();
-            _mainWindow.UpdateStatusBarMessage($"Error loading DAT: {ex.Message}");
+            _mainWindow.UpdateStatusBarMessage("Error: Invalid DAT file format.");
             return false;
         }
     }

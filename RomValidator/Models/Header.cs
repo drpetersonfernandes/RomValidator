@@ -4,6 +4,9 @@ namespace RomValidator.Models;
 
 public class Header
 {
+    [XmlElement("id")]
+    public string Id { get; set; } = string.Empty;
+
     [XmlElement("name")]
     public string Name { get; set; } = string.Empty;
 

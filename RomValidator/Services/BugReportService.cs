@@ -1,5 +1,9 @@
+using System.Globalization;
 using System.Net.Http;
 using System.Net.Http.Json;
+using System.Reflection;
+using System.Runtime.InteropServices;
+using System.Text;
 using RomValidator.Models;
 
 namespace RomValidator.Services;
@@ -19,22 +23,33 @@ public class BugReportService(string apiUrl, string apiKey, string applicationNa
             _httpClient.DefaultRequestHeaders.Clear();
             _httpClient.DefaultRequestHeaders.Add("X-API-KEY", _apiKey);
 
-            var fullMessage = message;
+            var sb = new StringBuilder();
+            sb.AppendLine("-- System Info --");
+            sb.AppendLine(CultureInfo.InvariantCulture, $"Date (UTC): {DateTime.UtcNow:o}");
+            sb.AppendLine(CultureInfo.InvariantCulture, $"App Version: {Assembly.GetExecutingAssembly().GetName().Version}");
+            sb.AppendLine(CultureInfo.InvariantCulture, $"OS Version: {Environment.OSVersion.VersionString}");
+            sb.AppendLine(CultureInfo.InvariantCulture, $"Architecture: {RuntimeInformation.ProcessArchitecture}");
+            sb.AppendLine(CultureInfo.InvariantCulture, $"Bitness: {(Environment.Is64BitProcess ? "64-bit" : "32-bit")}");
+            sb.AppendLine();
+            sb.AppendLine("-- Report --");
+            sb.AppendLine(message);
+
             if (exception != null)
             {
-                fullMessage += $"\nException Type: {exception.GetType().Name}";
-                fullMessage += $"\nException Message: {exception.Message}";
+                sb.AppendLine(CultureInfo.InvariantCulture, $"Exception Type: {exception.GetType().Name}");
+                sb.AppendLine(CultureInfo.InvariantCulture, $"Exception Message: {exception.Message}");
                 if (exception.StackTrace != null)
                 {
-                    fullMessage += $"\nStack Trace:\n{exception.StackTrace}";
+                    sb.AppendLine(CultureInfo.InvariantCulture, $"Stack Trace:\n{exception.StackTrace}");
                 }
 
                 if (exception.InnerException != null)
                 {
-                    fullMessage += $"\nInner Exception: {exception.InnerException.Message}";
+                    sb.AppendLine(CultureInfo.InvariantCulture, $"Inner Exception: {exception.InnerException.Message}");
                 }
             }
 
+            var fullMessage = sb.ToString();
             // Truncate the message to fit the API's expected length
             if (fullMessage.Length > MaxMessageLength)
             {

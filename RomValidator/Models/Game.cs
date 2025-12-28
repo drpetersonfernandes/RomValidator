@@ -7,6 +7,12 @@ public class Game
     [XmlAttribute("name")]
     public string Name { get; set; } = string.Empty;
 
+    [XmlAttribute("id")]
+    public string Id { get; set; } = string.Empty;
+
+    [XmlAttribute("cloneofid")]
+    public string? CloneOfId { get; set; }
+
     [XmlElement("description")]
     public string Description { get; set; } = string.Empty;
 
