@@ -24,8 +24,4 @@
         <Resource Include="images\logo.png" />
     </ItemGroup>
 
-    <ItemGroup>
-        <PackageReference Include="System.Net.Http.Json" Version="10.0.1" />
-    </ItemGroup>
-
 </Project>
