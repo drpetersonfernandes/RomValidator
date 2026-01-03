@@ -361,6 +361,30 @@ public partial class ValidatePage : IDisposable
             _mainWindow.UpdateStatusBarMessage($"DAT loaded: {datafile.Header?.Name} ({_romDatabase.Count} ROMs).");
             return true;
         }
+        catch (InvalidOperationException ex)
+        {
+            const string userErrorMsg = "The DAT file appears to be a valid XML file, but its structure does not match the expected format. It may contain unsupported elements or attributes.";
+            LogMessage($"Error: {userErrorMsg} - Details: {ex.Message}");
+            ShowError(userErrorMsg);
+
+            string fileSample;
+            try
+            {
+                var lines = File.ReadLines(datFilePath).Take(50);
+                fileSample = string.Join(Environment.NewLine, lines);
+            }
+            catch
+            {
+                fileSample = "Could not read a sample from the file.";
+            }
+
+            var reportMessage = $"DAT file deserialization error (structure mismatch).\n\n--- DAT File Sample (First 50 Lines) ---\n{fileSample}";
+            _ = _mainWindow.BugReportService.SendBugReportAsync(reportMessage, ex);
+
+            ClearDatInfoDisplay();
+            _mainWindow.UpdateStatusBarMessage("Error: Invalid DAT file format.");
+            return false;
+        }
         catch (XmlException ex)
         {
             const string userErrorMsg = "The selected file does not appear to be a valid XML DAT file. This tool supports XML-formatted DATs (e.g., from No-Intro). Please check the file format.";

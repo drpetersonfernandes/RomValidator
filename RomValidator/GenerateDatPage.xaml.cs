@@ -156,7 +156,7 @@ public partial class GenerateDatPage : IDisposable
         await Parallel.ForEachAsync(files, parallelOptions, async (filePath, token) =>
         {
             var gameFile = await HashCalculator.CalculateHashesAsync(filePath, token);
-            if (gameFile.ErrorMessage != null)
+            if (gameFile.ErrorMessage != null && gameFile.ErrorMessage != "File is locked or access denied after retries")
             {
                 _ = _mainWindow.BugReportService.SendBugReportAsync($"Error hashing file {filePath}: {gameFile.ErrorMessage}");
             }
