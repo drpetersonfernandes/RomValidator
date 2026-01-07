@@ -4,6 +4,7 @@ using System.Globalization;
 using System.IO;
 using System.Reflection;
 using System.Security.Cryptography;
+using System.Text;
 using System.Windows;
 using System.Xml;
 using System.Xml.Serialization;
@@ -370,8 +371,16 @@ public partial class ValidatePage : IDisposable
             string fileSample;
             try
             {
-                var lines = File.ReadLines(datFilePath).Take(50);
-                fileSample = string.Join(Environment.NewLine, lines);
+                var lines = File.ReadLines(datFilePath, Encoding.UTF8).Take(50);
+                var sample = string.Join(Environment.NewLine, lines);
+                // Limit sample to 2000 characters to ensure we have room for other info
+                const int maxSampleLength = 2000;
+                if (sample.Length > maxSampleLength)
+                {
+                    sample = sample[..maxSampleLength] + "\n...[SAMPLE TRUNCATED]";
+                }
+
+                fileSample = sample;
             }
             catch
             {
@@ -395,8 +404,16 @@ public partial class ValidatePage : IDisposable
             string fileSample;
             try
             {
-                var lines = File.ReadLines(datFilePath).Take(50);
-                fileSample = string.Join(Environment.NewLine, lines);
+                var lines = File.ReadLines(datFilePath, Encoding.UTF8).Take(50);
+                var sample = string.Join(Environment.NewLine, lines);
+                // Limit sample to 2000 characters to ensure we have room for other info
+                const int maxSampleLength = 2000;
+                if (sample.Length > maxSampleLength)
+                {
+                    sample = sample[..maxSampleLength] + "\n...[SAMPLE TRUNCATED]";
+                }
+
+                fileSample = sample;
             }
             catch
             {
