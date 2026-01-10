@@ -17,7 +17,7 @@ public class Game
     public string Description { get; set; } = string.Empty;
 
     [XmlElement("rom")]
-    public List<Rom> Roms { get; set; } = [];
+    public List<Rom> Roms { get; set; } = new();
 
     // MAME specific optional attributes
     [XmlAttribute("isbios")]

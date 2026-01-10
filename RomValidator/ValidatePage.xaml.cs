@@ -342,10 +342,10 @@ public partial class ValidatePage : IDisposable
             }
 
             _romDatabase = datafile.Games
-                .SelectMany(g => g.Roms)
-                .Where(r => r.Name.Length > 0)
-                .GroupBy(r => r.Name, StringComparer.OrdinalIgnoreCase)
-                .ToDictionary(g => g.Key, g => g.First());
+                .SelectMany(static g => g.Roms)
+                .Where(static r => r.Name.Length > 0)
+                .GroupBy(static r => r.Name, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(static g => g.Key, static g => g.First());
 
             await Application.Current.Dispatcher.InvokeAsync(() =>
             {
@@ -373,8 +373,8 @@ public partial class ValidatePage : IDisposable
             {
                 var lines = File.ReadLines(datFilePath, Encoding.UTF8).Take(50);
                 var sample = string.Join(Environment.NewLine, lines);
-                // Limit sample to 2000 characters to ensure we have room for other info
-                const int maxSampleLength = 2000;
+
+                const int maxSampleLength = 5000;
                 if (sample.Length > maxSampleLength)
                 {
                     sample = sample[..maxSampleLength] + "\n...[SAMPLE TRUNCATED]";

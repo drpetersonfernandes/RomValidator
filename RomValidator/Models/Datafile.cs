@@ -10,5 +10,5 @@ public class Datafile
 
     [XmlElement("game", typeof(Game))]
     [XmlElement("machine", typeof(Game))]
-    public List<Game> Games { get; set; } = [];
+    public List<Game> Games { get; set; } = new();
 }
