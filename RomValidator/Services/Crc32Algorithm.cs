@@ -39,7 +39,7 @@ public class Crc32Algorithm : HashAlgorithm
 
     protected override void HashCore(byte[] array, int ibStart, int cbSize)
     {
-        for (var i = ibStart; i < ibStart + cbSize; i++)
+        for (var i = ibStart; i < ibStart + cbSize && i < array.Length; i++)
         {
             _currentCrc = (_currentCrc >> 8) ^ ChecksumTable[array[i] ^ (_currentCrc & 0xFF)];
         }

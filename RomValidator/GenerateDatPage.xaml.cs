@@ -226,24 +226,23 @@ public partial class GenerateDatPage : IDisposable
                     filesToExport = new List<GameFile>(_processedFilesList);
                 }
 
+                // Group files by GameName to create proper No-Intro DAT format
                 dataFile.Games.AddRange(filesToExport
                     .Where(static file => file.ErrorMessage == null)
-                    .Select(static file => new Game
+                    .GroupBy(static file => file.GameName)
+                    .Select(static group => new Game
                     {
-                        Name = file.GameName,
-                        Description = file.GameName,
-                        Roms =
-                        [
-                            new Rom
-                            {
-                                Name = file.FileName,
-                                Size = file.FileSize,
-                                Crc = file.Crc32,
-                                Md5 = file.Md5,
-                                Sha1 = file.Sha1,
-                                Sha256 = file.Sha256
-                            }
-                        ]
+                        Name = group.Key,
+                        Description = group.Key,
+                        Roms = group.Select(static file => new Rom
+                        {
+                            Name = file.FileName,
+                            Size = file.FileSize,
+                            Crc = file.Crc32,
+                            Md5 = file.Md5,
+                            Sha1 = file.Sha1,
+                            Sha256 = file.Sha256
+                        }).ToList()
                     }));
 
                 var serializer = new XmlSerializer(typeof(Datafile));
