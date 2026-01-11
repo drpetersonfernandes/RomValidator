@@ -4,6 +4,7 @@ namespace RomValidator.Models;
 
 public class Game
 {
+    // Common attributes (No-Intro & MAME)
     [XmlAttribute("name")]
     public string Name { get; set; } = string.Empty;
 
@@ -13,29 +14,13 @@ public class Game
     [XmlAttribute("cloneofid")]
     public string? CloneOfId { get; set; }
 
+    // Common elements - Order is important for XmlSerializer
+    [XmlElement("category")]
+    public string? Category { get; set; }
+
     [XmlElement("description")]
     public string Description { get; set; } = string.Empty;
 
     [XmlElement("rom")]
     public List<Rom> Roms { get; set; } = new();
-
-    // MAME specific optional attributes
-    [XmlAttribute("isbios")]
-    public string? IsBios { get; set; }
-
-    [XmlAttribute("isdevice")]
-    public string? IsDevice { get; set; }
-
-    [XmlAttribute("runnable")]
-    public string? Runnable { get; set; }
-
-    // MAME specific optional elements
-    [XmlElement("year")]
-    public string? Year { get; set; }
-
-    [XmlElement("manufacturer")]
-    public string? Manufacturer { get; set; }
-
-    [XmlElement("category")]
-    public string? Category { get; set; }
 }

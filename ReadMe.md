@@ -20,6 +20,7 @@ The ROM Validator is a Windows application that allows users to validate their R
 ## Features
 
 -   **DAT File Support**: Parses DAT files (XML format) to extract ROM validation criteria
+-   **No-Intro DAT Support**: Parses No-Intro XML DAT files to extract ROM validation criteria.
 -   **Multi-Hash Validation**: Supports SHA1, MD5, and CRC32 hash verification
 -   **Batch Processing**: Validates all ROM files in a folder in a single operation
 -   **Automatic Organization**: Moves files to `_success` or `_fail` folders based on validation results
@@ -32,7 +33,7 @@ The ROM Validator is a Windows application that allows users to validate their R
 ## Supported File Formats
 
 -   All ROM file formats supported by DAT specifications
--   Compatible with DAT files from and similar preservation projects
+-   Compatible with No-Intro XML DAT files.
 
 ## Requirements
 

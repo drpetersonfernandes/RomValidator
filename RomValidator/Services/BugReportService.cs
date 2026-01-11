@@ -14,7 +14,7 @@ public class BugReportService(string apiUrl, string apiKey, string applicationNa
     private readonly string _apiUrl = apiUrl;
     private readonly string _apiKey = apiKey;
     private readonly string _applicationName = applicationName;
-    private const int MaxMessageLength = 20000;
+    private const int MaxMessageLength = 30000;
 
     public async Task<bool> SendBugReportAsync(string message, Exception? exception = null)
     {

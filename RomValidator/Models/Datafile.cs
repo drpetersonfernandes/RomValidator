@@ -8,7 +8,7 @@ public class Datafile
     [XmlElement("header")]
     public Header? Header { get; set; }
 
-    [XmlElement("game", typeof(Game))]
-    [XmlElement("machine", typeof(Game))]
+    // Support both <game> and <machine> elements (MAME uses <machine>)
+    [XmlElement("game")]
     public List<Game> Games { get; set; } = new();
 }

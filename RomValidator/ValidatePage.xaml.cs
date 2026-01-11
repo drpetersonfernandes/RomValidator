@@ -313,39 +313,128 @@ public partial class ValidatePage : IDisposable
         LogMessage($"Loading and parsing DAT file: {Path.GetFileName(datFilePath)}...");
         _mainWindow.UpdateStatusBarMessage($"Loading DAT: {Path.GetFileName(datFilePath)}...");
         ClearDatInfoDisplay();
+        string? datFilePreview = null;
 
         try
         {
-            await using var validationStream = new FileStream(datFilePath, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, true);
-            using var validationReader = XmlReader.Create(validationStream, new XmlReaderSettings { DtdProcessing = DtdProcessing.Ignore, XmlResolver = null });
-
-            if (!validationReader.ReadToFollowing("datafile"))
+            // Read a preview of the DAT file for error reporting (first 5000 characters)
+            try
             {
-                const string errorMsg = "The selected DAT file is not in the supported No-Intro XML format.";
+                datFilePreview = await File.ReadAllTextAsync(datFilePath);
+                if (datFilePreview.Length > 5000)
+                {
+                    datFilePreview = datFilePreview[..5000] + "\n\n[... FILE TRUNCATED FOR PREVIEW ...]";
+                }
+            }
+            catch
+            {
+                datFilePreview = "[Could not read file preview]";
+            }
+
+            // First validation pass - check for <datafile> root element
+            await using (var validationStream = new FileStream(datFilePath, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, true))
+            {
+                using var validationReader = XmlReader.Create(validationStream, new XmlReaderSettings { DtdProcessing = DtdProcessing.Ignore, XmlResolver = null });
+
+                if (!validationReader.ReadToFollowing("datafile"))
+                {
+                    const string errorMsg = "Incompatible DAT file format.\n\n" +
+                                            "This application only supports No-Intro XML DAT files.\n\n" +
+                                            "The selected file does not contain the required <datafile> root element.\n\n" +
+                                            "Please download a compatible DAT file from https://no-intro.org/";
+                    LogMessage($"Error: {errorMsg}");
+
+                    // Send sample to developer
+                    var detailedError = $"User attempted to load incompatible DAT file: {Path.GetFileName(datFilePath)}\n\n" +
+                                        $"Error: Missing <datafile> root element\n\n" +
+                                        $"File Preview:\n{datFilePreview}";
+                    _ = _mainWindow.BugReportService.SendBugReportAsync(detailedError);
+
+                    ShowIncompatibleDatFileError(errorMsg);
+                    _mainWindow.UpdateStatusBarMessage("DAT file format not supported.");
+                    return false;
+                }
+            }
+
+            // Quick check for common incompatible formats
+            string firstLine;
+            using (var sr = new StreamReader(datFilePath, Encoding.UTF8, true, 1024))
+            {
+                firstLine = await sr.ReadLineAsync() ?? string.Empty;
+            }
+
+            if (firstLine.Contains("clrmamepro", StringComparison.OrdinalIgnoreCase) &&
+                !firstLine.Contains("<?xml", StringComparison.OrdinalIgnoreCase))
+            {
+                const string errorMsg = "Incompatible DAT file format.\n\n" +
+                                        "This application only supports No-Intro XML DAT files.\n\n" +
+                                        "The selected file appears to be a ClrMamePro text format DAT file, which is not supported.\n\n" +
+                                        "Please download an XML format DAT file from https://no-intro.org/";
                 LogMessage($"Error: {errorMsg}");
-                ShowError(errorMsg);
+
+                // Send sample to developer
+                var detailedError = $"User attempted to load ClrMamePro text format DAT file: {Path.GetFileName(datFilePath)}\n\n" +
+                                    $"File Preview:\n{datFilePreview}";
+                _ = _mainWindow.BugReportService.SendBugReportAsync(detailedError);
+
+                ShowIncompatibleDatFileError(errorMsg);
                 _mainWindow.UpdateStatusBarMessage("DAT file format not supported.");
                 return false;
             }
 
-            validationStream.Position = 0;
-
+            // Create serializer with our updated models
             var serializer = new XmlSerializer(typeof(Datafile));
-            using var xmlReader = XmlReader.Create(validationStream, new XmlReaderSettings { DtdProcessing = DtdProcessing.Ignore, XmlResolver = null });
+
+            // Deserialize the DAT file
+            await using var deserializeStream = new FileStream(datFilePath, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, true);
+            using var xmlReader = XmlReader.Create(deserializeStream, new XmlReaderSettings { DtdProcessing = DtdProcessing.Ignore, XmlResolver = null });
 
             var datafile = (Datafile?)serializer.Deserialize(xmlReader);
-            if (datafile?.Games is null)
+            if (datafile?.Games is null || datafile.Games.Count == 0)
             {
-                LogMessage("Error: DAT file is empty or has an invalid structure.");
+                const string errorMsg = "Incompatible or empty DAT file.\n\n" +
+                                        "This application only supports No-Intro XML DAT files.\n\n" +
+                                        "The selected file was parsed but contains no game entries.\n\n" +
+                                        "Please ensure you're using a valid No-Intro DAT file from https://no-intro.org/";
+                LogMessage($"Error: {errorMsg}");
+
+                // Send sample to developer
+                var detailedError = $"User attempted to load empty/invalid DAT file: {Path.GetFileName(datFilePath)}\n\n" +
+                                    $"File Preview:\n{datFilePreview}";
+                _ = _mainWindow.BugReportService.SendBugReportAsync(detailedError);
+
+                ShowIncompatibleDatFileError(errorMsg);
                 _mainWindow.UpdateStatusBarMessage("Error: DAT file empty or invalid.");
                 return false;
             }
 
+            // Build ROM database (only from <rom> elements)
             _romDatabase = datafile.Games
                 .SelectMany(static g => g.Roms)
-                .Where(static r => r.Name.Length > 0)
+                .Where(static r => !string.IsNullOrEmpty(r.Name))
                 .GroupBy(static r => r.Name, StringComparer.OrdinalIgnoreCase)
                 .ToDictionary(static g => g.Key, static g => g.First());
+
+            // Validate we actually got ROM entries
+            if (_romDatabase.Count == 0)
+            {
+                const string errorMsg = "Incompatible DAT file structure.\n\n" +
+                                        "This application only supports No-Intro XML DAT files.\n\n" +
+                                        "The selected file contains game entries but no ROM entries.\n\n" +
+                                        "Please ensure you're using a valid No-Intro DAT file from https://no-intro.org/";
+                LogMessage($"Error: {errorMsg}");
+
+                // Send sample to developer
+                var detailedError = $"User attempted to load DAT file with no ROM entries: {Path.GetFileName(datFilePath)}\n\n" +
+                                    $"Games found: {datafile.Games.Count}\n" +
+                                    $"ROM entries: 0\n\n" +
+                                    $"File Preview:\n{datFilePreview}";
+                _ = _mainWindow.BugReportService.SendBugReportAsync(detailedError);
+
+                ShowIncompatibleDatFileError(errorMsg);
+                _mainWindow.UpdateStatusBarMessage("Error: No ROM entries found.");
+                return false;
+            }
 
             await Application.Current.Dispatcher.InvokeAsync(() =>
             {
@@ -362,71 +451,84 @@ public partial class ValidatePage : IDisposable
             _mainWindow.UpdateStatusBarMessage($"DAT loaded: {datafile.Header?.Name} ({_romDatabase.Count} ROMs).");
             return true;
         }
-        catch (InvalidOperationException ex)
+        catch (InvalidOperationException ex) when (ex.InnerException != null)
         {
-            const string userErrorMsg = "The DAT file appears to be a valid XML file, but its structure does not match the expected format. It may contain unsupported elements or attributes.";
-            LogMessage($"Error: {userErrorMsg} - Details: {ex.Message}");
-            ShowError(userErrorMsg);
+            // Handle specific XML serialization errors
+            var innerMsg = ex.InnerException.Message;
 
-            string fileSample;
-            try
-            {
-                var lines = File.ReadLines(datFilePath, Encoding.UTF8).Take(50);
-                var sample = string.Join(Environment.NewLine, lines);
+            var errorMsg = "Incompatible DAT file format.\n\n" +
+                           "This application only supports No-Intro XML DAT files.\n\n" +
+                           $"XML Parsing Error: {innerMsg}\n\n" +
+                           "Common causes:\n" +
+                           "• The file is in ClrMamePro text format (not XML)\n" +
+                           "• The file is in MAME format (not No-Intro)\n" +
+                           "• The XML structure is invalid or corrupted\n\n" +
+                           "Please download a compatible No-Intro XML DAT file from https://no-intro.org/";
 
-                const int maxSampleLength = 5000;
-                if (sample.Length > maxSampleLength)
-                {
-                    sample = sample[..maxSampleLength] + "\n...[SAMPLE TRUNCATED]";
-                }
+            LogMessage($"Error: {errorMsg}");
 
-                fileSample = sample;
-            }
-            catch
-            {
-                fileSample = "Could not read a sample from the file.";
-            }
+            // Log full details for debugging
+            var detailedError = $"XML Serialization error for DAT file: {Path.GetFileName(datFilePath)}\n\n" +
+                                $"Error: {innerMsg}\n\n" +
+                                $"Full Exception: {ex}\n\n" +
+                                $"File Preview:\n{datFilePreview}";
+            _ = _mainWindow.BugReportService.SendBugReportAsync(detailedError, ex);
 
-            var reportMessage = $"DAT file deserialization error (structure mismatch).\n\n--- DAT File Sample (First 50 Lines) ---\n{fileSample}";
-            _ = _mainWindow.BugReportService.SendBugReportAsync(reportMessage, ex);
-
+            ShowIncompatibleDatFileError(errorMsg);
             ClearDatInfoDisplay();
-            _mainWindow.UpdateStatusBarMessage("Error: Invalid DAT file format.");
+            _mainWindow.UpdateStatusBarMessage("Error: Failed to parse DAT file.");
             return false;
         }
-        catch (XmlException ex)
+        catch (XmlException xmlEx)
         {
-            const string userErrorMsg = "The selected file does not appear to be a valid XML DAT file. This tool supports XML-formatted DATs (e.g., from No-Intro). Please check the file format.";
-            LogMessage($"Error: {userErrorMsg} - Details: {ex.Message}");
-            ShowError(userErrorMsg);
+            var errorMsg = "Incompatible DAT file format.\n\n" +
+                           "This application only supports No-Intro XML DAT files.\n\n" +
+                           $"XML Error: {xmlEx.Message}\n\n" +
+                           "The file does not appear to be valid XML or is corrupted.\n\n" +
+                           "Please download a compatible No-Intro XML DAT file from https://no-intro.org/";
 
-            // Try to read a sample of the invalid file for the bug report
-            string fileSample;
-            try
-            {
-                var lines = File.ReadLines(datFilePath, Encoding.UTF8).Take(50);
-                var sample = string.Join(Environment.NewLine, lines);
-                // Limit sample to 2000 characters to ensure we have room for other info
-                const int maxSampleLength = 2000;
-                if (sample.Length > maxSampleLength)
-                {
-                    sample = sample[..maxSampleLength] + "\n...[SAMPLE TRUNCATED]";
-                }
+            LogMessage($"Error: {errorMsg}");
 
-                fileSample = sample;
-            }
-            catch
-            {
-                fileSample = "Could not read a sample from the file.";
-            }
+            // Send sample to developer
+            var detailedError = $"XML parsing error for DAT file: {Path.GetFileName(datFilePath)}\n\n" +
+                                $"Error: {xmlEx.Message}\n\n" +
+                                $"Line: {xmlEx.LineNumber}, Position: {xmlEx.LinePosition}\n\n" +
+                                $"File Preview:\n{datFilePreview}";
+            _ = _mainWindow.BugReportService.SendBugReportAsync(detailedError, xmlEx);
 
-            var reportMessage = $"Invalid DAT file format detected.\n\n--- DAT File Sample (First 50 Lines) ---\n{fileSample}";
-            _ = _mainWindow.BugReportService.SendBugReportAsync(reportMessage, ex);
-
+            ShowIncompatibleDatFileError(errorMsg);
             ClearDatInfoDisplay();
-            _mainWindow.UpdateStatusBarMessage("Error: Invalid DAT file format.");
+            _mainWindow.UpdateStatusBarMessage("Error: Invalid XML format.");
             return false;
         }
+        catch (Exception ex)
+        {
+            var errorMsg = $"Unexpected error loading DAT file.\n\n" +
+                           $"Error: {ex.Message}\n\n" +
+                           "This application only supports No-Intro XML DAT files.\n\n" +
+                           "Please ensure you're using a valid No-Intro DAT file from https://no-intro.org/\n\n" +
+                           "If the problem persists, the file may be corrupted.";
+
+            LogMessage($"Error: {errorMsg}");
+
+            // Send sample to developer
+            var detailedError = $"Unexpected error loading DAT file: {Path.GetFileName(datFilePath)}\n\n" +
+                                $"Error: {ex.Message}\n\n" +
+                                $"Exception Type: {ex.GetType().Name}\n\n" +
+                                $"File Preview:\n{datFilePreview}";
+            _ = _mainWindow.BugReportService.SendBugReportAsync(detailedError, ex);
+
+            ShowError(errorMsg);
+            ClearDatInfoDisplay();
+            _mainWindow.UpdateStatusBarMessage("Error: Failed to load DAT file.");
+            return false;
+        }
+    }
+
+    private void ShowIncompatibleDatFileError(string message)
+    {
+        MessageBox.Show(_mainWindow, message, "Incompatible DAT File Format",
+            MessageBoxButton.OK, MessageBoxImage.Warning);
     }
 
     private static async Task<string> ComputeHashAsync(string filePath, HashAlgorithm algorithm, CancellationToken token)

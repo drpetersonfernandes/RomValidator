@@ -28,9 +28,19 @@ public class Header
     [XmlElement("clrmamepro")]
     public ClrMamePro ClrMamePro { get; set; } = new();
 
+    // Optional elements found in various DAT formats
     [XmlElement("date")]
     public string? Date { get; set; }
 
     [XmlElement("retool")]
     public string? Retool { get; set; }
+
+    [XmlElement("email")]
+    public string? Email { get; set; }
+
+    [XmlElement("comment")]
+    public string? Comment { get; set; }
+
+    [XmlElement("category")]
+    public string? Category { get; set; }
 }
