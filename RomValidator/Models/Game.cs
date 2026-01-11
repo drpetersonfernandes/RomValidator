@@ -35,4 +35,7 @@ public class Game
 
     [XmlElement("manufacturer")]
     public string? Manufacturer { get; set; }
+
+    [XmlElement("category")]
+    public string? Category { get; set; }
 }

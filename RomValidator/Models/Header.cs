@@ -27,4 +27,10 @@ public class Header
 
     [XmlElement("clrmamepro")]
     public ClrMamePro ClrMamePro { get; set; } = new();
+
+    [XmlElement("date")]
+    public string? Date { get; set; }
+
+    [XmlElement("retool")]
+    public string? Retool { get; set; }
 }
