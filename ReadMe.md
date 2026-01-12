@@ -32,8 +32,8 @@ The ROM Validator is a Windows application that allows users to validate their R
 
 ## Supported File Formats
 
--   All ROM file formats supported by DAT specifications
--   Compatible with No-Intro XML DAT files.
+-   **Only No-Intro XML DAT files are supported**
+-   All ROM file formats supported by No-Intro DAT specifications
 
 ## Requirements
 
@@ -78,7 +78,7 @@ Files are categorized as:
 
 ## Troubleshooting
 
--   **DAT File Issues**: Ensure you're using a valid XML DAT file
+-   **DAT File Issues**: Ensure you're using a valid No-Intro XML DAT file. Other formats like ClrMamePro text format are not supported.
 -   **File Access Errors**: Run as Administrator if encountering permission issues
 -   **Validation Errors**: Check log details for specific failure reasons
 -   **Slow Performance**: Reduce system load during validation for better performance

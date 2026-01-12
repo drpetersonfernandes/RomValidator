@@ -145,6 +145,9 @@ public partial class GenerateDatPage : IDisposable
         var files = await Task.Run(() => Directory.EnumerateFiles(folderPath, "*", SearchOption.AllDirectories).ToList(), cancellationToken);
         _processedFileCount = files.Count;
 
+        // Track total ROMs processed to adjust progress bar for archives
+        int totalRomCount = 0;
+        
         await Dispatcher.InvokeAsync(() =>
         {
             HashProgressBar.Maximum = files.Count;
@@ -155,19 +158,39 @@ public partial class GenerateDatPage : IDisposable
 
         await Parallel.ForEachAsync(files, parallelOptions, async (filePath, token) =>
         {
-            var gameFile = await HashCalculator.CalculateHashesAsync(filePath, token);
-            if (gameFile.ErrorMessage != null && gameFile.ErrorMessage != "File is locked or access denied after retries")
+            var gameFiles = await HashCalculator.CalculateHashesAsync(filePath, token);
+            var romsFromFile = gameFiles.Count;
+            
+            // Adjust progress bar maximum if this archive contains multiple ROMs
+            if (romsFromFile > 1)
             {
-                _ = _mainWindow.BugReportService.SendBugReportAsync($"Error hashing file {filePath}: {gameFile.ErrorMessage}");
+                await Dispatcher.InvokeAsync(() =>
+                {
+                    HashProgressBar.Maximum += romsFromFile - 1;
+                });
             }
-
-            lock (_operationLock)
+            
+            foreach (var gameFile in gameFiles)
             {
-                _processedFilesList.Add(gameFile);
-            }
+                if (gameFile.ErrorMessage != null && 
+                    gameFile.ErrorMessage != "File is locked or access denied after retries" &&
+                    !gameFile.ErrorMessage.StartsWith("Extracted from:"))
+                {
+                    _ = _mainWindow.BugReportService.SendBugReportAsync($"Error hashing file {filePath}: {gameFile.ErrorMessage}");
+                }
 
-            progress.Report(gameFile);
+                lock (_operationLock)
+                {
+                    _processedFilesList.Add(gameFile);
+                }
+
+                progress.Report(gameFile);
+                totalRomCount++;
+            }
         });
+        
+        // Update final count
+        _processedFileCount = totalRomCount;
     }
 
     private static string SanitizeFileName(string name)

@@ -266,45 +266,85 @@ public partial class ValidatePage : IDisposable
         }
     }
 
-    private async Task<(bool, string)> CheckHashesAsync(string filePath, Rom expectedRom, CancellationToken token)
+    private async Task<(bool IsValid, string Message)> CheckHashesAsync(string filePath, Rom expectedRom, CancellationToken token)
     {
         try
         {
+            var verifiedHashes = new List<string>();
+            var mismatchedHashes = new List<string>();
+
+            // Check SHA1 if provided
             if (!string.IsNullOrEmpty(expectedRom.Sha1))
             {
                 var actualSha1 = await ComputeHashAsync(filePath, SHA1.Create(), token);
-                if (actualSha1.Equals(expectedRom.Sha1, StringComparison.OrdinalIgnoreCase))
-                    return (true, $"SHA1: {actualSha1}");
+                if (!actualSha1.Equals(expectedRom.Sha1, StringComparison.OrdinalIgnoreCase))
+                {
+                    mismatchedHashes.Add($"SHA1 mismatch (expected: {expectedRom.Sha1}, got: {actualSha1})");
+                }
+                else
+                {
+                    verifiedHashes.Add($"SHA1: {actualSha1}");
+                }
             }
 
             token.ThrowIfCancellationRequested();
 
+            // Check MD5 if provided
             if (!string.IsNullOrEmpty(expectedRom.Md5))
             {
                 var actualMd5 = await ComputeHashAsync(filePath, MD5.Create(), token);
-                if (actualMd5.Equals(expectedRom.Md5, StringComparison.OrdinalIgnoreCase))
-                    return (true, $"MD5: {actualMd5}");
+                if (!actualMd5.Equals(expectedRom.Md5, StringComparison.OrdinalIgnoreCase))
+                {
+                    mismatchedHashes.Add($"MD5 mismatch (expected: {expectedRom.Md5}, got: {actualMd5})");
+                }
+                else
+                {
+                    verifiedHashes.Add($"MD5: {actualMd5}");
+                }
             }
 
             token.ThrowIfCancellationRequested();
 
-            if (string.IsNullOrEmpty(expectedRom.Crc)) return (false, "Hash mismatch");
+            // Check CRC32 if provided
+            if (!string.IsNullOrEmpty(expectedRom.Crc))
+            {
+                var actualCrc = await ComputeCrc32Async(filePath, token);
+                if (!actualCrc.Equals(expectedRom.Crc, StringComparison.OrdinalIgnoreCase))
+                {
+                    mismatchedHashes.Add($"CRC32 mismatch (expected: {expectedRom.Crc}, got: {actualCrc})");
+                }
+                else
+                {
+                    verifiedHashes.Add($"CRC32: {actualCrc}");
+                }
+            }
 
-            var actualCrc = await ComputeCrc32Async(filePath, token);
-            if (actualCrc.Equals(expectedRom.Crc, StringComparison.OrdinalIgnoreCase))
-                return (true, $"CRC32: {actualCrc}");
+            // Determine result: ALL provided hashes must match
+            if (mismatchedHashes.Count > 0)
+            {
+                // Failure: At least one hash didn't match
+                var failureReason = string.Join("; ", mismatchedHashes);
+                return (false, failureReason);
+            }
 
-            return (false, "Hash mismatch");
+            if (verifiedHashes.Count == 0)
+            {
+                // No hashes were provided in the DAT entry
+                return (false, "No hashes provided in DAT entry");
+            }
+
+            // Success: All provided hashes matched
+            var successMessage = string.Join(", ", verifiedHashes);
+            return (true, successMessage);
         }
         catch (OperationCanceledException)
         {
-            // Do not log it as an error
             return (false, "Operation canceled");
         }
         catch (Exception ex)
         {
             _ = _mainWindow.BugReportService.SendBugReportAsync($"Error checking hashes for file '{filePath}'", ex);
-            return (false, "Error during hash check");
+            return (false, $"Error during hash check: {ex.Message}");
         }
     }
 
@@ -461,7 +501,6 @@ public partial class ValidatePage : IDisposable
                            $"XML Parsing Error: {innerMsg}\n\n" +
                            "Common causes:\n" +
                            "• The file is in ClrMamePro text format (not XML)\n" +
-                           "• The file is in MAME format (not No-Intro)\n" +
                            "• The XML structure is invalid or corrupted\n\n" +
                            "Please download a compatible No-Intro XML DAT file from https://no-intro.org/";
 

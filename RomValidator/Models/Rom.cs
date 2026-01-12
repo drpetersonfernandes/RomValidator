@@ -22,7 +22,7 @@ public class Rom
     [XmlAttribute("sha256")]
     public string Sha256 { get; set; } = string.Empty;
 
-    // Additional attributes for MAME/No-Intro compatibility
+    // Optional attributes for No-Intro compatibility
     [XmlAttribute("status")]
     public string? Status { get; set; }
 

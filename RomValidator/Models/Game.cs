@@ -4,7 +4,7 @@ namespace RomValidator.Models;
 
 public class Game
 {
-    // Common attributes (No-Intro & MAME)
+    // No-Intro attributes
     [XmlAttribute("name")]
     public string Name { get; set; } = string.Empty;
 
@@ -14,7 +14,7 @@ public class Game
     [XmlAttribute("cloneofid")]
     public string? CloneOfId { get; set; }
 
-    // Common elements - Order is important for XmlSerializer
+    // No-Intro elements - Order is important for XmlSerializer
     [XmlElement("category")]
     public string? Category { get; set; }
 
