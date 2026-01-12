@@ -146,8 +146,8 @@ public partial class GenerateDatPage : IDisposable
         _processedFileCount = files.Count;
 
         // Track total ROMs processed to adjust progress bar for archives
-        int totalRomCount = 0;
-        
+        var totalRomCount = 0;
+
         await Dispatcher.InvokeAsync(() =>
         {
             HashProgressBar.Maximum = files.Count;
@@ -160,7 +160,7 @@ public partial class GenerateDatPage : IDisposable
         {
             var gameFiles = await HashCalculator.CalculateHashesAsync(filePath, token);
             var romsFromFile = gameFiles.Count;
-            
+
             // Adjust progress bar maximum if this archive contains multiple ROMs
             if (romsFromFile > 1)
             {
@@ -169,12 +169,12 @@ public partial class GenerateDatPage : IDisposable
                     HashProgressBar.Maximum += romsFromFile - 1;
                 });
             }
-            
+
             foreach (var gameFile in gameFiles)
             {
-                if (gameFile.ErrorMessage != null && 
+                if (gameFile.ErrorMessage != null &&
                     gameFile.ErrorMessage != "File is locked or access denied after retries" &&
-                    !gameFile.ErrorMessage.StartsWith("Extracted from:"))
+                    !gameFile.ErrorMessage.StartsWith("Extracted from:", StringComparison.Ordinal))
                 {
                     _ = _mainWindow.BugReportService.SendBugReportAsync($"Error hashing file {filePath}: {gameFile.ErrorMessage}");
                 }
@@ -188,7 +188,7 @@ public partial class GenerateDatPage : IDisposable
                 totalRomCount++;
             }
         });
-        
+
         // Update final count
         _processedFileCount = totalRomCount;
     }

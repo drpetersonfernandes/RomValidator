@@ -26,7 +26,7 @@ public static class HashCalculator
             try
             {
                 using var extractor = new SevenZipExtractor(filePath);
-                
+
                 // Process each file in the archive
                 foreach (var archiveEntry in extractor.ArchiveFileData)
                 {
@@ -43,15 +43,15 @@ public static class HashCalculator
                     using var sha256 = SHA256.Create();
 
                     var gameFile = await ProcessStreamAsync(
-                        entryStream, 
+                        entryStream,
                         archiveEntry.FileName,
                         crc32, md5, sha1, sha256,
                         cancellationToken);
-                    
+
                     if (gameFile != null)
                         gameFiles.Add(gameFile);
                 }
-                
+
                 return gameFiles;
             }
             catch (Exception ex)
@@ -67,13 +67,13 @@ public static class HashCalculator
                     filePath, fileInfo,
                     crc32, md5, sha1, sha256,
                     cancellationToken);
-                
+
                 if (fallbackGameFile != null)
                 {
                     fallbackGameFile.ErrorMessage = $"Archive extraction failed: {ex.Message}. Hashed archive container instead of content.";
                     gameFiles.Add(fallbackGameFile);
                 }
-                
+
                 return gameFiles;
             }
         }
@@ -90,10 +90,10 @@ public static class HashCalculator
                 filePath, fileInfo,
                 crc32, md5, sha1, sha256,
                 cancellationToken);
-            
+
             if (gameFile != null)
                 gameFiles.Add(gameFile);
-            
+
             return gameFiles;
         }
     }
@@ -106,7 +106,7 @@ public static class HashCalculator
     {
         try
         {
-            using var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, 65536, true);
+            await using var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, 65536, true);
             return await ProcessStreamAsync(
                 fileStream,
                 fileInfo.Name,
@@ -189,29 +189,29 @@ public static class HashCalculator
 
                 await Task.Delay(retryDelay, cancellationToken);
                 retryDelay *= 2; // Exponential backoff
-                
+
                 // Reset stream position for retry
                 stream.Position = 0;
             }
-             catch (Exception ex)
-             {
-                 gameFile.ErrorMessage = ex.Message;
-                 gameFile.Crc32 = "ERROR";
-                 gameFile.Md5 = "ERROR";
-                 gameFile.Sha1 = "ERROR";
-                 gameFile.Sha256 = "ERROR";
-                 return gameFile;
-             }
-         }
- 
-         throw new InvalidOperationException("Unexpected exit from retry loop");
-     }
-    
+            catch (Exception ex)
+            {
+                gameFile.ErrorMessage = ex.Message;
+                gameFile.Crc32 = "ERROR";
+                gameFile.Md5 = "ERROR";
+                gameFile.Sha1 = "ERROR";
+                gameFile.Sha256 = "ERROR";
+                return gameFile;
+            }
+        }
+
+        throw new InvalidOperationException("Unexpected exit from retry loop");
+    }
+
     private static bool IsArchiveFile(string fileName)
     {
         return ArchiveExtensionRegex.IsMatch(fileName);
     }
-    
+
     private static bool IsAccessDeniedError(IOException ex)
     {
         return ex.Message.Contains("access denied", StringComparison.OrdinalIgnoreCase) ||

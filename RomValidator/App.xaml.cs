@@ -14,7 +14,7 @@ public partial class App
         {
             SevenZipBase.SetLibraryPath(dllPath);
         }
-        
+
         base.OnStartup(e);
     }
 }
