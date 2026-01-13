@@ -18,6 +18,7 @@ public partial class ValidatePage : IDisposable
     private readonly MainWindow _mainWindow;
     private Dictionary<string, Rom> _romDatabase = [];
     private CancellationTokenSource? _cts;
+    private readonly object _ctsLock = new();
 
     // Statistics
     private int _totalFilesToProcess;
@@ -89,6 +90,7 @@ public partial class ValidatePage : IDisposable
 
     private async void StartValidationButton_Click(object sender, RoutedEventArgs e)
     {
+        CancellationTokenSource? operationCts = null; // Capture variable for this operation
         try
         {
             var romsFolderPath = RomsFolderTextBox.Text;
@@ -117,9 +119,13 @@ public partial class ValidatePage : IDisposable
                 return;
             }
 
-            // FIX 2: Dispose previous CancellationTokenSource if any, then create a new one
-            _cts?.Dispose();
-            _cts = new CancellationTokenSource();
+            // Cancel previous operation and create new CancellationTokenSource
+            lock (_ctsLock)
+            {
+                _cts?.Cancel(); // Signal cancellation to any running operation
+                _cts = new CancellationTokenSource();
+                operationCts = _cts; // Capture the instance for this operation
+            }
 
             ResetOperationStats();
             SetControlsState(false);
@@ -129,43 +135,48 @@ public partial class ValidatePage : IDisposable
             LogMessage("--- Starting Validation Process ---");
             _mainWindow.UpdateStatusBarMessage("Validation started...");
 
-            try
+            // Use the captured CTS instance
+            var datLoaded = await LoadDatFileAsync(datFilePath);
+            if (!datLoaded)
             {
-                _mainWindow.UpdateStatusBarMessage("Loading DAT file...");
-                var datLoaded = await LoadDatFileAsync(datFilePath);
-                if (!datLoaded)
-                {
-                    ShowError("Failed to load or parse the DAT file. Please check the log for details.");
-                    _mainWindow.UpdateStatusBarMessage("DAT file load failed.");
-                    return;
-                }
+                ShowError("Failed to load or parse the DAT file. Please check the log for details.");
+                _mainWindow.UpdateStatusBarMessage("DAT file load failed.");
+                return;
+            }
 
-                _mainWindow.UpdateStatusBarMessage("DAT file loaded. Starting ROM validation...");
-                await PerformValidationAsync(romsFolderPath, moveSuccess, moveFailed, _cts.Token);
-            }
-            catch (OperationCanceledException)
-            {
-                LogMessage("Validation operation was canceled by the user.");
-                _mainWindow.UpdateStatusBarMessage("Validation canceled.");
-            }
-            catch (Exception ex)
-            {
-                LogMessage($"An unexpected error occurred: {ex.Message}");
-                ShowError($"An unexpected error occurred during validation: {ex.Message}");
-                _mainWindow.UpdateStatusBarMessage("Validation failed with an error.");
-                _ = _mainWindow.BugReportService.SendBugReportAsync("Exception during PerformValidationAsync", ex);
-            }
-            finally
-            {
-                _operationTimer.Stop();
-                UpdateProcessingTimeDisplay();
-                SetControlsState(true);
-                LogOperationSummary();
-            }
+            _mainWindow.UpdateStatusBarMessage("DAT file loaded. Starting ROM validation...");
+            await PerformValidationAsync(romsFolderPath, moveSuccess, moveFailed, operationCts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            LogMessage("Validation operation was canceled by the user.");
+            _mainWindow.UpdateStatusBarMessage("Validation canceled.");
         }
         catch (Exception ex)
         {
-            _ = _mainWindow.BugReportService.SendBugReportAsync("Exception during StartValidationButton_Click", ex);
+            LogMessage($"An unexpected error occurred: {ex.Message}");
+            ShowError($"An unexpected error occurred during validation: {ex.Message}");
+            _mainWindow.UpdateStatusBarMessage("Validation failed with an error.");
+            _ = _mainWindow.BugReportService.SendBugReportAsync("Exception during PerformValidationAsync", ex);
+        }
+        finally
+        {
+            _operationTimer.Stop();
+            UpdateProcessingTimeDisplay();
+            SetControlsState(true);
+            LogOperationSummary();
+
+            // Dispose only this operation's CTS instance
+            lock (_ctsLock)
+            {
+                // Only clear field if it's still pointing to our instance
+                if (_cts == operationCts)
+                {
+                    _cts = null;
+                }
+            }
+
+            operationCts?.Dispose();
         }
     }
 
@@ -205,7 +216,7 @@ public partial class ValidatePage : IDisposable
                 {
                     await ProcessFileAsync(filePath, successPath, failPath, moveSuccess, moveFailed, ct);
                     var processedSoFar = Interlocked.Increment(ref filesActuallyProcessedCount);
-                    // FIX 1: Pass enableParallelProcessing flag to UpdateProgressDisplay
+                    // Pass enableParallelProcessing flag to UpdateProgressDisplay
                     UpdateProgressDisplay(processedSoFar, _totalFilesToProcess, Path.GetFileName(filePath), enableParallelProcessing);
                     UpdateStatsDisplay();
                     UpdateProcessingTimeDisplay();
@@ -218,7 +229,7 @@ public partial class ValidatePage : IDisposable
                 token.ThrowIfCancellationRequested();
                 await ProcessFileAsync(filePath, successPath, failPath, moveSuccess, moveFailed, token);
                 var processedSoFar = Interlocked.Increment(ref filesActuallyProcessedCount);
-                // FIX 1: Pass enableParallelProcessing flag to UpdateProgressDisplay
+                // Pass enableParallelProcessing flag to UpdateProgressDisplay
                 UpdateProgressDisplay(processedSoFar, _totalFilesToProcess, Path.GetFileName(filePath), enableParallelProcessing);
                 UpdateStatsDisplay();
                 UpdateProcessingTimeDisplay();
@@ -679,8 +690,11 @@ public partial class ValidatePage : IDisposable
 
     private void CancelButton_Click(object sender, RoutedEventArgs e)
     {
-        // FIX 2: Safely cancel the CancellationTokenSource
-        _cts?.Cancel();
+        lock (_ctsLock)
+        {
+            _cts?.Cancel();
+        }
+
         LogMessage("Cancellation requested. Finishing current operations...");
         _mainWindow.UpdateStatusBarMessage("Validation canceled.");
     }
@@ -749,7 +763,7 @@ public partial class ValidatePage : IDisposable
         Application.Current.Dispatcher.InvokeAsync(() => { ProcessingTimeValue.Text = $@"{elapsed:hh\:mm\:ss}"; });
     }
 
-    // FIX 1: Add a parameter to indicate parallel processing and adjust text accordingly
+    // Add a parameter to indicate parallel processing and adjust text accordingly
     private void UpdateProgressDisplay(int current, int total, string currentFileName, bool isParallel)
     {
         var percentage = total == 0 ? 0 : (double)current / total * 100;
@@ -806,7 +820,12 @@ public partial class ValidatePage : IDisposable
 
     public void Dispose()
     {
-        _cts?.Dispose();
+        lock (_ctsLock)
+        {
+            _cts?.Cancel(); // Cancel any ongoing operation
+            _cts?.Dispose();
+        }
+
         GC.SuppressFinalize(this);
     }
 

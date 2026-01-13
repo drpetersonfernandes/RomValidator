@@ -21,7 +21,7 @@
             <TextBlock FontWeight="Bold" FontSize="18" Text="ROM Validator" />
             <TextBlock x:Name="DescriptionTextBlock" TextWrapping="Wrap" Margin="0,5,0,0" 
                        Text="A utility for validating ROM files against DAT files and generating new No-Intro compliant DAT files from your collection." />
-            <TextBlock Name="AppVersionTextBlock" Margin="0,10,0,0" Text="Version: 2.0.0.0" />
+            <TextBlock Name="AppVersionTextBlock" Margin="0,10,0,0" />
             <TextBlock Margin="0,10,0,0" Text="This tool helps ensure your ROM collection is complete, accurate, and properly cataloged." />
             <TextBlock Margin="0,10,0,0" Text="© 2025 Pure Logic Code. All rights reserved." />
             <TextBlock Margin="0,10,0,0">

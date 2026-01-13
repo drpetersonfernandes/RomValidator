@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Globalization;
+using System.Windows.Threading;
 using System.IO;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -16,6 +17,9 @@ namespace RomValidator;
 
 public partial class GenerateDatPage : IDisposable
 {
+    // Compiled regex for sanitizing filenames (Issue C fix)
+    private static readonly Regex InvalidFileNameCharsRegex = new($"[{Regex.Escape(new string(Path.GetInvalidFileNameChars()))}]", RegexOptions.Compiled);
+
     private readonly MainWindow _mainWindow;
     private CancellationTokenSource? _cts;
     private readonly object _ctsLock = new();
@@ -24,12 +28,24 @@ public partial class GenerateDatPage : IDisposable
     private int _processedFileCount;
     private readonly object _operationLock = new();
 
+    // Batching for UI updates (Issue A fix)
+    private readonly List<GameFile> _uiUpdateBuffer = [];
+    private DispatcherTimer? _uiUpdateTimer;
+
     public GenerateDatPage(MainWindow mainWindow)
     {
         _mainWindow = mainWindow;
         InitializeComponent();
         HashListView.ItemsSource = _fileDataCollection;
         UpdateFileCountText(0);
+
+        // Initialize UI update timer for batching (Issue A fix)
+        _uiUpdateTimer = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromMilliseconds(100)
+        };
+        _uiUpdateTimer.Tick += UIUpdateTimer_Tick;
+
         _mainWindow.UpdateStatusBarMessage("Ready to generate DAT file.");
     }
 
@@ -47,6 +63,8 @@ public partial class GenerateDatPage : IDisposable
 
     private async void StartButton_Click(object sender, RoutedEventArgs e)
     {
+        CancellationTokenSource? operationCts = null; // Capture variable for this operation
+
         try
         {
             if (string.IsNullOrEmpty(FolderTextBox.Text) || !Directory.Exists(FolderTextBox.Text))
@@ -55,78 +73,110 @@ public partial class GenerateDatPage : IDisposable
                 return;
             }
 
-            try
+            ClearAll();
+
+            // Cancel previous operation and create new CancellationTokenSource
+            lock (_ctsLock)
             {
-                ClearAll();
-                lock (_ctsLock)
-                {
-                    _cts = new CancellationTokenSource();
-                }
-
-                var progress = new Progress<GameFile>(update =>
-                {
-                    Dispatcher.Invoke(() =>
-                    {
-                        _fileDataCollection.Add(update);
-                        UpdateFileCountText(_fileDataCollection.Count);
-                        if (HashProgressBar.Maximum > 0)
-                        {
-                            HashProgressBar.Value = _fileDataCollection.Count;
-                            ProgressText.Text = $"{_fileDataCollection.Count} / {(int)HashProgressBar.Maximum}";
-                        }
-                    });
-                });
-
-                StartButton.IsEnabled = false;
-                StopButton.IsEnabled = true;
-                ExportDatButton.IsEnabled = false;
-                _mainWindow.UpdateStatusBarMessage("Hashing in progress...");
-
-                await HashFilesAsync(FolderTextBox.Text, progress, _cts.Token);
-
-                if (!_cts.IsCancellationRequested)
-                {
-                    MessageBox.Show(_mainWindow, $"Hashing complete! {_processedFileCount} files processed.", "Complete", MessageBoxButton.OK, MessageBoxImage.Information);
-                    lock (_operationLock)
-                    {
-                        ExportDatButton.IsEnabled = _processedFilesList.Count > 0;
-                    }
-
-                    _mainWindow.UpdateStatusBarMessage($"Hashing complete. {_processedFileCount} files processed.");
-                }
-                else
-                {
-                    MessageBox.Show(_mainWindow, "Operation was cancelled", "Cancelled", MessageBoxButton.OK, MessageBoxImage.Information);
-                    ExportDatButton.IsEnabled = false;
-                    _mainWindow.UpdateStatusBarMessage("Hashing cancelled.");
-                }
+                _cts?.Cancel(); // Signal cancellation to any running operation
+                _cts = new CancellationTokenSource();
+                operationCts = _cts; // Capture the instance for this operation
             }
-            catch (OperationCanceledException)
+
+            // Batch UI updates instead of invoking for each file (Issue A fix)
+            var progress = new Progress<GameFile>(update =>
+            {
+                lock (_uiUpdateBuffer)
+                {
+                    _uiUpdateBuffer.Add(update);
+                }
+
+                // Start timer if not already running
+                if (_uiUpdateTimer != null && !_uiUpdateTimer.IsEnabled)
+                {
+                    _uiUpdateTimer.Start();
+                }
+            });
+
+            StartButton.IsEnabled = false;
+            StopButton.IsEnabled = true;
+            ExportDatButton.IsEnabled = false;
+            _mainWindow.UpdateStatusBarMessage("Hashing in progress...");
+
+            // Use the captured CTS instance
+            await HashFilesAsync(FolderTextBox.Text, progress, operationCts.Token);
+
+            if (!operationCts.IsCancellationRequested)
+            {
+                MessageBox.Show(_mainWindow, $"Hashing complete! {_processedFileCount} files processed.", "Complete", MessageBoxButton.OK, MessageBoxImage.Information);
+                lock (_operationLock)
+                {
+                    ExportDatButton.IsEnabled = _processedFilesList.Count > 0;
+                }
+
+                _mainWindow.UpdateStatusBarMessage($"Hashing complete. {_processedFileCount} files processed.");
+            }
+            else
             {
                 MessageBox.Show(_mainWindow, "Operation was cancelled", "Cancelled", MessageBoxButton.OK, MessageBoxImage.Information);
                 ExportDatButton.IsEnabled = false;
                 _mainWindow.UpdateStatusBarMessage("Hashing cancelled.");
             }
-            catch (Exception ex)
-            {
-                _ = _mainWindow.BugReportService.SendBugReportAsync($"Error during hashing operation for folder: {FolderTextBox.Text}", ex);
-                MessageBox.Show(_mainWindow, $"An error occurred: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                _mainWindow.UpdateStatusBarMessage("Error during hashing.");
-            }
-            finally
-            {
-                StartButton.IsEnabled = true;
-                StopButton.IsEnabled = false;
-                lock (_ctsLock)
-                {
-                    _cts?.Dispose();
-                    _cts = null;
-                }
-            }
+        }
+        catch (OperationCanceledException)
+        {
+            MessageBox.Show(_mainWindow, "Operation was cancelled", "Cancelled", MessageBoxButton.OK, MessageBoxImage.Information);
+            ExportDatButton.IsEnabled = false;
+            _mainWindow.UpdateStatusBarMessage("Hashing cancelled.");
         }
         catch (Exception ex)
         {
             _ = _mainWindow.BugReportService.SendBugReportAsync($"Error during hashing operation for folder: {FolderTextBox.Text}", ex);
+            MessageBox.Show(_mainWindow, $"An error occurred: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            _mainWindow.UpdateStatusBarMessage("Error during hashing.");
+        }
+        finally
+        {
+            StartButton.IsEnabled = true;
+            StopButton.IsEnabled = false;
+
+            // Dispose only this operation's CTS instance
+            lock (_ctsLock)
+            {
+                // Only clear field if it's still pointing to our instance
+                if (_cts == operationCts)
+                {
+                    _cts = null;
+                }
+            }
+
+            operationCts?.Dispose();
+        }
+    }
+
+    // Timer tick handler for batch UI updates (Issue A fix)
+    private void UIUpdateTimer_Tick(object? sender, EventArgs e)
+    {
+        lock (_uiUpdateBuffer)
+        {
+            if (_uiUpdateBuffer.Count > 0)
+            {
+                foreach (var item in _uiUpdateBuffer)
+                {
+                    _fileDataCollection.Add(item);
+                }
+
+                UpdateFileCountText(_fileDataCollection.Count);
+                if (HashProgressBar.Maximum > 0)
+                {
+                    HashProgressBar.Value = _fileDataCollection.Count;
+                    ProgressText.Text = $"{_fileDataCollection.Count} / {(int)HashProgressBar.Maximum}";
+                }
+
+                _uiUpdateBuffer.Clear();
+            }
+
+            _uiUpdateTimer?.Stop();
         }
     }
 
@@ -195,9 +245,7 @@ public partial class GenerateDatPage : IDisposable
 
     private static string SanitizeFileName(string name)
     {
-        var invalidChars = new string(Path.GetInvalidFileNameChars());
-        var regex = new Regex($"[{Regex.Escape(invalidChars)}]");
-        return regex.Replace(name, "_");
+        return InvalidFileNameCharsRegex.Replace(name, "_");
     }
 
     private async void ExportDatButton_Click(object sender, RoutedEventArgs e)
@@ -307,6 +355,12 @@ public partial class GenerateDatPage : IDisposable
     {
         lock (_ctsLock)
         {
+            _uiUpdateTimer?.Stop();
+            lock (_uiUpdateBuffer)
+            {
+                _uiUpdateBuffer.Clear();
+            }
+
             _cts?.Cancel();
             _cts?.Dispose();
             _cts = null;
@@ -340,6 +394,8 @@ public partial class GenerateDatPage : IDisposable
 
     public void Dispose()
     {
+        _uiUpdateTimer?.Stop();
+        _uiUpdateTimer = null;
         _cts?.Dispose();
         GC.SuppressFinalize(this);
     }

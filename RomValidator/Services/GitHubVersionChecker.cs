@@ -32,14 +32,14 @@ public class GitHubVersionChecker : IDisposable
 
             if (release?.TagName == null || release.HtmlUrl == null)
             {
-                await Console.Error.WriteLineAsync("GitHubVersionChecker: Could not parse release info from API response.");
+                LoggerService.LogError("GitHubVersionChecker", "Could not parse release info from API response.");
                 return (false, null, null);
             }
 
             var currentVersion = GetCurrentApplicationVersion();
             if (currentVersion == null)
             {
-                await Console.Error.WriteLineAsync("GitHubVersionChecker: Could not determine current application version.");
+                LoggerService.LogError("GitHubVersionChecker", "Could not determine current application version.");
                 return (false, null, null);
             }
 
@@ -56,19 +56,19 @@ public class GitHubVersionChecker : IDisposable
             }
             else
             {
-                await Console.Error.WriteLineAsync($"GitHubVersionChecker: Could not parse latest version tag '{release.TagName}' from GitHub.");
+                LoggerService.LogError("GitHubVersionChecker", $"Could not parse latest version tag '{release.TagName}' from GitHub.");
             }
 
             return (false, null, null); // No new version or parsing issue
         }
         catch (HttpRequestException httpEx)
         {
-            await Console.Error.WriteLineAsync($"GitHubVersionChecker: HTTP request error checking for updates: {httpEx.Message}");
+            LoggerService.LogError("GitHubVersionChecker", $"HTTP request error checking for updates: {httpEx.Message}");
             return (false, null, null);
         }
         catch (Exception ex)
         {
-            await Console.Error.WriteLineAsync($"GitHubVersionChecker: General error checking for updates: {ex.Message}");
+            LoggerService.LogError("GitHubVersionChecker", $"General error checking for updates: {ex.Message}");
             return (false, null, null);
         }
     }

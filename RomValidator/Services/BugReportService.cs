@@ -80,7 +80,7 @@ public class BugReportService(string apiUrl, string apiKey, string applicationNa
                 else
                 {
                     var errors = apiResponse?.Data?.Errors != null ? string.Join(", ", apiResponse.Data.Errors) : "No specific errors reported.";
-                    await Console.Error.WriteLineAsync($"BugReportService API reported failure. Errors: {errors}");
+                    LoggerService.LogError("BugReportService", $"BugReportService API reported failure. Errors: {errors}");
                     return false;
                 }
             }
@@ -88,14 +88,14 @@ public class BugReportService(string apiUrl, string apiKey, string applicationNa
             {
                 // Log the non-success HTTP status code and content for debugging
                 var errorContent = await response.Content.ReadAsStringAsync();
-                await Console.Error.WriteLineAsync($"BugReportService API call failed with HTTP status {response.StatusCode}. Content: {errorContent}");
+                LoggerService.LogError("BugReportService", $"BugReportService API call failed with HTTP status {response.StatusCode}. Content: {errorContent}");
                 return false;
             }
         }
         catch (Exception ex)
         {
             // Log the exception that occurred while trying to send the bug report itself
-            await Console.Error.WriteLineAsync($"Exception while attempting to send bug report: {ex.Message}");
+            LoggerService.LogError("BugReportService", $"Exception while attempting to send bug report: {ex.Message}");
             // Silently fail if there's an exception during a bug report sending itself
             return false;
         }
