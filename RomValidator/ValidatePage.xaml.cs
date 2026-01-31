@@ -239,6 +239,13 @@ public partial class ValidatePage : IDisposable
         _mainWindow.UpdateStatusBarMessage("Validation complete.");
     }
 
+    private static bool IsAccessDeniedError(IOException ex)
+    {
+        return ex.Message.Contains("access denied", StringComparison.OrdinalIgnoreCase) ||
+               ex.Message.Contains("the process cannot access the file", StringComparison.OrdinalIgnoreCase) ||
+               ex.Message.Contains("being used by another process", StringComparison.OrdinalIgnoreCase);
+    }
+
     private async Task ProcessFileAsync(string filePath, string successPath, string failPath, bool moveSuccess, bool moveFailed, CancellationToken token)
     {
         var fileName = Path.GetFileName(filePath);
@@ -598,20 +605,73 @@ public partial class ValidatePage : IDisposable
 
     private static async Task<string> ComputeHashAsync(string filePath, HashAlgorithm algorithm, CancellationToken token)
     {
+        const int maxRetries = 3;
+        var retryDelay = 100;
+
         using (algorithm)
         {
-            await using var stream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, true);
-            var hashBytes = await algorithm.ComputeHashAsync(stream, token);
-            return Convert.ToHexString(hashBytes).ToLowerInvariant();
+            for (var attempt = 0; attempt < maxRetries; attempt++)
+            {
+                try
+                {
+                    // Reinitialize algorithm to clear any partial state from previous attempt
+                    algorithm.Initialize();
+
+                    await using var stream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, true);
+                    var hashBytes = await algorithm.ComputeHashAsync(stream, token);
+                    return Convert.ToHexString(hashBytes).ToLowerInvariant();
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch (IOException ex) when (IsAccessDeniedError(ex))
+                {
+                    if (attempt == maxRetries - 1)
+                    {
+                        throw new IOException($"File is locked or access denied after {maxRetries} attempts: {filePath}", ex);
+                    }
+
+                    await Task.Delay(retryDelay, token);
+                    retryDelay *= 2; // Exponential backoff
+                }
+            }
+
+            throw new InvalidOperationException("Unexpected exit from retry loop");
         }
     }
 
     private static async Task<string> ComputeCrc32Async(string filePath, CancellationToken token)
     {
-        using var crc32 = new Crc32Algorithm();
-        await using var stream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, true);
-        var hashBytes = await crc32.ComputeHashAsync(stream, token);
-        return Convert.ToHexString(hashBytes).ToLowerInvariant();
+        const int maxRetries = 3;
+        var retryDelay = 100;
+
+        for (var attempt = 0; attempt < maxRetries; attempt++)
+        {
+            try
+            {
+                using var crc32 = new Crc32Algorithm();
+                await using var stream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, true);
+                var hashBytes = await crc32.ComputeHashAsync(stream, token);
+                return Convert.ToHexString(hashBytes).ToLowerInvariant();
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (IOException ex) when (IsAccessDeniedError(ex))
+            {
+                if (attempt == maxRetries - 1)
+                {
+                    throw new IOException($"File is locked or access denied after {maxRetries} attempts: {filePath}", ex);
+                }
+
+                await Task.Delay(retryDelay, token);
+                retryDelay *= 2; // Exponential backoff
+            }
+        }
+
+        throw new InvalidOperationException("Unexpected exit from retry loop");
     }
 
     private async Task MoveFileAsync(string sourcePath, string destPath)
