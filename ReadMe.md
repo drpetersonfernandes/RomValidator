@@ -1,84 +1,81 @@
 # ROM Validator
 
-A powerful Windows desktop utility for both validating ROM files against No-Intro DAT files and generating new, compliant DAT files from your collection.
+[![.NET 10.0](https://img.shields.io/badge/.NET-10.0-blue.svg)](https://dotnet.microsoft.com/download/dotnet/10.0)
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE.txt)
+[![Platform: Windows](https://img.shields.io/badge/Platform-Windows-lightgrey.svg)](#requirements)
 
-![ROM Validator](screenshot.png)
+**ROM Validator** is a high-performance Windows desktop utility designed for ROM collection management and digital preservation. It provides a streamlined workflow for validating local ROM files against industry-standard No-Intro DAT specifications and generating new, compliant DAT files from existing collections.
 
-## ⭐ Support This Project
+![ROM Validator Screenshot](screenshot.png)
+![ROM Validator Screenshot](screenshot2.png)
 
-If you find ROM Validator useful, please consider:
+## 🚀 Key Features
 
--   **Giving us a star** ⭐ on GitHub to help others discover this project
--   **Making a donation** at [https://www.purelogiccode.com/donate](https://www.purelogiccode.com/donate) to support continued development
+### 🔍 Advanced Validation
+-   **Multi-Hash Verification**: Validates file integrity using CRC32, MD5, and SHA1/SHA256 checksums.
+-   **No-Intro Integration**: Native support for No-Intro XML DAT formats.
+-   **Archive Support**: Deep-scans within compressed archives (ZIP, 7z, RAR, etc.) without manual extraction.
+-   **Parallel Processing**: High-speed validation utilizing multi-threaded hashing (optimized for modern multi-core CPUs).
 
-Your support helps keep this project alive and enables us to add new features and improvements!
+### 📂 Collection Management
+-   **Automated Organization**: Automatically sorts files into `_success` or `_fail` directories based on validation results.
+-   **DAT Generation**: Create No-Intro compliant DAT files from any folder, complete with custom metadata (Author, Version, Description).
+-   **Real-time Logging**: Detailed, timestamped logs for every operation, including specific reasons for validation failures.
 
-## Overview
+### 💻 User Experience
+-   **Modern WPF Interface**: A clean, responsive UI with progress monitoring and statistical breakdowns.
+-   **Update Notifications**: Integrated GitHub version checking to ensure you are always using the latest preservation logic.
+-   **Bug Reporting**: Built-in service to report issues directly to the development team.
 
-The ROM Validator is a Windows application that allows users to validate their ROM collection against DAT files. It checks each file's size and hash (SHA1, MD5, or CRC32) to verify authenticity and integrity. The application can automatically organize files based on validation results for easy management of ROM collections.
+---
 
-## Features
+## 🛠 Requirements
 
--   **DAT File Support**: Parses DAT files (XML format) to extract ROM validation criteria
--   **No-Intro DAT Support**: Parses No-Intro XML DAT files to extract ROM validation criteria.
--   **Multi-Hash Validation**: Supports SHA1, MD5, and CRC32 hash verification
--   **Batch Processing**: Validates all ROM files in a folder in a single operation
--   **Automatic Organization**: Moves files to `_success` or `_fail` folders based on validation results
--   **Parallel Processing**: Uses multi-threading for faster validation of large collections
--   **Detailed Logging**: Provides real-time validation results with timestamps
--   **Statistics Tracking**: Displays counts of successful, failed, and unknown files
--   **Progress Monitoring**: Shows real-time progress of file validation with a progress bar and current file name.
--   **Status Bar**: Provides concise, real-time application status messages at the bottom of the window.
+-   **Operating System**: Windows 10 (version 1809) or later / Windows 11.
+-   **Runtime**: [.NET 10.0 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0).
+-   **Architecture**: x64 or ARM64.
 
-## Supported File Formats
+---
 
--   **Only No-Intro XML DAT files are supported**
--   All ROM file formats supported by No-Intro DAT specifications
+## 📥 Installation
 
-## Requirements
+1.  Navigate to the [Releases](https://github.com/drpetersonfernandes/RomValidator/releases) page.
+2.  Download the latest `RomValidator.zip`.
+3.  Extract the contents to a permanent folder.
+4.  Launch `RomValidator.exe`.
 
--   Windows 7 or later
--   [.NET 9.0 Runtime](https://dotnet.microsoft.com/download/dotnet/9.0)
+---
 
-## Installation
+## 📖 Usage Guide
 
-1.  Download the latest release ZIP file
-2.  Extract contents to a folder of your choice
-3.  Run `RomValidator.exe`
+### Validating ROMs
+1.  **Select Source**: Choose the folder containing your ROM files.
+2.  **Load DAT**: Select a compatible No-Intro XML DAT file.
+3.  **Configure**: Toggle "Move successful items" or "Parallel Processing" as needed.
+4.  **Execute**: Click **Start Validation**. The application will categorize files as ✅ **Success**, ❌ **Failed**, or ❓ **Unknown**.
 
-## Usage
+### Generating DATs
+1.  Switch to the **Generate DAT** tab.
+2.  **Select Folder**: Choose the directory containing the files you wish to catalog.
+3.  **Metadata**: Enter the Name, Description, and Author for the DAT header.
+4.  **Process**: Click **Start Hashing**.
+5.  **Export**: Once complete, click **Export DAT** to save the XML file.
 
-1.  **Select ROMs Folder**: Click "Browse" next to "ROMs Folder to Scan" to select your ROMs directory
-2.  **Select DAT File**: Click "Browse" next to "DAT File" to select your DAT file
-3.  **Configure Options**:
-    -   Check "Move successful items" to automatically move valid ROMs to `_success`
-    -   Check "Move failed/unknown items" to move invalid ROMs to `_fail`
-    -   Check "Enable Parallel Processing" for faster validation (processes 3 files concurrently).
-4.  **Start Validation**: Click "Start Validation" to begin the process
-5.  **Review Results**: Check the log window, statistics panel, and status bar for validation results and application status.
+---
 
-## Validation Process
+## 🤝 Support & Contribution
 
-The validator performs these checks for each ROM file:
-1.  **Presence Check**: Verifies the file exists in the DAT database
-2.  **Size Check**: Compares actual file size with expected size
-3.  **Hash Verification**: Validates SHA1, MD5, or CRC32 hashes (in order of priority)
+If you find this tool helpful for your preservation projects, please consider:
 
-Files are categorized as:
--   ✅ **Success**: Matches all criteria in DAT file
--   ❌ **Failed**: Fails size or hash check
--   ❓ **Unknown**: Not found in DAT file
+-   **Starring the project** on GitHub to increase visibility.
+-   **Reporting Bugs**: Use the built-in reporting tool or open a GitHub Issue.
+-   **Donations**: Support continued development at [purelogiccode.com/donate](https://www.purelogiccode.com/donate).
 
-## Why Validate ROMs?
+---
 
--   **Preservation**: Ensures ROMs are exact copies of original media
--   **Compatibility**: Guarantees files will work correctly with emulators
--   **Organization**: Identifies corrupted or modified files in your collection
--   **Verification**: Confirms you have authentic versions for preservation projects
+## 📜 License
 
-## Troubleshooting
+This project is licensed under the **GNU General Public License v3.0**. See the [LICENSE.txt](LICENSE.txt) file for full details.
 
--   **DAT File Issues**: Ensure you're using a valid No-Intro XML DAT file. Other formats like ClrMamePro text format are not supported.
--   **File Access Errors**: Run as Administrator if encountering permission issues
--   **Validation Errors**: Check log details for specific failure reasons
--   **Slow Performance**: Reduce system load during validation for better performance
+Developed by **Pure Logic Code**  
+[www.purelogiccode.com](http://www.purelogiccode.com)
