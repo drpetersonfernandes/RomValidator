@@ -253,6 +253,14 @@ public partial class ValidatePage : IDisposable
         }
 
         var fileInfo = new FileInfo(filePath);
+
+        if (!fileInfo.Exists)
+        {
+            Interlocked.Increment(ref _failCount);
+            LogMessage($"[ERROR] {fileName} - File not found during validation (may have been deleted or moved).");
+            return;
+        }
+
         if (fileInfo.Length != expectedRom.Size)
         {
             Interlocked.Increment(ref _failCount);

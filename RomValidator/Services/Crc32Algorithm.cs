@@ -48,6 +48,12 @@ public class Crc32Algorithm : HashAlgorithm
     protected override byte[] HashFinal()
     {
         var finalCrc = ~_currentCrc;
-        return BitConverter.GetBytes(finalCrc);
+        return
+        [
+            (byte)(finalCrc >> 24),
+            (byte)(finalCrc >> 16),
+            (byte)(finalCrc >> 8),
+            (byte)finalCrc
+        ];
     }
 }

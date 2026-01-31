@@ -235,7 +235,7 @@ public partial class GenerateDatPage : IDisposable
                 }
 
                 progress.Report(gameFile);
-                totalRomCount++;
+                Interlocked.Increment(ref totalRomCount);
             }
         });
 
