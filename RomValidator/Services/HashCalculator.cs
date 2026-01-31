@@ -8,12 +8,10 @@ using RomValidator.Models;
 
 namespace RomValidator.Services;
 
-public static class HashCalculator
+public static partial class HashCalculator
 {
     // Archive file extensions supported by SevenZipSharp
-    private static readonly Regex ArchiveExtensionRegex = new(
-        @"\.(zip|7z|rar|gz|tar|bz2|xz|lzma|cab|iso|img|vhd|wim)$",
-        RegexOptions.IgnoreCase | RegexOptions.Compiled);
+    private static readonly Regex ArchiveExtensionRegex = MyRegex();
 
     public static async Task<List<GameFile>> CalculateHashesAsync(string filePath, CancellationToken cancellationToken)
     {
@@ -53,6 +51,10 @@ public static class HashCalculator
                 }
 
                 return gameFiles;
+            }
+            catch (OperationCanceledException)
+            {
+                throw; // Don't treat cancellation as archive extraction failure
             }
             catch (Exception ex)
             {
@@ -112,6 +114,10 @@ public static class HashCalculator
                 fileInfo.Name,
                 crc32, md5, sha1, sha256,
                 cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            throw; // Re-throw to allow proper cancellation handling upstream
         }
         catch (Exception ex)
         {
@@ -179,6 +185,10 @@ public static class HashCalculator
 
                 return gameFile;
             }
+            catch (OperationCanceledException)
+            {
+                throw; // Re-throw cancellation so it propagates to the UI
+            }
             catch (IOException ex) when (IsAccessDeniedError(ex))
             {
                 if (attempt == maxRetries - 1)
@@ -231,4 +241,7 @@ public static class HashCalculator
 
         return sb.ToString();
     }
+
+    [GeneratedRegex(@"\.(zip|7z|rar|gz|tar|bz2|xz|lzma|cab|iso|img|vhd|wim)$", RegexOptions.IgnoreCase | RegexOptions.Compiled, "pt-BR")]
+    private static partial Regex MyRegex();
 }

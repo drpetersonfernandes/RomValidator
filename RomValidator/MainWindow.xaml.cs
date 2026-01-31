@@ -7,8 +7,8 @@ namespace RomValidator;
 public partial class MainWindow : IDisposable
 {
     // Services
-    public BugReportService BugReportService { get; private set; }
-    public GitHubVersionChecker VersionChecker { get; private set; }
+    public BugReportService BugReportService { get; }
+    public GitHubVersionChecker VersionChecker { get; }
 
     // Pages
     private readonly ValidatePage _validatePage;
@@ -75,10 +75,10 @@ public partial class MainWindow : IDisposable
 
     public void Dispose()
     {
-        BugReportService?.Dispose();
-        VersionChecker?.Dispose();
-        _validatePage?.Dispose();
-        _generateDatPage?.Dispose();
+        BugReportService.Dispose();
+        VersionChecker.Dispose();
+        _validatePage.Dispose();
+        _generateDatPage.Dispose();
         GC.SuppressFinalize(this);
     }
 }

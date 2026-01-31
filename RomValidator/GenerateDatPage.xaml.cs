@@ -92,7 +92,7 @@ public partial class GenerateDatPage : IDisposable
                 }
 
                 // Start timer if not already running
-                if (_uiUpdateTimer != null && !_uiUpdateTimer.IsEnabled)
+                if (_uiUpdateTimer is { IsEnabled: false })
                 {
                     _uiUpdateTimer.Start();
                 }

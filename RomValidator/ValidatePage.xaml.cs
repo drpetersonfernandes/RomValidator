@@ -352,8 +352,15 @@ public partial class ValidatePage : IDisposable
         {
             return (false, "Operation canceled");
         }
+        catch (IOException ex)
+        {
+            // Don't report corrupted/unreadable files as bugs - these are user environment issues
+            LoggerService.LogError("Validation", $"IO error reading file '{filePath}': {ex.Message}");
+            return (false, $"File I/O error (file may be corrupted or unreadable): {ex.Message}");
+        }
         catch (Exception ex)
         {
+            // Only report actual application bugs
             _ = _mainWindow.BugReportService.SendBugReportAsync($"Error checking hashes for file '{filePath}'", ex);
             return (false, $"Error during hash check: {ex.Message}");
         }
