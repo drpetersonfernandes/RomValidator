@@ -404,6 +404,32 @@ public partial class ValidatePage : IDisposable
                 datFilePreview = "[Could not read file preview]";
             }
 
+            // Quick check for common incompatible formats - MUST happen before XML parsing
+            string firstLine;
+            using (var sr = new StreamReader(datFilePath, Encoding.UTF8, true, 1024))
+            {
+                firstLine = await sr.ReadLineAsync() ?? string.Empty;
+            }
+
+            if (firstLine.Contains("clrmamepro", StringComparison.OrdinalIgnoreCase) &&
+                !firstLine.TrimStart().StartsWith("<?xml", StringComparison.OrdinalIgnoreCase))
+            {
+                const string errorMsg = "Incompatible DAT file format.\n\n" +
+                                        "This application only supports No-Intro XML DAT files.\n\n" +
+                                        "The selected file appears to be a ClrMamePro text format DAT file, which is not supported.\n\n" +
+                                        "Please download an XML format DAT file from https://no-intro.org/";
+                LogMessage($"Error: {errorMsg}");
+
+                // Send sample to developer
+                var detailedError = $"User attempted to load ClrMamePro text format DAT file: {Path.GetFileName(datFilePath)}\n\n" +
+                                    $"File Preview:\n{datFilePreview}";
+                _ = _mainWindow.BugReportService.SendBugReportAsync(detailedError);
+
+                ShowIncompatibleDatFileError(errorMsg);
+                _mainWindow.UpdateStatusBarMessage("DAT file format not supported.");
+                return false;
+            }
+
             // First validation pass - check for <datafile> root element
             await using (var validationStream = new FileStream(datFilePath, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, true))
             {
@@ -427,32 +453,6 @@ public partial class ValidatePage : IDisposable
                     _mainWindow.UpdateStatusBarMessage("DAT file format not supported.");
                     return false;
                 }
-            }
-
-            // Quick check for common incompatible formats
-            string firstLine;
-            using (var sr = new StreamReader(datFilePath, Encoding.UTF8, true, 1024))
-            {
-                firstLine = await sr.ReadLineAsync() ?? string.Empty;
-            }
-
-            if (firstLine.Contains("clrmamepro", StringComparison.OrdinalIgnoreCase) &&
-                !firstLine.Contains("<?xml", StringComparison.OrdinalIgnoreCase))
-            {
-                const string errorMsg = "Incompatible DAT file format.\n\n" +
-                                        "This application only supports No-Intro XML DAT files.\n\n" +
-                                        "The selected file appears to be a ClrMamePro text format DAT file, which is not supported.\n\n" +
-                                        "Please download an XML format DAT file from https://no-intro.org/";
-                LogMessage($"Error: {errorMsg}");
-
-                // Send sample to developer
-                var detailedError = $"User attempted to load ClrMamePro text format DAT file: {Path.GetFileName(datFilePath)}\n\n" +
-                                    $"File Preview:\n{datFilePreview}";
-                _ = _mainWindow.BugReportService.SendBugReportAsync(detailedError);
-
-                ShowIncompatibleDatFileError(errorMsg);
-                _mainWindow.UpdateStatusBarMessage("DAT file format not supported.");
-                return false;
             }
 
             // Create serializer with our updated models
