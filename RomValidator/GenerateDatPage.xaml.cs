@@ -19,6 +19,7 @@ public partial class GenerateDatPage : IDisposable
 {
     // Compiled regex for sanitizing filenames (Issue C fix)
     private static readonly Regex InvalidFileNameCharsRegex = new($"[{Regex.Escape(new string(Path.GetInvalidFileNameChars()))}]", RegexOptions.Compiled);
+    private const int MaxUiDisplayItems = 500; // Limit UI list size to prevent lag (Issue 8 fix)
 
     private readonly MainWindow _mainWindow;
     private CancellationTokenSource? _cts;
@@ -161,16 +162,20 @@ public partial class GenerateDatPage : IDisposable
         {
             if (_uiUpdateBuffer.Count > 0)
             {
+                var totalProcessed = _processedFilesList.Count;
+
                 foreach (var item in _uiUpdateBuffer)
                 {
                     _fileDataCollection.Add(item);
+                    if (_fileDataCollection.Count > MaxUiDisplayItems)
+                        _fileDataCollection.RemoveAt(0);
                 }
 
-                UpdateFileCountText(_fileDataCollection.Count);
+                UpdateFileCountText(totalProcessed);
                 if (HashProgressBar.Maximum > 0)
                 {
-                    HashProgressBar.Value = _fileDataCollection.Count;
-                    ProgressText.Text = $"{_fileDataCollection.Count} / {(int)HashProgressBar.Maximum}";
+                    HashProgressBar.Value = totalProcessed;
+                    ProgressText.Text = $"{totalProcessed} / {(int)HashProgressBar.Maximum}";
                 }
 
                 _uiUpdateBuffer.Clear();
@@ -192,19 +197,34 @@ public partial class GenerateDatPage : IDisposable
 
     private async Task HashFilesAsync(string folderPath, IProgress<GameFile> progress, CancellationToken cancellationToken)
     {
-        var files = await Task.Run(() => Directory.EnumerateFiles(folderPath, "*", SearchOption.AllDirectories).ToList(), cancellationToken);
-        _processedFileCount = files.Count;
-
         var totalRomCount = 0;
+        var discoveredFilesCount = 0;
 
-        await Dispatcher.InvokeAsync(() =>
+        // Start a background task to count files so the progress bar Max updates dynamically
+        // without blocking the start of hashing (Issue 7 fix)
+        _ = Task.Run(() =>
         {
-            HashProgressBar.Maximum = files.Count;
-            ProgressText.Text = $"0 / {files.Count}";
-        });
+            try
+            {
+                foreach (var _ in Directory.EnumerateFiles(folderPath, "*", SearchOption.AllDirectories))
+                {
+                    if (cancellationToken.IsCancellationRequested) break;
+
+                    var currentDiscovered = Interlocked.Increment(ref discoveredFilesCount);
+                    Dispatcher.InvokeAsync(() => { HashProgressBar.Maximum = Math.Max(HashProgressBar.Maximum, currentDiscovered); });
+                }
+            }
+            catch
+            {
+                /* Ignore enumeration errors in background count */
+            }
+        }, cancellationToken);
+
+        // Stream the files instead of calling ToList() (Issue 7 fix)
+        var fileEnumerable = Directory.EnumerateFiles(folderPath, "*", SearchOption.AllDirectories);
 
         // Sequential processing
-        foreach (var filePath in files)
+        foreach (var filePath in fileEnumerable)
         {
             if (cancellationToken.IsCancellationRequested) break;
 
@@ -319,8 +339,9 @@ public partial class GenerateDatPage : IDisposable
                 var serializer = new XmlSerializer(typeof(Datafile));
                 var settings = new XmlWriterSettings { Indent = true, IndentChars = "\t", Encoding = new UTF8Encoding(false), Async = true };
 
+                _mainWindow.UpdateStatusBarMessage("Serializing and saving DAT file...");
                 await using var writer = XmlWriter.Create(saveFileDialog.FileName, settings);
-                serializer.Serialize(writer, dataFile);
+                await Task.Run(() => serializer.Serialize(writer, dataFile)); // Offload sync serialization (Issue 12 fix)
 
                 var result = MessageBox.Show(_mainWindow, "DAT file exported successfully! Would you like to open it?", "Export Complete", MessageBoxButton.YesNo, MessageBoxImage.Question);
                 if (result == MessageBoxResult.Yes)
