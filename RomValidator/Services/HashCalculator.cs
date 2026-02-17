@@ -3,14 +3,14 @@ using System.IO;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
-using SevenZip;
+using SharpCompress.Archives;
 using RomValidator.Models;
 
 namespace RomValidator.Services;
 
 public static partial class HashCalculator
 {
-    // Archive file extensions supported by SevenZipSharp
+    // Archive file extensions supported
     private static readonly Regex ArchiveExtensionRegex = MyRegex();
 
     public static async Task<List<GameFile>> CalculateHashesAsync(string filePath, CancellationToken cancellationToken)
@@ -18,31 +18,30 @@ public static partial class HashCalculator
         var fileInfo = new FileInfo(filePath);
         var gameFiles = new List<GameFile>();
 
-        // Check if file is an archive (Fix for Issue C)
+        // Check if file is an archive
         if (IsArchiveFile(fileInfo.Name))
         {
             try
             {
-                using var extractor = new SevenZipExtractor(filePath);
+                // Open archive using SharpCompress (Supports Zip, 7z, Rar, Tar, etc.)
+                using var archive = ArchiveFactory.Open(filePath);
 
-                // Process each file in the archive
-                foreach (var archiveEntry in extractor.ArchiveFileData)
+                foreach (var entry in archive.Entries)
                 {
-                    if (archiveEntry.IsDirectory) continue;
+                    if (entry.IsDirectory) continue;
 
-                    using var entryStream = new MemoryStream();
-                    extractor.ExtractFile(archiveEntry.Index, entryStream);
-                    entryStream.Position = 0;
-
-                    // Create algorithm instances once per archive entry (Fix for Issue B)
+                    // Create algorithm instances once per archive entry
                     using var crc32 = new Crc32Algorithm();
                     using var md5 = MD5.Create();
                     using var sha1 = SHA1.Create();
                     using var sha256 = SHA256.Create();
 
+                    // OpenEntryStream provides a stream to the uncompressed data
+                    await using var entryStream = entry.OpenEntryStream();
+
                     var gameFile = await ProcessStreamAsync(
                         entryStream,
-                        archiveEntry.FileName,
+                        entry.Key ?? "Unknown", // SharpCompress uses Key for filename
                         crc32, md5, sha1, sha256,
                         cancellationToken);
 
@@ -54,34 +53,31 @@ public static partial class HashCalculator
             }
             catch (OperationCanceledException)
             {
-                throw; // Don't treat cancellation as archive extraction failure
+                throw;
             }
             catch (Exception ex)
             {
-                // If archive processing fails, fall back to hashing the archive itself
-                // but mark it with an error indicating it couldn't be extracted
-                using var crc32 = new Crc32Algorithm();
-                using var md5 = MD5.Create();
-                using var sha1 = SHA1.Create();
-                using var sha256 = SHA256.Create();
-
-                var fallbackGameFile = await ProcessFileAsync(
-                    filePath, fileInfo,
-                    crc32, md5, sha1, sha256,
-                    cancellationToken);
-
-                if (fallbackGameFile != null)
-                {
-                    fallbackGameFile.ErrorMessage = $"Archive extraction failed: {ex.Message}. Hashed archive container instead of content.";
-                    gameFiles.Add(fallbackGameFile);
-                }
-
-                return gameFiles;
+                // Return an error object for the archive itself so the UI knows extraction failed.
+                // We do NOT hash the container anymore.
+                return
+                [
+                    new GameFile
+                    {
+                        FileName = fileInfo.Name,
+                        GameName = Path.GetFileNameWithoutExtension(fileInfo.Name),
+                        FileSize = fileInfo.Length,
+                        ErrorMessage = $"Archive extraction failed: {ex.Message}",
+                        Crc32 = "ERROR",
+                        Md5 = "ERROR",
+                        Sha1 = "ERROR",
+                        Sha256 = "ERROR"
+                    }
+                ];
             }
         }
         else
         {
-            // Create algorithm instances once per file (Fix for Issue B)
+            // Create algorithm instances once per file
             using var crc32 = new Crc32Algorithm();
             using var md5 = MD5.Create();
             using var sha1 = SHA1.Create();

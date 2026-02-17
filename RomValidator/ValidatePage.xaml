@@ -125,7 +125,6 @@
                 <StackPanel Margin="0,15,0,0" Orientation="Vertical">
                     <CheckBox x:Name="MoveSuccessCheckBox" Content="Move successful items to '_success' folder" IsChecked="True" VerticalAlignment="Center" Margin="0,2,0,2"/>
                     <CheckBox x:Name="MoveFailedCheckBox" Content="Move failed/unknown items to '_fail' folder" IsChecked="True" Margin="0,8,0,8" VerticalAlignment="Center"/>
-                    <CheckBox x:Name="ParallelProcessingCheckBox" Content="Enable Parallel Processing (3 files at a time)" IsChecked="False" Margin="0,2,0,2" VerticalAlignment="Center"/>
                 </StackPanel>
 
                 <StackPanel Margin="0,15,0,0" Orientation="Horizontal" HorizontalAlignment="Center">

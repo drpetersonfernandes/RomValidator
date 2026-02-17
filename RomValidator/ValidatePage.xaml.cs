@@ -206,34 +206,19 @@ public partial class ValidatePage : IDisposable
         }
 
         var filesActuallyProcessedCount = 0;
-        var enableParallelProcessing = ParallelProcessingCheckBox.IsChecked == true;
 
-        if (enableParallelProcessing)
+        // Sequential Processing to prevent race conditions on file moves
+        foreach (var filePath in filesToScan)
         {
-            await Parallel.ForEachAsync(filesToScan,
-                new ParallelOptions { CancellationToken = token, MaxDegreeOfParallelism = 3 },
-                async (filePath, ct) =>
-                {
-                    await ProcessFileAsync(filePath, successPath, failPath, moveSuccess, moveFailed, ct);
-                    var processedSoFar = Interlocked.Increment(ref filesActuallyProcessedCount);
-                    // Pass enableParallelProcessing flag to UpdateProgressDisplay
-                    UpdateProgressDisplay(processedSoFar, _totalFilesToProcess, Path.GetFileName(filePath), enableParallelProcessing);
-                    UpdateStatsDisplay();
-                    UpdateProcessingTimeDisplay();
-                });
-        }
-        else
-        {
-            foreach (var filePath in filesToScan)
-            {
-                token.ThrowIfCancellationRequested();
-                await ProcessFileAsync(filePath, successPath, failPath, moveSuccess, moveFailed, token);
-                var processedSoFar = Interlocked.Increment(ref filesActuallyProcessedCount);
-                // Pass enableParallelProcessing flag to UpdateProgressDisplay
-                UpdateProgressDisplay(processedSoFar, _totalFilesToProcess, Path.GetFileName(filePath), enableParallelProcessing);
-                UpdateStatsDisplay();
-                UpdateProcessingTimeDisplay();
-            }
+            // Check cancellation at the start of each file
+            if (token.IsCancellationRequested) break;
+
+            await ProcessFileAsync(filePath, successPath, failPath, moveSuccess, moveFailed, token);
+
+            var processedSoFar = Interlocked.Increment(ref filesActuallyProcessedCount);
+            UpdateProgressDisplay(processedSoFar, _totalFilesToProcess, Path.GetFileName(filePath));
+            UpdateStatsDisplay();
+            UpdateProcessingTimeDisplay();
         }
 
         _mainWindow.UpdateStatusBarMessage("Validation complete.");
@@ -287,7 +272,16 @@ public partial class ValidatePage : IDisposable
         else
         {
             Interlocked.Increment(ref _failCount);
+            // Log failure details explicitly to UI
             LogMessage($"[FAILED] {fileName} - {matchDetails}");
+
+            // If it was a critical error (like extraction failure), it will appear in matchDetails
+            if (matchDetails.Contains("Archive extraction failed") || matchDetails.Contains("Error"))
+            {
+                // Optional: Highlight critical errors
+                _mainWindow.UpdateStatusBarMessage($"Error processing {fileName}");
+            }
+
             if (moveFailed) await MoveFileAsync(filePath, Path.Combine(failPath, fileName));
         }
     }
@@ -780,7 +774,6 @@ public partial class ValidatePage : IDisposable
         BrowseDatFileButton.IsEnabled = enabled;
         MoveSuccessCheckBox.IsEnabled = enabled;
         MoveFailedCheckBox.IsEnabled = enabled;
-        ParallelProcessingCheckBox.IsEnabled = enabled;
         DownloadDatFilesButton.IsEnabled = enabled;
         StartValidationButton.IsEnabled = enabled;
         CancelButton.Visibility = enabled ? Visibility.Collapsed : Visibility.Visible;
@@ -838,23 +831,12 @@ public partial class ValidatePage : IDisposable
         Application.Current.Dispatcher.InvokeAsync(() => { ProcessingTimeValue.Text = $@"{elapsed:hh\:mm\:ss}"; });
     }
 
-    // Add a parameter to indicate parallel processing and adjust text accordingly
-    private void UpdateProgressDisplay(int current, int total, string currentFileName, bool isParallel)
+    private void UpdateProgressDisplay(int current, int total, string currentFileName)
     {
         var percentage = total == 0 ? 0 : (double)current / total * 100;
         Application.Current.Dispatcher.InvokeAsync(() =>
         {
-            if (isParallel)
-            {
-                // Generic message for parallel processing as filename cannot be reliably tied to the exact count
-                ProgressText.Text = $"Validating files {current} of {total} ({percentage:F1}%)";
-            }
-            else
-            {
-                // Detailed message for sequential processing
-                ProgressText.Text = $"Validating file {current} of {total}: {currentFileName} ({percentage:F1}%)";
-            }
-
+            ProgressText.Text = $"Validating file {current} of {total}: {currentFileName} ({percentage:F1}%)";
             ProgressBar.Value = current;
         });
     }

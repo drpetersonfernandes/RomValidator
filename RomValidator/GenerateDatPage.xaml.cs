@@ -195,7 +195,6 @@ public partial class GenerateDatPage : IDisposable
         var files = await Task.Run(() => Directory.EnumerateFiles(folderPath, "*", SearchOption.AllDirectories).ToList(), cancellationToken);
         _processedFileCount = files.Count;
 
-        // Track total ROMs processed to adjust progress bar for archives
         var totalRomCount = 0;
 
         await Dispatcher.InvokeAsync(() =>
@@ -204,14 +203,14 @@ public partial class GenerateDatPage : IDisposable
             ProgressText.Text = $"0 / {files.Count}";
         });
 
-        var parallelOptions = new ParallelOptions { MaxDegreeOfParallelism = Environment.ProcessorCount, CancellationToken = cancellationToken };
-
-        await Parallel.ForEachAsync(files, parallelOptions, async (filePath, token) =>
+        // Sequential processing
+        foreach (var filePath in files)
         {
-            var gameFiles = await HashCalculator.CalculateHashesAsync(filePath, token);
+            if (cancellationToken.IsCancellationRequested) break;
+
+            var gameFiles = await HashCalculator.CalculateHashesAsync(filePath, cancellationToken);
             var romsFromFile = gameFiles.Count;
 
-            // Adjust progress bar maximum if this archive contains multiple ROMs
             if (romsFromFile > 1)
             {
                 await Dispatcher.InvokeAsync(() =>
@@ -222,11 +221,13 @@ public partial class GenerateDatPage : IDisposable
 
             foreach (var gameFile in gameFiles)
             {
-                if (gameFile.ErrorMessage != null &&
-                    gameFile.ErrorMessage != "File is locked or access denied after retries" &&
-                    !gameFile.ErrorMessage.StartsWith("Extracted from:", StringComparison.Ordinal))
+                if (gameFile.ErrorMessage != null)
                 {
-                    _ = _mainWindow.BugReportService.SendBugReportAsync($"Error hashing file {filePath}: {gameFile.ErrorMessage}");
+                    // Log error to bug report service or UI
+                    if (gameFile.ErrorMessage != "File is locked or access denied after retries")
+                    {
+                        _ = _mainWindow.BugReportService.SendBugReportAsync($"Error hashing file {filePath}: {gameFile.ErrorMessage}");
+                    }
                 }
 
                 lock (_operationLock)
@@ -237,9 +238,8 @@ public partial class GenerateDatPage : IDisposable
                 progress.Report(gameFile);
                 Interlocked.Increment(ref totalRomCount);
             }
-        });
+        }
 
-        // Update final count
         _processedFileCount = totalRomCount;
     }
 

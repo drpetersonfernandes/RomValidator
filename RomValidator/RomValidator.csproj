@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
         <OutputType>WinExe</OutputType>
@@ -22,16 +22,10 @@
         <None Remove="images\exit.png" />
         <None Remove="images\logo.png" />
         <Resource Include="images\logo.png" />
-        <None Update="7z_arm64.dll">
-          <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-        </None>
-        <None Update="7z_x64.dll">
-          <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-        </None>
     </ItemGroup>
 
     <ItemGroup>
-      <PackageReference Include="Squid-Box.SevenZipSharp" Version="1.6.2.24" />
+      <PackageReference Include="SharpCompress" Version="0.39.0" />
     </ItemGroup>
 
 </Project>
