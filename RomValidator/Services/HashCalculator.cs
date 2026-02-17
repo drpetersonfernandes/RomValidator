@@ -196,8 +196,17 @@ public static partial class HashCalculator
                 await Task.Delay(retryDelay, cancellationToken);
                 retryDelay *= 2; // Exponential backoff
 
-                // Reset stream position for retry
-                stream.Position = 0;
+                // Reset stream position for retry (only works for seekable streams like FileStream)
+                if (stream.CanSeek)
+                {
+                    stream.Position = 0;
+                }
+                else
+                {
+                    // Archive streams don't support seeking, so we can't retry
+                    gameFile.ErrorMessage = "File access error (non-seekable stream)";
+                    return gameFile;
+                }
             }
             catch (Exception ex)
             {
@@ -238,6 +247,6 @@ public static partial class HashCalculator
         return sb.ToString();
     }
 
-    [GeneratedRegex(@"\.(zip|7z|rar|gz|tar|bz2|xz|lzma|cab|iso|img|vhd|wim)$", RegexOptions.IgnoreCase | RegexOptions.Compiled, "pt-BR")]
+    [GeneratedRegex(@"\.(zip|7z|rar|gz|tar|bz2|xz|lzma|cab|iso|img|vhd|wim)$", RegexOptions.IgnoreCase, "pt-BR")]
     private static partial Regex MyRegex();
 }

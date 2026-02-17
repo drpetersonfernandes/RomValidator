@@ -125,6 +125,7 @@
                 <StackPanel Margin="0,15,0,0" Orientation="Vertical">
                     <CheckBox x:Name="MoveSuccessCheckBox" Content="Move successful items to '_success' folder" IsChecked="True" VerticalAlignment="Center" Margin="0,2,0,2"/>
                     <CheckBox x:Name="MoveFailedCheckBox" Content="Move failed/unknown items to '_fail' folder" IsChecked="True" Margin="0,8,0,8" VerticalAlignment="Center"/>
+                    <CheckBox x:Name="RenameMatchedFilesCheckBox" Content="Automatically rename files when hash matches but filename differs" IsChecked="True" Margin="0,8,0,8" VerticalAlignment="Center"/>
                 </StackPanel>
 
                 <StackPanel Margin="0,15,0,0" Orientation="Horizontal" HorizontalAlignment="Center">
@@ -184,7 +185,7 @@
         <!-- Stats Panel -->
         <Grid Grid.Row="2" Margin="10,0,10,10">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" /><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /><ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" /><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /><ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
 
             <Border Grid.Column="0" BorderBrush="#BDBDBD" BorderThickness="1" Margin="2" Padding="8" CornerRadius="4">
@@ -212,6 +213,12 @@
                 </StackPanel>
             </Border>
             <Border Grid.Column="4" BorderBrush="#BDBDBD" BorderThickness="1" Margin="2" Padding="8" CornerRadius="4">
+                <StackPanel Orientation="Vertical" HorizontalAlignment="Center">
+                    <TextBlock Text="Renamed:" FontWeight="SemiBold" Foreground="Blue" HorizontalAlignment="Center"/>
+                    <TextBlock x:Name="RenamedValue" Text="0" HorizontalAlignment="Center"/>
+                </StackPanel>
+            </Border>
+            <Border Grid.Column="5" BorderBrush="#BDBDBD" BorderThickness="1" Margin="2" Padding="8" CornerRadius="4">
                 <StackPanel Orientation="Vertical" HorizontalAlignment="Center">
                     <TextBlock Text="Processing Time:" FontWeight="SemiBold" HorizontalAlignment="Center"/>
                     <TextBlock x:Name="ProcessingTimeValue" Text="00:00:00" HorizontalAlignment="Center"/>

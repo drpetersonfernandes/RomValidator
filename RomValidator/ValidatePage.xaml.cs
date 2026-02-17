@@ -17,6 +17,9 @@ public partial class ValidatePage : IDisposable
 {
     private readonly MainWindow _mainWindow;
     private Dictionary<string, Rom> _romDatabase = [];
+    private Dictionary<string, Rom> _romDatabaseBySha1 = [];
+    private Dictionary<string, Rom> _romDatabaseByMd5 = [];
+    private Dictionary<string, Rom> _romDatabaseByCrc = [];
     private CancellationTokenSource? _cts;
     private readonly object _ctsLock = new();
 
@@ -25,6 +28,7 @@ public partial class ValidatePage : IDisposable
     private int _successCount;
     private int _failCount;
     private int _unknownCount;
+    private int _renamedCount;
     private readonly Stopwatch _operationTimer = new();
 
     public ValidatePage(MainWindow mainWindow)
@@ -97,6 +101,7 @@ public partial class ValidatePage : IDisposable
             var datFilePath = DatFileTextBox.Text;
             var moveSuccess = MoveSuccessCheckBox.IsChecked == true;
             var moveFailed = MoveFailedCheckBox.IsChecked == true;
+            var renameMatched = RenameMatchedFilesCheckBox.IsChecked == true;
 
             if (string.IsNullOrEmpty(romsFolderPath) || string.IsNullOrEmpty(datFilePath))
             {
@@ -145,7 +150,7 @@ public partial class ValidatePage : IDisposable
             }
 
             _mainWindow.UpdateStatusBarMessage("DAT file loaded. Starting ROM validation...");
-            await PerformValidationAsync(romsFolderPath, moveSuccess, moveFailed, operationCts.Token);
+            await PerformValidationAsync(romsFolderPath, moveSuccess, moveFailed, renameMatched, operationCts.Token);
         }
         catch (OperationCanceledException)
         {
@@ -180,7 +185,7 @@ public partial class ValidatePage : IDisposable
         }
     }
 
-    private async Task PerformValidationAsync(string romsFolderPath, bool moveSuccess, bool moveFailed, CancellationToken token)
+    private async Task PerformValidationAsync(string romsFolderPath, bool moveSuccess, bool moveFailed, bool renameMatched, CancellationToken token)
     {
         token.ThrowIfCancellationRequested();
 
@@ -191,6 +196,7 @@ public partial class ValidatePage : IDisposable
 
         LogMessage($"Move successful files: {moveSuccess}" + (moveSuccess ? $" (to {successPath})" : ""));
         LogMessage($"Move failed/unknown files: {moveFailed}" + (moveFailed ? $" (to {failPath})" : ""));
+        LogMessage($"Rename files on hash match: {renameMatched}");
 
         var filesToScan = Directory.GetFiles(romsFolderPath);
         _totalFilesToProcess = filesToScan.Length;
@@ -213,7 +219,7 @@ public partial class ValidatePage : IDisposable
             // Check cancellation at the start of each file
             if (token.IsCancellationRequested) break;
 
-            await ProcessFileAsync(filePath, successPath, failPath, moveSuccess, moveFailed, token);
+            await ProcessFileAsync(filePath, successPath, failPath, moveSuccess, moveFailed, renameMatched, token);
 
             var processedSoFar = Interlocked.Increment(ref filesActuallyProcessedCount);
             UpdateProgressDisplay(processedSoFar, _totalFilesToProcess, Path.GetFileName(filePath));
@@ -231,12 +237,57 @@ public partial class ValidatePage : IDisposable
                ex.Message.Contains("being used by another process", StringComparison.OrdinalIgnoreCase);
     }
 
-    private async Task ProcessFileAsync(string filePath, string successPath, string failPath, bool moveSuccess, bool moveFailed, CancellationToken token)
+    private async Task ProcessFileAsync(string filePath, string successPath, string failPath, bool moveSuccess, bool moveFailed, bool renameMatched, CancellationToken token)
     {
         var fileName = Path.GetFileName(filePath);
         token.ThrowIfCancellationRequested();
 
-        if (!_romDatabase.TryGetValue(fileName, out var expectedRom))
+        var fileNameMatch = _romDatabase.TryGetValue(fileName, out var expectedRom);
+
+        // If filename doesn't match, try hash-based lookup
+        if (!fileNameMatch && renameMatched)
+        {
+            var fileInfo = new FileInfo(filePath);
+
+            if (!fileInfo.Exists)
+            {
+                Interlocked.Increment(ref _failCount);
+                LogMessage($"[ERROR] {fileName} - File not found during validation (may have been deleted or moved).");
+                return;
+            }
+
+            // Compute hashes to find a match
+            var (hashMatchedRom, matchedHash) = await FindRomByHashAsync(filePath, fileInfo.Length, token);
+
+            if (hashMatchedRom != null)
+            {
+                // Found a match by hash! Rename the file
+                var directory = Path.GetDirectoryName(filePath);
+                var newFilePath = Path.Combine(directory ?? string.Empty, hashMatchedRom.Name);
+
+                try
+                {
+                    await RenameFileAsync(filePath, newFilePath);
+                    Interlocked.Increment(ref _renamedCount);
+                    LogMessage($"[RENAMED] {fileName} -> {hashMatchedRom.Name} (matched by {matchedHash})");
+
+                    // Update variables to process renamed file
+                    filePath = newFilePath;
+                    fileName = hashMatchedRom.Name;
+                    expectedRom = hashMatchedRom;
+                    fileNameMatch = true;
+                }
+                catch (Exception ex)
+                {
+                    Interlocked.Increment(ref _failCount);
+                    LogMessage($"[FAILED] {fileName} - Hash matched {hashMatchedRom.Name} but rename failed: {ex.Message}");
+                    if (moveFailed) await MoveFileAsync(filePath, Path.Combine(failPath, fileName));
+                    return;
+                }
+            }
+        }
+
+        if (!fileNameMatch || expectedRom == null)
         {
             Interlocked.Increment(ref _unknownCount);
             LogMessage($"[UNKNOWN] {fileName} - Not found in DAT file.");
@@ -244,19 +295,19 @@ public partial class ValidatePage : IDisposable
             return;
         }
 
-        var fileInfo = new FileInfo(filePath);
+        var fileInfo2 = new FileInfo(filePath);
 
-        if (!fileInfo.Exists)
+        if (!fileInfo2.Exists)
         {
             Interlocked.Increment(ref _failCount);
             LogMessage($"[ERROR] {fileName} - File not found during validation (may have been deleted or moved).");
             return;
         }
 
-        if (fileInfo.Length != expectedRom.Size)
+        if (fileInfo2.Length != expectedRom.Size)
         {
             Interlocked.Increment(ref _failCount);
-            LogMessage($"[FAILED] {fileName} - Size mismatch. Expected: {expectedRom.Size}, Got: {fileInfo.Length}");
+            LogMessage($"[FAILED] {fileName} - Size mismatch. Expected: {expectedRom.Size}, Got: {fileInfo2.Length}");
             if (moveFailed) await MoveFileAsync(filePath, Path.Combine(failPath, fileName));
             return;
         }
@@ -476,11 +527,30 @@ public partial class ValidatePage : IDisposable
             }
 
             // Build ROM database (only from <rom> elements)
-            _romDatabase = datafile.Games
+            var allRoms = datafile.Games
                 .SelectMany(static g => g.Roms)
                 .Where(static r => !string.IsNullOrEmpty(r.Name))
+                .ToList();
+
+            _romDatabase = allRoms
                 .GroupBy(static r => r.Name, StringComparer.OrdinalIgnoreCase)
                 .ToDictionary(static g => g.Key, static g => g.First());
+
+            // Build hash-based lookup dictionaries
+            _romDatabaseBySha1 = allRoms
+                .Where(static r => !string.IsNullOrEmpty(r.Sha1))
+                .GroupBy(static r => r.Sha1, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(static g => g.Key, static g => g.First(), StringComparer.OrdinalIgnoreCase);
+
+            _romDatabaseByMd5 = allRoms
+                .Where(static r => !string.IsNullOrEmpty(r.Md5))
+                .GroupBy(static r => r.Md5, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(static g => g.Key, static g => g.First(), StringComparer.OrdinalIgnoreCase);
+
+            _romDatabaseByCrc = allRoms
+                .Where(static r => !string.IsNullOrEmpty(r.Crc))
+                .GroupBy(static r => r.Crc, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(static g => g.Key, static g => g.First(), StringComparer.OrdinalIgnoreCase);
 
             // Validate we actually got ROM entries
             if (_romDatabase.Count == 0)
@@ -668,6 +738,90 @@ public partial class ValidatePage : IDisposable
         throw new InvalidOperationException("Unexpected exit from retry loop");
     }
 
+    private async Task<(Rom? Rom, string HashType)> FindRomByHashAsync(string filePath, long fileSize, CancellationToken token)
+    {
+        try
+        {
+            // Quick size filter before computing expensive hashes
+            // Try SHA1 first (most reliable), then MD5, then CRC
+            if (!string.IsNullOrEmpty(_romDatabaseBySha1.FirstOrDefault().Value?.Sha1))
+            {
+                var actualSha1 = await ComputeHashAsync(filePath, SHA1.Create(), token);
+                if (_romDatabaseBySha1.TryGetValue(actualSha1, out var romBySha1) && romBySha1.Size == fileSize)
+                {
+                    return (romBySha1, "SHA1");
+                }
+            }
+
+            token.ThrowIfCancellationRequested();
+
+            if (!string.IsNullOrEmpty(_romDatabaseByMd5.FirstOrDefault().Value?.Md5))
+            {
+                var actualMd5 = await ComputeHashAsync(filePath, MD5.Create(), token);
+                if (_romDatabaseByMd5.TryGetValue(actualMd5, out var romByMd5) && romByMd5.Size == fileSize)
+                {
+                    return (romByMd5, "MD5");
+                }
+            }
+
+            token.ThrowIfCancellationRequested();
+
+            if (!string.IsNullOrEmpty(_romDatabaseByCrc.FirstOrDefault().Value?.Crc))
+            {
+                var actualCrc = await ComputeCrc32Async(filePath, token);
+                if (_romDatabaseByCrc.TryGetValue(actualCrc, out var romByCrc) && romByCrc.Size == fileSize)
+                {
+                    return (romByCrc, "CRC32");
+                }
+            }
+
+            return (null, string.Empty);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            LoggerService.LogError("Validation", $"Error finding ROM by hash for '{filePath}': {ex.Message}");
+            return (null, string.Empty);
+        }
+    }
+
+    private static async Task RenameFileAsync(string sourcePath, string destPath)
+    {
+        const int maxRetries = 5;
+        const int delayMs = 100;
+
+        if (!File.Exists(sourcePath))
+        {
+            throw new IOException($"Source file not found: {sourcePath}");
+        }
+
+        if (File.Exists(destPath))
+        {
+            throw new IOException($"Destination file already exists: {destPath}");
+        }
+
+        for (var attempt = 1; attempt <= maxRetries; attempt++)
+        {
+            try
+            {
+                await Task.Run(() => File.Move(sourcePath, destPath));
+                return;
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                if (attempt == maxRetries)
+                {
+                    throw new IOException($"Failed to rename file after {maxRetries} attempts: {ex.Message}", ex);
+                }
+
+                await Task.Delay(delayMs * attempt);
+            }
+        }
+    }
+
     private async Task MoveFileAsync(string sourcePath, string destPath)
     {
         const int maxRetries = 5;
@@ -774,6 +928,7 @@ public partial class ValidatePage : IDisposable
         BrowseDatFileButton.IsEnabled = enabled;
         MoveSuccessCheckBox.IsEnabled = enabled;
         MoveFailedCheckBox.IsEnabled = enabled;
+        RenameMatchedFilesCheckBox.IsEnabled = enabled;
         DownloadDatFilesButton.IsEnabled = enabled;
         StartValidationButton.IsEnabled = enabled;
         CancelButton.Visibility = enabled ? Visibility.Collapsed : Visibility.Visible;
@@ -807,6 +962,7 @@ public partial class ValidatePage : IDisposable
         _successCount = 0;
         _failCount = 0;
         _unknownCount = 0;
+        _renamedCount = 0;
         _operationTimer.Reset();
         UpdateStatsDisplay();
         UpdateProcessingTimeDisplay();
@@ -822,6 +978,7 @@ public partial class ValidatePage : IDisposable
             SuccessValue.Text = _successCount.ToString(CultureInfo.InvariantCulture);
             FailedValue.Text = _failCount.ToString(CultureInfo.InvariantCulture);
             UnknownValue.Text = _unknownCount.ToString(CultureInfo.InvariantCulture);
+            RenamedValue.Text = _renamedCount.ToString(CultureInfo.InvariantCulture);
         });
     }
 
@@ -863,10 +1020,11 @@ public partial class ValidatePage : IDisposable
         LogMessage($"Successful: {_successCount}");
         LogMessage($"Failed: {_failCount}");
         LogMessage($"Unknown: {_unknownCount}");
+        LogMessage($"Renamed: {_renamedCount}");
         LogMessage($@"Total time: {_operationTimer.Elapsed:hh\:mm\:ss}");
         _mainWindow.UpdateStatusBarMessage("Validation complete.");
 
-        var summaryText = $"Validation complete.\n\nSuccessful: {_successCount}\nFailed: {_failCount}\nUnknown: {_unknownCount}";
+        var summaryText = $"Validation complete.\n\nSuccessful: {_successCount}\nFailed: {_failCount}\nUnknown: {_unknownCount}\nRenamed: {_renamedCount}";
         MessageBox.Show(_mainWindow, summaryText, "Validation Complete", MessageBoxButton.OK, MessageBoxImage.Information);
     }
 
