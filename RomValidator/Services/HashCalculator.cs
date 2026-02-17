@@ -24,7 +24,7 @@ public static partial class HashCalculator
             try
             {
                 // Open archive using SharpCompress (Supports Zip, 7z, Rar, Tar, etc.)
-                using var archive = ArchiveFactory.Open(filePath);
+                using var archive = ArchiveFactory.OpenArchive(filePath);
 
                 foreach (var entry in archive.Entries)
                 {
@@ -37,7 +37,7 @@ public static partial class HashCalculator
                     using var sha256 = SHA256.Create();
 
                     // OpenEntryStream provides a stream to the uncompressed data
-                    await using var entryStream = entry.OpenEntryStream();
+                    await using var entryStream = await entry.OpenEntryStreamAsync(cancellationToken);
 
                     var gameFile = await ProcessStreamAsync(
                         entryStream,

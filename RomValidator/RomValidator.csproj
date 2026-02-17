@@ -8,8 +8,8 @@
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <ApplicationIcon>icon\icon.ico</ApplicationIcon>
-        <AssemblyVersion>2.3.1</AssemblyVersion>
-        <FileVersion>2.3.1</FileVersion>
+        <AssemblyVersion>2.4</AssemblyVersion>
+        <FileVersion>2.4</FileVersion>
         <DebugType>embedded</DebugType>
         <DebugSymbols>true</DebugSymbols>
         <IsPackable>false</IsPackable>
@@ -25,7 +25,7 @@
     </ItemGroup>
 
     <ItemGroup>
-      <PackageReference Include="SharpCompress" Version="0.39.0" />
+      <PackageReference Include="SharpCompress" Version="0.46.2" />
     </ItemGroup>
 
 </Project>
