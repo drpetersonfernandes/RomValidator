@@ -16,7 +16,7 @@ namespace RomValidator;
 public partial class ValidatePage : IDisposable
 {
     private readonly MainWindow _mainWindow;
-    private Dictionary<string, Rom> _romDatabase = [];
+    private Dictionary<string, List<Rom>> _romDatabase = [];
     private Dictionary<string, Rom> _romDatabaseBySha1 = [];
     private Dictionary<string, Rom> _romDatabaseByMd5 = [];
     private Dictionary<string, Rom> _romDatabaseByCrc = [];
@@ -242,7 +242,7 @@ public partial class ValidatePage : IDisposable
         var fileName = Path.GetFileName(filePath);
         token.ThrowIfCancellationRequested();
 
-        var fileNameMatch = _romDatabase.TryGetValue(fileName, out var expectedRom);
+        var fileNameMatch = _romDatabase.TryGetValue(fileName, out var expectedRoms);
 
         // If filename doesn't match, try hash-based lookup
         if (!fileNameMatch && renameMatched)
@@ -274,7 +274,7 @@ public partial class ValidatePage : IDisposable
                     // Update variables to process renamed file
                     filePath = newFilePath;
                     fileName = hashMatchedRom.Name;
-                    expectedRom = hashMatchedRom;
+                    expectedRoms = [hashMatchedRom];
                     fileNameMatch = true;
                 }
                 catch (Exception ex)
@@ -287,7 +287,7 @@ public partial class ValidatePage : IDisposable
             }
         }
 
-        if (!fileNameMatch || expectedRom == null)
+        if (!fileNameMatch || expectedRoms == null || expectedRoms.Count == 0)
         {
             Interlocked.Increment(ref _unknownCount);
             LogMessage($"[UNKNOWN] {fileName} - Not found in DAT file.");
@@ -304,15 +304,7 @@ public partial class ValidatePage : IDisposable
             return;
         }
 
-        if (fileInfo2.Length != expectedRom.Size)
-        {
-            Interlocked.Increment(ref _failCount);
-            LogMessage($"[FAILED] {fileName} - Size mismatch. Expected: {expectedRom.Size}, Got: {fileInfo2.Length}");
-            if (moveFailed) await MoveFileAsync(filePath, Path.Combine(failPath, fileName));
-            return;
-        }
-
-        var (hashMatch, matchDetails) = await CheckHashesAsync(filePath, expectedRom, token);
+        var (hashMatch, matchDetails) = await CheckHashesAsync(filePath, expectedRoms, token);
 
         if (hashMatch)
         {
@@ -337,76 +329,79 @@ public partial class ValidatePage : IDisposable
         }
     }
 
-    private async Task<(bool IsValid, string Message)> CheckHashesAsync(string filePath, Rom expectedRom, CancellationToken token)
+    private async Task<(bool IsValid, string Message)> CheckHashesAsync(string filePath, List<Rom> expectedRoms, CancellationToken token)
     {
         try
         {
-            var verifiedHashes = new List<string>();
-            var mismatchedHashes = new List<string>();
+            using var sha1 = SHA1.Create();
+            using var md5 = MD5.Create();
+            using var crc = new Crc32Algorithm();
 
-            // Check SHA1 if provided
-            if (!string.IsNullOrEmpty(expectedRom.Sha1))
+            string? actualSha1 = null;
+            string? actualMd5 = null;
+            string? actualCrc = null;
+            long actualSize;
+
+            // Single-pass read to calculate all hashes (Issue 6 Fix)
+            await using (var stream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, 65536, true))
             {
-                var actualSha1 = await ComputeHashAsync(filePath, SHA1.Create(), token);
-                if (!actualSha1.Equals(expectedRom.Sha1, StringComparison.OrdinalIgnoreCase))
+                actualSize = stream.Length;
+                var buffer = new byte[65536];
+                int bytesRead;
+                while ((bytesRead = await stream.ReadAsync(buffer, token)) > 0)
                 {
-                    mismatchedHashes.Add($"SHA1 mismatch (expected: {expectedRom.Sha1}, got: {actualSha1})");
+                    sha1.TransformBlock(buffer, 0, bytesRead, null, 0);
+                    md5.TransformBlock(buffer, 0, bytesRead, null, 0);
+                    crc.TransformBlock(buffer, 0, bytesRead, null, 0);
                 }
-                else
+
+                sha1.TransformFinalBlock(Array.Empty<byte>(), 0, 0);
+                md5.TransformFinalBlock(Array.Empty<byte>(), 0, 0);
+                crc.TransformFinalBlock(Array.Empty<byte>(), 0, 0);
+
+                if (sha1.Hash != null)
                 {
-                    verifiedHashes.Add($"SHA1: {actualSha1}");
+                    actualSha1 = Convert.ToHexString(sha1.Hash).ToLowerInvariant();
+                    if (md5.Hash != null)
+                    {
+                        actualMd5 = Convert.ToHexString(md5.Hash).ToLowerInvariant();
+                        if (crc.Hash != null)
+                        {
+                            actualCrc = Convert.ToHexString(crc.Hash).ToLowerInvariant();
+                        }
+                    }
                 }
             }
 
-            token.ThrowIfCancellationRequested();
-
-            // Check MD5 if provided
-            if (!string.IsNullOrEmpty(expectedRom.Md5))
+            // Check against all potential ROM definitions for this filename (Issue 3 Fix)
+            var errors = new List<string>();
+            foreach (var expectedRom in expectedRoms)
             {
-                var actualMd5 = await ComputeHashAsync(filePath, MD5.Create(), token);
-                if (!actualMd5.Equals(expectedRom.Md5, StringComparison.OrdinalIgnoreCase))
+                var sizeMatch = actualSize == expectedRom.Size;
+                var sha1Match = actualSha1 != null && (string.IsNullOrEmpty(expectedRom.Sha1) || actualSha1.Equals(expectedRom.Sha1, StringComparison.OrdinalIgnoreCase));
+                var md5Match = actualMd5 != null && (string.IsNullOrEmpty(expectedRom.Md5) || actualMd5.Equals(expectedRom.Md5, StringComparison.OrdinalIgnoreCase));
+                var crcMatch = actualCrc != null && (string.IsNullOrEmpty(expectedRom.Crc) || actualCrc.Equals(expectedRom.Crc, StringComparison.OrdinalIgnoreCase));
+
+                if (sizeMatch && sha1Match && md5Match && crcMatch)
                 {
-                    mismatchedHashes.Add($"MD5 mismatch (expected: {expectedRom.Md5}, got: {actualMd5})");
+                    var details = new List<string>();
+                    if (!string.IsNullOrEmpty(expectedRom.Sha1)) details.Add($"SHA1: {actualSha1}");
+                    if (!string.IsNullOrEmpty(expectedRom.Md5)) details.Add($"MD5: {actualMd5}");
+                    if (!string.IsNullOrEmpty(expectedRom.Crc)) details.Add($"CRC32: {actualCrc}");
+
+                    return (true, details.Count > 0 ? string.Join(", ", details) : "Size matched (no hashes in DAT)");
                 }
-                else
-                {
-                    verifiedHashes.Add($"MD5: {actualMd5}");
-                }
+
+                // Collect error info for the log if no match is found
+                var mismatchReason = new List<string>();
+                if (!sizeMatch) mismatchReason.Add($"Size (Exp: {expectedRom.Size}, Got: {actualSize})");
+                if (!sha1Match) mismatchReason.Add("SHA1 mismatch");
+                if (!md5Match) mismatchReason.Add("MD5 mismatch");
+                if (!crcMatch) mismatchReason.Add("CRC32 mismatch");
+                errors.Add($"[{string.Join(", ", mismatchReason)}]");
             }
 
-            token.ThrowIfCancellationRequested();
-
-            // Check CRC32 if provided
-            if (!string.IsNullOrEmpty(expectedRom.Crc))
-            {
-                var actualCrc = await ComputeCrc32Async(filePath, token);
-                if (!actualCrc.Equals(expectedRom.Crc, StringComparison.OrdinalIgnoreCase))
-                {
-                    mismatchedHashes.Add($"CRC32 mismatch (expected: {expectedRom.Crc}, got: {actualCrc})");
-                }
-                else
-                {
-                    verifiedHashes.Add($"CRC32: {actualCrc}");
-                }
-            }
-
-            // Determine result: ALL provided hashes must match
-            if (mismatchedHashes.Count > 0)
-            {
-                // Failure: At least one hash didn't match
-                var failureReason = string.Join("; ", mismatchedHashes);
-                return (false, failureReason);
-            }
-
-            if (verifiedHashes.Count == 0)
-            {
-                // No hashes were provided in the DAT entry
-                return (false, "No hashes provided in DAT entry");
-            }
-
-            // Success: All provided hashes matched
-            var successMessage = string.Join(", ", verifiedHashes);
-            return (true, successMessage);
+            return (false, $"No match found among {expectedRoms.Count} DAT entries: {string.Join(" | ", errors)}");
         }
         catch (OperationCanceledException)
         {
@@ -534,7 +529,7 @@ public partial class ValidatePage : IDisposable
 
             _romDatabase = allRoms
                 .GroupBy(static r => r.Name, StringComparer.OrdinalIgnoreCase)
-                .ToDictionary(static g => g.Key, static g => g.First());
+                .ToDictionary(static g => g.Key, static g => g.ToList());
 
             // Build hash-based lookup dictionaries
             _romDatabaseBySha1 = allRoms
