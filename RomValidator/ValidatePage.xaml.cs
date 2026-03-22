@@ -20,6 +20,8 @@ public partial class ValidatePage : IDisposable
     private Dictionary<string, Rom> _romDatabaseBySha1 = [];
     private Dictionary<string, Rom> _romDatabaseByMd5 = [];
     private Dictionary<string, Rom> _romDatabaseByCrc = [];
+    private string _loadedDatFilePath = string.Empty;
+    private DateTime _loadedDatFileTimestamp;
     private CancellationTokenSource? _cts;
     private readonly object _ctsLock = new();
 
@@ -141,7 +143,26 @@ public partial class ValidatePage : IDisposable
             _mainWindow.UpdateStatusBarMessage("Validation started...");
 
             // Use the captured CTS instance
-            var datLoaded = await LoadDatFileAsync(datFilePath);
+            // Skip re-loading if the same DAT file was already loaded and hasn't changed (Issue 8 fix)
+            var datFileInfo = new FileInfo(datFilePath);
+            bool datLoaded;
+            if (_loadedDatFilePath == datFilePath && 
+                _loadedDatFileTimestamp == datFileInfo.LastWriteTimeUtc &&
+                _romDatabase.Count > 0)
+            {
+                LogMessage("DAT file already loaded, skipping reload.");
+                datLoaded = true;
+            }
+            else
+            {
+                datLoaded = await LoadDatFileAsync(datFilePath);
+                if (datLoaded)
+                {
+                    _loadedDatFilePath = datFilePath;
+                    _loadedDatFileTimestamp = datFileInfo.LastWriteTimeUtc;
+                }
+            }
+            
             if (!datLoaded)
             {
                 ShowError("Failed to load or parse the DAT file. Please check the log for details.");
@@ -243,6 +264,8 @@ public partial class ValidatePage : IDisposable
         token.ThrowIfCancellationRequested();
 
         var fileNameMatch = _romDatabase.TryGetValue(fileName, out var expectedRoms);
+        var hashesAlreadyVerified = false;
+        string? verifiedMatchDetails = null;
 
         // If filename doesn't match, try hash-based lookup
         if (!fileNameMatch && renameMatched)
@@ -276,6 +299,8 @@ public partial class ValidatePage : IDisposable
                     fileName = hashMatchedRom.Name;
                     expectedRoms = [hashMatchedRom];
                     fileNameMatch = true;
+                    hashesAlreadyVerified = true; // Hashes were just verified by FindRomByHashAsync (Issue 7 fix)
+                    verifiedMatchDetails = $"{matchedHash}: {GetHashValueByType(hashMatchedRom, matchedHash)}";
                 }
                 catch (Exception ex)
                 {
@@ -304,7 +329,18 @@ public partial class ValidatePage : IDisposable
             return;
         }
 
-        var (hashMatch, matchDetails) = await CheckHashesAsync(filePath, expectedRoms, token);
+        // Skip re-hashing if we already verified hashes during FindRomByHashAsync (Issue 7 fix)
+        bool hashMatch;
+        string matchDetails;
+        if (hashesAlreadyVerified && expectedRoms.Count == 1)
+        {
+            hashMatch = true;
+            matchDetails = verifiedMatchDetails ?? "Hash verified during rename matching";
+        }
+        else
+        {
+            (hashMatch, matchDetails) = await CheckHashesAsync(filePath, expectedRoms, token);
+        }
 
         if (hashMatch)
         {
@@ -329,79 +365,82 @@ public partial class ValidatePage : IDisposable
         }
     }
 
+    private static string? GetHashValueByType(Rom rom, string hashType)
+    {
+        return hashType.ToUpperInvariant() switch
+        {
+            "SHA1" => rom.Sha1,
+            "MD5" => rom.Md5,
+            "CRC32" => rom.Crc,
+            _ => null
+        };
+    }
+
     private async Task<(bool IsValid, string Message)> CheckHashesAsync(string filePath, List<Rom> expectedRoms, CancellationToken token)
     {
         try
         {
-            using var sha1 = SHA1.Create();
-            using var md5 = MD5.Create();
-            using var crc = new Crc32Algorithm();
+            // Use HashCalculator to properly handle archives - extracts and hashes contents
+            var gameFiles = await HashCalculator.CalculateHashesAsync(filePath, token);
 
-            string? actualSha1 = null;
-            string? actualMd5 = null;
-            string? actualCrc = null;
-            long actualSize;
-
-            // Single-pass read to calculate all hashes (Issue 6 Fix)
-            await using (var stream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, 65536, true))
+            // Check if extraction failed
+            if (gameFiles.Count == 1 && !string.IsNullOrEmpty(gameFiles[0].ErrorMessage))
             {
-                actualSize = stream.Length;
-                var buffer = new byte[65536];
-                int bytesRead;
-                while ((bytesRead = await stream.ReadAsync(buffer, token)) > 0)
-                {
-                    sha1.TransformBlock(buffer, 0, bytesRead, null, 0);
-                    md5.TransformBlock(buffer, 0, bytesRead, null, 0);
-                    crc.TransformBlock(buffer, 0, bytesRead, null, 0);
-                }
+                return (false, $"Archive extraction failed: {gameFiles[0].ErrorMessage}");
+            }
 
-                sha1.TransformFinalBlock(Array.Empty<byte>(), 0, 0);
-                md5.TransformFinalBlock(Array.Empty<byte>(), 0, 0);
-                crc.TransformFinalBlock(Array.Empty<byte>(), 0, 0);
+            // For archives with multiple files, we validate each file inside
+            // For regular files, there's just one entry
+            var successDetails = new List<string>();
+            var allErrors = new List<string>();
 
-                if (sha1.Hash != null)
+            foreach (var gameFile in gameFiles)
+            {
+                // Check this file against all potential ROM definitions
+                var fileMatched = false;
+                var fileErrors = new List<string>();
+
+                foreach (var expectedRom in expectedRoms)
                 {
-                    actualSha1 = Convert.ToHexString(sha1.Hash).ToLowerInvariant();
-                    if (md5.Hash != null)
+                    var sizeMatch = gameFile.FileSize == expectedRom.Size;
+                    var sha1Match = !string.IsNullOrEmpty(gameFile.Sha1) && (string.IsNullOrEmpty(expectedRom.Sha1) || gameFile.Sha1.Equals(expectedRom.Sha1, StringComparison.OrdinalIgnoreCase));
+                    var md5Match = !string.IsNullOrEmpty(gameFile.Md5) && (string.IsNullOrEmpty(expectedRom.Md5) || gameFile.Md5.Equals(expectedRom.Md5, StringComparison.OrdinalIgnoreCase));
+                    var crcMatch = !string.IsNullOrEmpty(gameFile.Crc32) && (string.IsNullOrEmpty(expectedRom.Crc) || gameFile.Crc32.Equals(expectedRom.Crc, StringComparison.OrdinalIgnoreCase));
+
+                    if (sizeMatch && sha1Match && md5Match && crcMatch)
                     {
-                        actualMd5 = Convert.ToHexString(md5.Hash).ToLowerInvariant();
-                        if (crc.Hash != null)
-                        {
-                            actualCrc = Convert.ToHexString(crc.Hash).ToLowerInvariant();
-                        }
+                        var details = new List<string>();
+                        if (!string.IsNullOrEmpty(expectedRom.Sha1)) details.Add($"SHA1: {gameFile.Sha1}");
+                        if (!string.IsNullOrEmpty(expectedRom.Md5)) details.Add($"MD5: {gameFile.Md5}");
+                        if (!string.IsNullOrEmpty(expectedRom.Crc)) details.Add($"CRC32: {gameFile.Crc32}");
+
+                        successDetails.Add($"{gameFile.FileName}: {(details.Count > 0 ? string.Join(", ", details) : "Size matched (no hashes in DAT)")}");
+                        fileMatched = true;
+                        break;
                     }
+
+                    // Collect error info for this expected ROM
+                    var mismatchReason = new List<string>();
+                    if (!sizeMatch) mismatchReason.Add($"Size (Exp: {expectedRom.Size}, Got: {gameFile.FileSize})");
+                    if (!sha1Match) mismatchReason.Add("SHA1 mismatch");
+                    if (!md5Match) mismatchReason.Add("MD5 mismatch");
+                    if (!crcMatch) mismatchReason.Add("CRC32 mismatch");
+                    fileErrors.Add($"[{string.Join(", ", mismatchReason)}]");
                 }
-            }
 
-            // Check against all potential ROM definitions for this filename (Issue 3 Fix)
-            var errors = new List<string>();
-            foreach (var expectedRom in expectedRoms)
-            {
-                var sizeMatch = actualSize == expectedRom.Size;
-                var sha1Match = actualSha1 != null && (string.IsNullOrEmpty(expectedRom.Sha1) || actualSha1.Equals(expectedRom.Sha1, StringComparison.OrdinalIgnoreCase));
-                var md5Match = actualMd5 != null && (string.IsNullOrEmpty(expectedRom.Md5) || actualMd5.Equals(expectedRom.Md5, StringComparison.OrdinalIgnoreCase));
-                var crcMatch = actualCrc != null && (string.IsNullOrEmpty(expectedRom.Crc) || actualCrc.Equals(expectedRom.Crc, StringComparison.OrdinalIgnoreCase));
-
-                if (sizeMatch && sha1Match && md5Match && crcMatch)
+                if (!fileMatched)
                 {
-                    var details = new List<string>();
-                    if (!string.IsNullOrEmpty(expectedRom.Sha1)) details.Add($"SHA1: {actualSha1}");
-                    if (!string.IsNullOrEmpty(expectedRom.Md5)) details.Add($"MD5: {actualMd5}");
-                    if (!string.IsNullOrEmpty(expectedRom.Crc)) details.Add($"CRC32: {actualCrc}");
-
-                    return (true, details.Count > 0 ? string.Join(", ", details) : "Size matched (no hashes in DAT)");
+                    allErrors.Add($"{gameFile.FileName}: {string.Join(" | ", fileErrors)}");
                 }
-
-                // Collect error info for the log if no match is found
-                var mismatchReason = new List<string>();
-                if (!sizeMatch) mismatchReason.Add($"Size (Exp: {expectedRom.Size}, Got: {actualSize})");
-                if (!sha1Match) mismatchReason.Add("SHA1 mismatch");
-                if (!md5Match) mismatchReason.Add("MD5 mismatch");
-                if (!crcMatch) mismatchReason.Add("CRC32 mismatch");
-                errors.Add($"[{string.Join(", ", mismatchReason)}]");
             }
 
-            return (false, $"No match found among {expectedRoms.Count} DAT entries: {string.Join(" | ", errors)}");
+            // Return success if at least one file inside matched
+            if (successDetails.Count > 0)
+            {
+                return (true, string.Join("; ", successDetails));
+            }
+
+            return (false, $"No match found among {expectedRoms.Count} DAT entries: {string.Join("; ", allErrors)}");
         }
         catch (OperationCanceledException)
         {
@@ -466,6 +505,7 @@ public partial class ValidatePage : IDisposable
                 _ = _mainWindow.BugReportService.SendBugReportAsync(detailedError);
 
                 ShowIncompatibleDatFileError(errorMsg);
+                ClearRomDatabase(); // Clear stale data from previous valid DAT (Issue 10 fix)
                 _mainWindow.UpdateStatusBarMessage("DAT file format not supported.");
                 return false;
             }
@@ -490,6 +530,7 @@ public partial class ValidatePage : IDisposable
                     _ = _mainWindow.BugReportService.SendBugReportAsync(detailedError);
 
                     ShowIncompatibleDatFileError(errorMsg);
+                    ClearRomDatabase(); // Clear stale data from previous valid DAT (Issue 10 fix)
                     _mainWindow.UpdateStatusBarMessage("DAT file format not supported.");
                     return false;
                 }
@@ -517,6 +558,7 @@ public partial class ValidatePage : IDisposable
                 _ = _mainWindow.BugReportService.SendBugReportAsync(detailedError);
 
                 ShowIncompatibleDatFileError(errorMsg);
+                ClearRomDatabase(); // Clear stale data from previous valid DAT (Issue 10 fix)
                 _mainWindow.UpdateStatusBarMessage("Error: DAT file empty or invalid.");
                 return false;
             }
@@ -564,6 +606,7 @@ public partial class ValidatePage : IDisposable
                 _ = _mainWindow.BugReportService.SendBugReportAsync(detailedError);
 
                 ShowIncompatibleDatFileError(errorMsg);
+                ClearRomDatabase(); // Clear stale data from previous valid DAT (Issue 10 fix)
                 _mainWindow.UpdateStatusBarMessage("Error: No ROM entries found.");
                 return false;
             }
@@ -606,6 +649,7 @@ public partial class ValidatePage : IDisposable
             _ = _mainWindow.BugReportService.SendBugReportAsync(detailedError, ex);
 
             ShowIncompatibleDatFileError(errorMsg);
+            ClearRomDatabase(); // Clear stale data from previous valid DAT (Issue 10 fix)
             ClearDatInfoDisplay();
             _mainWindow.UpdateStatusBarMessage("Error: Failed to parse DAT file.");
             return false;
@@ -628,6 +672,7 @@ public partial class ValidatePage : IDisposable
             _ = _mainWindow.BugReportService.SendBugReportAsync(detailedError, xmlEx);
 
             ShowIncompatibleDatFileError(errorMsg);
+            ClearRomDatabase(); // Clear stale data from previous valid DAT (Issue 10 fix)
             ClearDatInfoDisplay();
             _mainWindow.UpdateStatusBarMessage("Error: Invalid XML format.");
             return false;
@@ -650,6 +695,7 @@ public partial class ValidatePage : IDisposable
             _ = _mainWindow.BugReportService.SendBugReportAsync(detailedError, ex);
 
             ShowError(errorMsg);
+            ClearRomDatabase(); // Clear stale data from previous valid DAT (Issue 10 fix)
             ClearDatInfoDisplay();
             _mainWindow.UpdateStatusBarMessage("Error: Failed to load DAT file.");
             return false;
@@ -737,36 +783,45 @@ public partial class ValidatePage : IDisposable
     {
         try
         {
-            // Quick size filter before computing expensive hashes
-            // Try SHA1 first (most reliable), then MD5, then CRC
-            if (!string.IsNullOrEmpty(_romDatabaseBySha1.FirstOrDefault().Value?.Sha1))
+            // Use HashCalculator to properly handle archives - extracts and hashes contents
+            var gameFiles = await HashCalculator.CalculateHashesAsync(filePath, token);
+
+            // Check if extraction failed
+            if (gameFiles.Count == 1 && !string.IsNullOrEmpty(gameFiles[0].ErrorMessage))
             {
-                var actualSha1 = await ComputeHashAsync(filePath, SHA1.Create(), token);
-                if (_romDatabaseBySha1.TryGetValue(actualSha1, out var romBySha1) && romBySha1.Size == fileSize)
-                {
-                    return (romBySha1, "SHA1");
-                }
+                return (null, string.Empty);
             }
 
-            token.ThrowIfCancellationRequested();
-
-            if (!string.IsNullOrEmpty(_romDatabaseByMd5.FirstOrDefault().Value?.Md5))
+            // For archives, check each file inside. For regular files, there's just one entry.
+            foreach (var gameFile in gameFiles)
             {
-                var actualMd5 = await ComputeHashAsync(filePath, MD5.Create(), token);
-                if (_romDatabaseByMd5.TryGetValue(actualMd5, out var romByMd5) && romByMd5.Size == fileSize)
+                // Try SHA1 first (most reliable), then MD5, then CRC
+                if (!string.IsNullOrEmpty(gameFile.Sha1) && _romDatabaseBySha1.TryGetValue(gameFile.Sha1, out var romBySha1))
                 {
-                    return (romByMd5, "MD5");
+                    if (romBySha1.Size == gameFile.FileSize)
+                    {
+                        return (romBySha1, "SHA1");
+                    }
                 }
-            }
 
-            token.ThrowIfCancellationRequested();
+                token.ThrowIfCancellationRequested();
 
-            if (!string.IsNullOrEmpty(_romDatabaseByCrc.FirstOrDefault().Value?.Crc))
-            {
-                var actualCrc = await ComputeCrc32Async(filePath, token);
-                if (_romDatabaseByCrc.TryGetValue(actualCrc, out var romByCrc) && romByCrc.Size == fileSize)
+                if (!string.IsNullOrEmpty(gameFile.Md5) && _romDatabaseByMd5.TryGetValue(gameFile.Md5, out var romByMd5))
                 {
-                    return (romByCrc, "CRC32");
+                    if (romByMd5.Size == gameFile.FileSize)
+                    {
+                        return (romByMd5, "MD5");
+                    }
+                }
+
+                token.ThrowIfCancellationRequested();
+
+                if (!string.IsNullOrEmpty(gameFile.Crc32) && _romDatabaseByCrc.TryGetValue(gameFile.Crc32, out var romByCrc))
+                {
+                    if (romByCrc.Size == gameFile.FileSize)
+                    {
+                        return (romByCrc, "CRC32");
+                    }
                 }
             }
 
@@ -828,13 +883,22 @@ public partial class ValidatePage : IDisposable
             return;
         }
 
+        // Generate unique destination path to prevent overwriting existing files (Issue 11 fix)
+        destPath = GetUniqueDestPath(destPath);
+
         for (var attempt = 1; attempt <= maxRetries; attempt++)
         {
             try
             {
                 var destDir = Path.GetDirectoryName(destPath);
                 if (destDir != null) Directory.CreateDirectory(destDir);
-                await Task.Run(() => File.Move(sourcePath, destPath, true));
+                await Task.Run(() => File.Move(sourcePath, destPath));
+                return;
+            }
+            catch (IOException ex) when (IsDiskFullError(ex))
+            {
+                LogMessage($"   -> FAILED to move {Path.GetFileName(sourcePath)}: Disk is full.");
+                _mainWindow.UpdateStatusBarMessage($"Cannot move file - disk is full.");
                 return;
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or DirectoryNotFoundException)
@@ -857,6 +921,35 @@ public partial class ValidatePage : IDisposable
                 return;
             }
         }
+    }
+
+    private static string GetUniqueDestPath(string destPath)
+    {
+        if (!File.Exists(destPath))
+        {
+            return destPath;
+        }
+
+        // File already exists, generate a unique name by appending (1), (2), etc.
+        var directory = Path.GetDirectoryName(destPath) ?? string.Empty;
+        var fileNameWithoutExt = Path.GetFileNameWithoutExtension(destPath);
+        var extension = Path.GetExtension(destPath);
+        var counter = 1;
+
+        string newDestPath;
+        do
+        {
+            newDestPath = Path.Combine(directory, $"{fileNameWithoutExt} ({counter}){extension}");
+            counter++;
+        } while (File.Exists(newDestPath));
+
+        return newDestPath;
+    }
+
+    private static bool IsDiskFullError(IOException ex)
+    {
+        const int errorDiskFull = unchecked((int)0x80070070);
+        return ex.HResult == errorDiskFull;
     }
 
     #region UI and Control Methods
@@ -1005,6 +1098,17 @@ public partial class ValidatePage : IDisposable
             DatUrlTextBlock.Text = "N/A";
             DatRomCountTextBlock.Text = "0";
         });
+    }
+
+    private void ClearRomDatabase()
+    {
+        // Clear all ROM lookup dictionaries to prevent stale data (Issue 10 fix)
+        _romDatabase = [];
+        _romDatabaseBySha1 = [];
+        _romDatabaseByMd5 = [];
+        _romDatabaseByCrc = [];
+        _loadedDatFilePath = string.Empty;
+        _loadedDatFileTimestamp = DateTime.MinValue;
     }
 
     private void LogOperationSummary()

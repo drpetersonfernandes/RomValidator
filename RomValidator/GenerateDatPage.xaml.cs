@@ -199,19 +199,28 @@ public partial class GenerateDatPage : IDisposable
     {
         var totalRomCount = 0;
         var discoveredFilesCount = 0;
+        var archiveExpansionCount = 0;
+        var lastUiUpdate = DateTime.UtcNow;
+        const int uiUpdateIntervalMs = 100; // Throttle UI updates to every 100ms (Issue 5 fix)
 
-        // Start a background task to count files so the progress bar Max updates dynamically
-        // without blocking the start of hashing (Issue 7 fix)
+        // Use EnumerationOptions to ignore inaccessible folders and files (Issue 4 fix)
+        var enumerationOptions = new EnumerationOptions
+        {
+            IgnoreInaccessible = true,
+            RecurseSubdirectories = true,
+            AttributesToSkip = FileAttributes.Hidden | FileAttributes.System // Optional: skip hidden/system files for performance
+        };
+
+        // Start a background task to count files so we can estimate progress bar Max
+        // The actual Maximum will be set atomically in the main loop (Issue 2 & 3 fix)
         _ = Task.Run(() =>
         {
             try
             {
-                foreach (var _ in Directory.EnumerateFiles(folderPath, "*", SearchOption.AllDirectories))
+                foreach (var _ in Directory.EnumerateFiles(folderPath, "*", enumerationOptions))
                 {
                     if (cancellationToken.IsCancellationRequested) break;
-
-                    var currentDiscovered = Interlocked.Increment(ref discoveredFilesCount);
-                    Dispatcher.InvokeAsync(() => { HashProgressBar.Maximum = Math.Max(HashProgressBar.Maximum, currentDiscovered); });
+                    Interlocked.Increment(ref discoveredFilesCount);
                 }
             }
             catch
@@ -220,8 +229,8 @@ public partial class GenerateDatPage : IDisposable
             }
         }, cancellationToken);
 
-        // Stream the files instead of calling ToList() (Issue 7 fix)
-        var fileEnumerable = Directory.EnumerateFiles(folderPath, "*", SearchOption.AllDirectories);
+        // Stream the files using EnumerationOptions to skip inaccessible items (Issue 4 fix)
+        var fileEnumerable = Directory.EnumerateFiles(folderPath, "*", enumerationOptions);
 
         // Sequential processing
         foreach (var filePath in fileEnumerable)
@@ -231,11 +240,27 @@ public partial class GenerateDatPage : IDisposable
             var gameFiles = await HashCalculator.CalculateHashesAsync(filePath, cancellationToken);
             var romsFromFile = gameFiles.Count;
 
+            // Track how many extra items come from archives (files inside archives minus the archive file itself)
             if (romsFromFile > 1)
             {
+                Interlocked.Add(ref archiveExpansionCount, romsFromFile - 1);
+            }
+
+            // Atomically update counters to avoid race conditions (Issue 2 & 12 fix)
+            // Using int consistently since HashProgressBar.Maximum is conceptually an integer count
+            var currentDiscovered = Interlocked.Increment(ref discoveredFilesCount);
+            var currentExpansion = archiveExpansionCount; // Read is atomic for int
+
+            // Throttle UI updates to prevent flooding the UI thread (Issue 5 fix)
+            // Only dispatch to UI thread every 100ms to avoid queuing thousands of operations
+            var now = DateTime.UtcNow;
+            if ((now - lastUiUpdate).TotalMilliseconds >= uiUpdateIntervalMs)
+            {
+                lastUiUpdate = now;
+                var newMaximum = currentDiscovered + currentExpansion;
                 await Dispatcher.InvokeAsync(() =>
                 {
-                    HashProgressBar.Maximum += romsFromFile - 1;
+                    HashProgressBar.Maximum = newMaximum;
                 });
             }
 
@@ -407,6 +432,7 @@ public partial class GenerateDatPage : IDisposable
         }
 
         HashProgressBar.Value = 0;
+        HashProgressBar.Maximum = 0;  // Reset Maximum to prevent visual issues on subsequent runs (Issue 3 fix)
         ProgressText.Text = "";
         _processedFileCount = 0;
         UpdateFileCountText(0);
@@ -417,6 +443,9 @@ public partial class GenerateDatPage : IDisposable
     {
         _uiUpdateTimer?.Stop();
         _uiUpdateTimer = null;
+        
+        // Cancel before disposing to prevent ObjectDisposedException (Issue 9 fix)
+        _cts?.Cancel();
         _cts?.Dispose();
         GC.SuppressFinalize(this);
     }
