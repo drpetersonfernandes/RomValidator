@@ -213,21 +213,7 @@ public partial class GenerateDatPage : IDisposable
 
         // Start a background task to count files so we can estimate progress bar Max
         // The actual Maximum will be set atomically in the main loop (Issue 2 & 3 fix)
-        _ = Task.Run(() =>
-        {
-            try
-            {
-                foreach (var _ in Directory.EnumerateFiles(folderPath, "*", enumerationOptions))
-                {
-                    if (cancellationToken.IsCancellationRequested) break;
-                    Interlocked.Increment(ref discoveredFilesCount);
-                }
-            }
-            catch
-            {
-                /* Ignore enumeration errors in background count */
-            }
-        }, cancellationToken);
+        _ = Task.Run(() => CountFilesInBackground(folderPath, enumerationOptions, ref discoveredFilesCount, cancellationToken), cancellationToken);
 
         // Stream the files using EnumerationOptions to skip inaccessible items (Issue 4 fix)
         var fileEnumerable = Directory.EnumerateFiles(folderPath, "*", enumerationOptions);
@@ -432,18 +418,35 @@ public partial class GenerateDatPage : IDisposable
         }
 
         HashProgressBar.Value = 0;
-        HashProgressBar.Maximum = 0;  // Reset Maximum to prevent visual issues on subsequent runs (Issue 3 fix)
+        HashProgressBar.Maximum = 0; // Reset Maximum to prevent visual issues on subsequent runs (Issue 3 fix)
         ProgressText.Text = "";
         _processedFileCount = 0;
         UpdateFileCountText(0);
         ExportDatButton.IsEnabled = false;
     }
 
+    private static void CountFilesInBackground(string folderPath, EnumerationOptions options, ref int counter, CancellationToken cancellationToken)
+    {
+        try
+        {
+            foreach (var _ in Directory.EnumerateFiles(folderPath, "*", options))
+            {
+                if (cancellationToken.IsCancellationRequested) break;
+
+                Interlocked.Increment(ref counter);
+            }
+        }
+        catch
+        {
+            /* Ignore enumeration errors in background count */
+        }
+    }
+
     public void Dispose()
     {
         _uiUpdateTimer?.Stop();
         _uiUpdateTimer = null;
-        
+
         // Cancel before disposing to prevent ObjectDisposedException (Issue 9 fix)
         _cts?.Cancel();
         _cts?.Dispose();

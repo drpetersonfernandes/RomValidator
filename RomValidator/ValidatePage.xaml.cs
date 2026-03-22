@@ -3,7 +3,6 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Reflection;
-using System.Security.Cryptography;
 using System.Text;
 using System.Windows;
 using System.Xml;
@@ -146,7 +145,7 @@ public partial class ValidatePage : IDisposable
             // Skip re-loading if the same DAT file was already loaded and hasn't changed (Issue 8 fix)
             var datFileInfo = new FileInfo(datFilePath);
             bool datLoaded;
-            if (_loadedDatFilePath == datFilePath && 
+            if (_loadedDatFilePath == datFilePath &&
                 _loadedDatFileTimestamp == datFileInfo.LastWriteTimeUtc &&
                 _romDatabase.Count > 0)
             {
@@ -162,7 +161,7 @@ public partial class ValidatePage : IDisposable
                     _loadedDatFileTimestamp = datFileInfo.LastWriteTimeUtc;
                 }
             }
-            
+
             if (!datLoaded)
             {
                 ShowError("Failed to load or parse the DAT file. Please check the log for details.");
@@ -251,13 +250,6 @@ public partial class ValidatePage : IDisposable
         _mainWindow.UpdateStatusBarMessage("Validation complete.");
     }
 
-    private static bool IsAccessDeniedError(IOException ex)
-    {
-        return ex.Message.Contains("access denied", StringComparison.OrdinalIgnoreCase) ||
-               ex.Message.Contains("the process cannot access the file", StringComparison.OrdinalIgnoreCase) ||
-               ex.Message.Contains("being used by another process", StringComparison.OrdinalIgnoreCase);
-    }
-
     private async Task ProcessFileAsync(string filePath, string successPath, string failPath, bool moveSuccess, bool moveFailed, bool renameMatched, CancellationToken token)
     {
         var fileName = Path.GetFileName(filePath);
@@ -280,7 +272,7 @@ public partial class ValidatePage : IDisposable
             }
 
             // Compute hashes to find a match
-            var (hashMatchedRom, matchedHash) = await FindRomByHashAsync(filePath, fileInfo.Length, token);
+            var (hashMatchedRom, matchedHash) = await FindRomByHashAsync(filePath, token);
 
             if (hashMatchedRom != null)
             {
@@ -484,14 +476,37 @@ public partial class ValidatePage : IDisposable
             }
 
             // Quick check for common incompatible formats - MUST happen before XML parsing
-            string firstLine;
-            using (var sr = new StreamReader(datFilePath, Encoding.UTF8, true, 1024))
+            // Scan the first several lines to detect ClrMamePro format, since some files
+            // may have a BOM, blank lines, or comments before the clrmamepro declaration
+            var isClrMameProFormat = false;
+            using (var sr = new StreamReader(datFilePath, Encoding.UTF8, true, 4096))
             {
-                firstLine = await sr.ReadLineAsync() ?? string.Empty;
+                for (var i = 0; i < 10; i++)
+                {
+                    var line = await sr.ReadLineAsync();
+                    if (line is null) break;
+
+                    if (i == 0)
+                    {
+                    }
+
+                    if (line.Contains("clrmamepro", StringComparison.OrdinalIgnoreCase) &&
+                        !line.TrimStart().StartsWith("<?xml", StringComparison.OrdinalIgnoreCase))
+                    {
+                        isClrMameProFormat = true;
+                        break;
+                    }
+
+                    // Stop early if we hit XML declaration or content
+                    if (line.TrimStart().StartsWith("<?xml", StringComparison.OrdinalIgnoreCase) ||
+                        line.TrimStart().StartsWith("<datafile", StringComparison.OrdinalIgnoreCase))
+                    {
+                        break;
+                    }
+                }
             }
 
-            if (firstLine.Contains("clrmamepro", StringComparison.OrdinalIgnoreCase) &&
-                !firstLine.TrimStart().StartsWith("<?xml", StringComparison.OrdinalIgnoreCase))
+            if (isClrMameProFormat)
             {
                 const string errorMsg = "Incompatible DAT file format.\n\n" +
                                         "This application only supports No-Intro XML DAT files.\n\n" +
@@ -708,78 +723,7 @@ public partial class ValidatePage : IDisposable
             MessageBoxButton.OK, MessageBoxImage.Warning);
     }
 
-    private static async Task<string> ComputeHashAsync(string filePath, HashAlgorithm algorithm, CancellationToken token)
-    {
-        const int maxRetries = 3;
-        var retryDelay = 100;
-
-        using (algorithm)
-        {
-            for (var attempt = 0; attempt < maxRetries; attempt++)
-            {
-                try
-                {
-                    // Reinitialize algorithm to clear any partial state from previous attempt
-                    algorithm.Initialize();
-
-                    await using var stream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, true);
-                    var hashBytes = await algorithm.ComputeHashAsync(stream, token);
-                    return Convert.ToHexString(hashBytes).ToLowerInvariant();
-                }
-                catch (OperationCanceledException)
-                {
-                    throw;
-                }
-                catch (IOException ex) when (IsAccessDeniedError(ex))
-                {
-                    if (attempt == maxRetries - 1)
-                    {
-                        throw new IOException($"File is locked or access denied after {maxRetries} attempts: {filePath}", ex);
-                    }
-
-                    await Task.Delay(retryDelay, token);
-                    retryDelay *= 2; // Exponential backoff
-                }
-            }
-
-            throw new InvalidOperationException("Unexpected exit from retry loop");
-        }
-    }
-
-    private static async Task<string> ComputeCrc32Async(string filePath, CancellationToken token)
-    {
-        const int maxRetries = 3;
-        var retryDelay = 100;
-
-        for (var attempt = 0; attempt < maxRetries; attempt++)
-        {
-            try
-            {
-                using var crc32 = new Crc32Algorithm();
-                await using var stream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, true);
-                var hashBytes = await crc32.ComputeHashAsync(stream, token);
-                return Convert.ToHexString(hashBytes).ToLowerInvariant();
-            }
-            catch (OperationCanceledException)
-            {
-                throw;
-            }
-            catch (IOException ex) when (IsAccessDeniedError(ex))
-            {
-                if (attempt == maxRetries - 1)
-                {
-                    throw new IOException($"File is locked or access denied after {maxRetries} attempts: {filePath}", ex);
-                }
-
-                await Task.Delay(retryDelay, token);
-                retryDelay *= 2; // Exponential backoff
-            }
-        }
-
-        throw new InvalidOperationException("Unexpected exit from retry loop");
-    }
-
-    private async Task<(Rom? Rom, string HashType)> FindRomByHashAsync(string filePath, long fileSize, CancellationToken token)
+    private async Task<(Rom? Rom, string HashType)> FindRomByHashAsync(string filePath, CancellationToken token)
     {
         try
         {
@@ -898,7 +842,7 @@ public partial class ValidatePage : IDisposable
             catch (IOException ex) when (IsDiskFullError(ex))
             {
                 LogMessage($"   -> FAILED to move {Path.GetFileName(sourcePath)}: Disk is full.");
-                _mainWindow.UpdateStatusBarMessage($"Cannot move file - disk is full.");
+                _mainWindow.UpdateStatusBarMessage("Cannot move file - disk is full.");
                 return;
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or DirectoryNotFoundException)
