@@ -6,89 +6,6 @@
       mc:Ignorable="d" 
       d:DesignHeight="600" d:DesignWidth="1100"
       Title="Validate ROMs">
-    <Page.Resources>
-        <!-- Button Style (Similar to HashCheckMyFolder) -->
-        <Style x:Key="ActionButtonStyle" TargetType="Button">
-            <Setter Property="Padding" Value="15,8" />
-            <Setter Property="Margin" Value="5" />
-            <Setter Property="FontSize" Value="13" />
-            <Setter Property="BorderThickness" Value="0" />
-            <Setter Property="Foreground" Value="White" />
-            <Setter Property="Background" Value="#2979FF" /> <!-- Default Blue -->
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border Background="{TemplateBinding Background}"
-                                BorderBrush="{TemplateBinding BorderBrush}"
-                                BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="4"> <!-- Rounded corners -->
-                            <ContentPresenter HorizontalAlignment="Center"
-                                            VerticalAlignment="Center"
-                                            Margin="{TemplateBinding Padding}" />
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsEnabled" Value="False">
-                                <Setter Property="Background" Value="#BDBDBD" />
-                                <Setter Property="Opacity" Value="0.7" />
-                            </Trigger>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter Property="Background" Value="#1E88E5" /> <!-- Hover Blue -->
-                            </Trigger>
-                            <Trigger Property="IsPressed" Value="True">
-                                <Setter Property="Background" Value="#1565C0" /> <!-- Pressed Blue -->
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
-        <!-- Specific Button Colors -->
-        <Style x:Key="StartButtonStyle" BasedOn="{StaticResource ActionButtonStyle}" TargetType="Button">
-            <Setter Property="Background" Value="#4CAF50" /> <!-- Green -->
-            <Style.Triggers>
-                <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#43A047" /> <!-- Hover Green -->
-                </Trigger>
-                <Trigger Property="IsPressed" Value="True">
-                    <Setter Property="Background" Value="#388E3C" /> <!-- Pressed Green -->
-                </Trigger>
-            </Style.Triggers>
-        </Style>
-        <Style x:Key="CancelButtonStyle" BasedOn="{StaticResource ActionButtonStyle}" TargetType="Button">
-            <Setter Property="Background" Value="#F44336" /> <!-- Red -->
-            <Style.Triggers>
-                <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#E53935" /> <!-- Hover Red -->
-                </Trigger>
-                <Trigger Property="IsPressed" Value="True">
-                    <Setter Property="Background" Value="#D32F2F" /> <!-- Pressed Red -->
-                </Trigger>
-            </Style.Triggers>
-        </Style>
-        <Style x:Key="DownloadButtonStyle" BasedOn="{StaticResource ActionButtonStyle}" TargetType="Button">
-            <Setter Property="Background" Value="#FF9800" /> <!-- Orange -->
-            <Style.Triggers>
-                <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#FB8C00" /> <!-- Hover Orange -->
-                </Trigger>
-                <Trigger Property="IsPressed" Value="True">
-                    <Setter Property="Background" Value="#F57C00" /> <!-- Pressed Orange -->
-                </Trigger>
-            </Style.Triggers>
-        </Style>
-
-        <!-- TextBox Style (Similar to HashCheckMyFolder) -->
-        <Style x:Key="CustomTextBoxStyle" TargetType="TextBox">
-            <Setter Property="Padding" Value="10,8" />
-            <Setter Property="FontSize" Value="13" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="BorderBrush" Value="#BDBDBD" />
-            <Setter Property="Background" Value="White" />
-            <Setter Property="VerticalContentAlignment" Value="Center" />
-            <Setter Property="IsReadOnlyCaretVisible" Value="True" />
-        </Style>
-    </Page.Resources>
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/> <!-- Main Controls -->
@@ -98,7 +15,7 @@
         </Grid.RowDefinitions>
 
         <!-- Main Controls (Adjusted Styling) -->
-        <Border Grid.Row="0" Margin="10" Padding="15" BorderBrush="#BDBDBD" BorderThickness="1" CornerRadius="4">
+        <Border Grid.Row="0" Margin="10" Padding="15" BorderBrush="{StaticResource BorderGrayBrush}" BorderThickness="1" CornerRadius="4">
             <StackPanel>
                 <Grid Margin="0,0,0,10">
                     <Grid.ColumnDefinitions>
@@ -107,7 +24,7 @@
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
                     <Label Grid.Column="0" Content="ROMs Folder to Scan:" VerticalAlignment="Center" FontWeight="SemiBold"/>
-                    <TextBox x:Name="RomsFolderTextBox" Grid.Column="1" Margin="5,0,5,0" Style="{StaticResource CustomTextBoxStyle}" IsReadOnly="True"/>
+                    <TextBox x:Name="RomsFolderTextBox" Grid.Column="1" Margin="5,0,5,0" Style="{StaticResource CustomTextBoxStyle}" IsReadOnly="True" ToolTip="Path to the folder containing ROM files"/>
                     <Button x:Name="BrowseRomsFolderButton" Grid.Column="2" Content="Browse..." Click="BrowseRomsFolderButton_Click" Style="{StaticResource ActionButtonStyle}" ToolTip="Select the folder containing your ROM files"/>
                 </Grid>
 
@@ -118,14 +35,14 @@
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
                     <Label Grid.Column="0" Content="DAT File:" VerticalAlignment="Center" FontWeight="SemiBold"/>
-                    <TextBox x:Name="DatFileTextBox" Grid.Column="1" Margin="5,0,5,0" Style="{StaticResource CustomTextBoxStyle}" IsReadOnly="True"/>
+                    <TextBox x:Name="DatFileTextBox" Grid.Column="1" Margin="5,0,5,0" Style="{StaticResource CustomTextBoxStyle}" IsReadOnly="True" ToolTip="Path to the selected DAT file"/>
                     <Button x:Name="BrowseDatFileButton" Grid.Column="2" Content="Browse..." Click="BrowseDatFileButton_Click" Style="{StaticResource ActionButtonStyle}" ToolTip="Select the DAT file for validation"/>
                 </Grid>
 
                 <StackPanel Margin="0,15,0,0" Orientation="Vertical">
-                    <CheckBox x:Name="MoveSuccessCheckBox" Content="Move successful items to '_success' folder" IsChecked="True" VerticalAlignment="Center" Margin="0,2,0,2"/>
-                    <CheckBox x:Name="MoveFailedCheckBox" Content="Move failed/unknown items to '_fail' folder" IsChecked="True" Margin="0,8,0,8" VerticalAlignment="Center"/>
-                    <CheckBox x:Name="RenameMatchedFilesCheckBox" Content="Automatically rename files when hash matches but filename differs" IsChecked="True" Margin="0,8,0,8" VerticalAlignment="Center"/>
+                    <CheckBox x:Name="MoveSuccessCheckBox" Content="Move successful items to '_success' folder" IsChecked="True" VerticalAlignment="Center" Margin="0,2,0,2" ToolTip="If checked, valid ROMs will be moved to the '_success' subfolder"/>
+                    <CheckBox x:Name="MoveFailedCheckBox" Content="Move failed/unknown items to '_fail' folder" IsChecked="True" Margin="0,8,0,8" VerticalAlignment="Center" ToolTip="If checked, invalid or unknown ROMs will be moved to the '_fail' subfolder"/>
+                    <CheckBox x:Name="RenameMatchedFilesCheckBox" Content="Automatically rename files when hash matches but filename differs" IsChecked="True" Margin="0,8,0,8" VerticalAlignment="Center" ToolTip="If checked, files with matching hashes but different names will be renamed to match the DAT entry"/>
                 </StackPanel>
 
                 <StackPanel Margin="0,15,0,0" Orientation="Horizontal" HorizontalAlignment="Center">
@@ -144,13 +61,13 @@
                 <ColumnDefinition Width="250" MinWidth="200"/> <!-- DAT Info column -->
             </Grid.ColumnDefinitions>
 
-            <Border Grid.Column="0" BorderBrush="#BDBDBD" BorderThickness="1" CornerRadius="4">
+            <Border Grid.Column="0" BorderBrush="{StaticResource BorderGrayBrush}" BorderThickness="1" CornerRadius="4" ToolTip="Validation logs and details">
                 <TextBox x:Name="LogViewer" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" IsReadOnly="True" FontFamily="Consolas" Background="White"/>
             </Border>
 
-            <GridSplitter Grid.Column="1" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Background="#E0E0E0" ShowsPreview="True"/>
+            <GridSplitter Grid.Column="1" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Background="{StaticResource StatusBarGrayBrush}" ShowsPreview="True"/>
 
-            <Border Grid.Column="2" BorderBrush="#BDBDBD" BorderThickness="1" Padding="10" Margin="5,0,0,0" CornerRadius="4">
+            <Border Grid.Column="2" BorderBrush="{StaticResource BorderGrayBrush}" BorderThickness="1" Padding="10" Margin="5,0,0,0" CornerRadius="4" ToolTip="Information about the loaded DAT file">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel>
                         <TextBlock Text="DAT File Information" FontWeight="Bold" FontSize="14" Margin="0,0,0,10"/>
@@ -188,37 +105,37 @@
                 <ColumnDefinition Width="*" /><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /><ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
 
-            <Border Grid.Column="0" BorderBrush="#BDBDBD" BorderThickness="1" Margin="2" Padding="8" CornerRadius="4">
+            <Border Grid.Column="0" BorderBrush="{StaticResource BorderGrayBrush}" BorderThickness="1" Margin="2" Padding="8" CornerRadius="4" ToolTip="Total number of files to process">
                 <StackPanel Orientation="Vertical" HorizontalAlignment="Center">
                     <TextBlock Text="Total Files:" FontWeight="SemiBold" HorizontalAlignment="Center"/>
                     <TextBlock x:Name="TotalFilesValue" Text="0" HorizontalAlignment="Center"/>
                 </StackPanel>
             </Border>
-            <Border Grid.Column="1" BorderBrush="#BDBDBD" BorderThickness="1" Margin="2" Padding="8" CornerRadius="4">
+            <Border Grid.Column="1" BorderBrush="{StaticResource BorderGrayBrush}" BorderThickness="1" Margin="2" Padding="8" CornerRadius="4" ToolTip="Number of successfully validated files">
                 <StackPanel Orientation="Vertical" HorizontalAlignment="Center">
                     <TextBlock Text="Success:" FontWeight="SemiBold" Foreground="Green" HorizontalAlignment="Center"/>
                     <TextBlock x:Name="SuccessValue" Text="0" HorizontalAlignment="Center"/>
                 </StackPanel>
             </Border>
-            <Border Grid.Column="2" BorderBrush="#BDBDBD" BorderThickness="1" Margin="2" Padding="8" CornerRadius="4">
+            <Border Grid.Column="2" BorderBrush="{StaticResource BorderGrayBrush}" BorderThickness="1" Margin="2" Padding="8" CornerRadius="4" ToolTip="Number of files that failed validation">
                 <StackPanel Orientation="Vertical" HorizontalAlignment="Center">
                     <TextBlock Text="Failed:" FontWeight="SemiBold" Foreground="Red" HorizontalAlignment="Center"/>
                     <TextBlock x:Name="FailedValue" Text="0" HorizontalAlignment="Center"/>
                 </StackPanel>
             </Border>
-            <Border Grid.Column="3" BorderBrush="#BDBDBD" BorderThickness="1" Margin="2" Padding="8" CornerRadius="4">
+            <Border Grid.Column="3" BorderBrush="{StaticResource BorderGrayBrush}" BorderThickness="1" Margin="2" Padding="8" CornerRadius="4" ToolTip="Number of unknown files (not in DAT)">
                 <StackPanel Orientation="Vertical" HorizontalAlignment="Center">
                     <TextBlock Text="Unknown:" FontWeight="SemiBold" Foreground="Goldenrod" HorizontalAlignment="Center"/>
                     <TextBlock x:Name="UnknownValue" Text="0" HorizontalAlignment="Center"/>
                 </StackPanel>
             </Border>
-            <Border Grid.Column="4" BorderBrush="#BDBDBD" BorderThickness="1" Margin="2" Padding="8" CornerRadius="4">
+            <Border Grid.Column="4" BorderBrush="{StaticResource BorderGrayBrush}" BorderThickness="1" Margin="2" Padding="8" CornerRadius="4" ToolTip="Number of files that were renamed to match the DAT entry">
                 <StackPanel Orientation="Vertical" HorizontalAlignment="Center">
                     <TextBlock Text="Renamed:" FontWeight="SemiBold" Foreground="Blue" HorizontalAlignment="Center"/>
                     <TextBlock x:Name="RenamedValue" Text="0" HorizontalAlignment="Center"/>
                 </StackPanel>
             </Border>
-            <Border Grid.Column="5" BorderBrush="#BDBDBD" BorderThickness="1" Margin="2" Padding="8" CornerRadius="4">
+            <Border Grid.Column="5" BorderBrush="{StaticResource BorderGrayBrush}" BorderThickness="1" Margin="2" Padding="8" CornerRadius="4" ToolTip="Time elapsed during validation">
                 <StackPanel Orientation="Vertical" HorizontalAlignment="Center">
                     <TextBlock Text="Processing Time:" FontWeight="SemiBold" HorizontalAlignment="Center"/>
                     <TextBlock x:Name="ProcessingTimeValue" Text="00:00:00" HorizontalAlignment="Center"/>
@@ -232,9 +149,9 @@
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
-            <Border Grid.Column="0" BorderBrush="#BDBDBD" BorderThickness="1" CornerRadius="4" Padding="1">
+            <Border Grid.Column="0" BorderBrush="{StaticResource BorderGrayBrush}" BorderThickness="1" CornerRadius="4" Padding="1" ToolTip="Validation progress">
                 <Grid>
-                    <ProgressBar x:Name="ProgressBar" Height="24" Background="White" Foreground="#4CAF50" BorderThickness="0" />
+                    <ProgressBar x:Name="ProgressBar" Height="24" Background="White" Foreground="{StaticResource SuccessGreenBrush}" BorderThickness="0" />
                     <TextBlock x:Name="ProgressText" HorizontalAlignment="Center" VerticalAlignment="Center" FontWeight="SemiBold" Text="" />
                 </Grid>
             </Border>

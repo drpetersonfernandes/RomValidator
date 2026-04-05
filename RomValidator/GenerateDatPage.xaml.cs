@@ -33,6 +33,9 @@ public partial class GenerateDatPage : IDisposable
     private readonly List<GameFile> _uiUpdateBuffer = [];
     private DispatcherTimer? _uiUpdateTimer;
 
+    private int _discoveredFilesCount;
+    private int _archiveExpansionCount;
+
     public GenerateDatPage(MainWindow mainWindow)
     {
         _mainWindow = mainWindow;
@@ -198,8 +201,8 @@ public partial class GenerateDatPage : IDisposable
     private async Task HashFilesAsync(string folderPath, IProgress<GameFile> progress, CancellationToken cancellationToken)
     {
         var totalRomCount = 0;
-        var discoveredFilesCount = 0;
-        var archiveExpansionCount = 0;
+        _discoveredFilesCount = 0;
+        _archiveExpansionCount = 0;
         var lastUiUpdate = DateTime.UtcNow;
         const int uiUpdateIntervalMs = 100; // Throttle UI updates to every 100ms (Issue 5 fix)
 
@@ -213,10 +216,10 @@ public partial class GenerateDatPage : IDisposable
 
         // Start a background task to count files so we can estimate progress bar Max
         // The actual Maximum will be set atomically in the main loop (Issue 2 & 3 fix)
-        _ = Task.Run(() => CountFilesInBackground(folderPath, enumerationOptions, ref discoveredFilesCount, cancellationToken), cancellationToken);
+        _ = Task.Run(() => CountFilesInBackground(folderPath, enumerationOptions, ref _discoveredFilesCount, cancellationToken), cancellationToken);
 
         // Stream the files using EnumerationOptions to skip inaccessible items (Issue 4 fix)
-        var fileEnumerable = Directory.EnumerateFiles(folderPath, "*", enumerationOptions);
+        var fileEnumerable = await Task.Run(() => Directory.EnumerateFiles(folderPath, "*", enumerationOptions), cancellationToken);
 
         // Sequential processing
         foreach (var filePath in fileEnumerable)
@@ -229,13 +232,13 @@ public partial class GenerateDatPage : IDisposable
             // Track how many extra items come from archives (files inside archives minus the archive file itself)
             if (romsFromFile > 1)
             {
-                Interlocked.Add(ref archiveExpansionCount, romsFromFile - 1);
+                Interlocked.Add(ref _archiveExpansionCount, romsFromFile - 1);
             }
 
             // Atomically update counters to avoid race conditions (Issue 2 & 12 fix)
             // Using int consistently since HashProgressBar.Maximum is conceptually an integer count
-            var currentDiscovered = Interlocked.Increment(ref discoveredFilesCount);
-            var currentExpansion = archiveExpansionCount; // Read is atomic for int
+            var currentDiscovered = Interlocked.Increment(ref _discoveredFilesCount);
+            var currentExpansion = _archiveExpansionCount; // Read is atomic for int
 
             // Throttle UI updates to prevent flooding the UI thread (Issue 5 fix)
             // Only dispatch to UI thread every 100ms to avoid queuing thousands of operations

@@ -218,7 +218,7 @@ public partial class ValidatePage : IDisposable
         LogMessage($"Move failed/unknown files: {moveFailed}" + (moveFailed ? $" (to {failPath})" : ""));
         LogMessage($"Rename files on hash match: {renameMatched}");
 
-        var filesToScan = Directory.GetFiles(romsFolderPath);
+        var filesToScan = await Task.Run(() => Directory.GetFiles(romsFolderPath), token);
         _totalFilesToProcess = filesToScan.Length;
         ProgressBar.Maximum = _totalFilesToProcess;
         UpdateStatsDisplay();
@@ -464,10 +464,15 @@ public partial class ValidatePage : IDisposable
             // Read a preview of the DAT file for error reporting (first 5000 characters)
             try
             {
-                datFilePreview = await File.ReadAllTextAsync(datFilePath);
-                if (datFilePreview.Length > 5000)
+                await using var stream = new FileStream(datFilePath, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, true);
+                using var reader = new StreamReader(stream);
+                var buffer = new char[5000];
+                var charsRead = await reader.ReadBlockAsync(buffer, 0, 5000);
+                datFilePreview = new string(buffer, 0, charsRead);
+
+                if (charsRead == 5000)
                 {
-                    datFilePreview = datFilePreview[..5000] + "\n\n[... FILE TRUNCATED FOR PREVIEW ...]";
+                    datFilePreview += "\n\n[... FILE TRUNCATED FOR PREVIEW ...]";
                 }
             }
             catch
@@ -476,8 +481,47 @@ public partial class ValidatePage : IDisposable
             }
 
             // Quick check for common incompatible formats - MUST happen before XML parsing
-            // Scan the first several lines to detect ClrMamePro format, since some files
-            // may have a BOM, blank lines, or comments before the clrmamepro declaration
+
+            // 1. Check for ZIP format (magic number "PK")
+            if (datFilePreview.StartsWith("PK", StringComparison.Ordinal))
+            {
+                const string errorMsg = "Incompatible file format.\n\n" +
+                                        "This application only supports No-Intro XML DAT files.\n\n" +
+                                        "The selected file appears to be a ZIP archive. Please unzip it first and load the .dat or .xml file inside.";
+                LogMessage($"Error: {errorMsg}");
+
+                // Send sample to developer
+                var detailedError = $"User attempted to load a ZIP file as a DAT file: {Path.GetFileName(datFilePath)}\n\n" +
+                                    $"File Preview:\n{datFilePreview}";
+                _ = _mainWindow.BugReportService.SendBugReportAsync(detailedError);
+
+                ShowIncompatibleDatFileError(errorMsg);
+                ClearRomDatabase();
+                _mainWindow.UpdateStatusBarMessage("ZIP files are not supported.");
+                return false;
+            }
+
+            // 2. Check for HTML format (likely from GitLab/GitHub UI download error)
+            if (datFilePreview.Contains("<!DOCTYPE html>", StringComparison.OrdinalIgnoreCase) ||
+                datFilePreview.Contains("<html", StringComparison.OrdinalIgnoreCase))
+            {
+                const string errorMsg = "Incompatible DAT file format.\n\n" +
+                                        "This application only supports No-Intro XML DAT files.\n\n" +
+                                        "The selected file appears to be an HTML webpage. This usually happens when downloading from GitHub or GitLab using 'Save Link As' instead of downloading the raw file.";
+                LogMessage($"Error: {errorMsg}");
+
+                // Send sample to developer
+                var detailedError = $"User attempted to load an HTML file as a DAT file: {Path.GetFileName(datFilePath)}\n\n" +
+                                    $"File Preview:\n{datFilePreview}";
+                _ = _mainWindow.BugReportService.SendBugReportAsync(detailedError);
+
+                ShowIncompatibleDatFileError(errorMsg);
+                ClearRomDatabase();
+                _mainWindow.UpdateStatusBarMessage("HTML pages are not supported.");
+                return false;
+            }
+
+            // 3. Scan the first several lines to detect ClrMamePro format
             var isClrMameProFormat = false;
             using (var sr = new StreamReader(datFilePath, Encoding.UTF8, true, 4096))
             {
@@ -485,10 +529,6 @@ public partial class ValidatePage : IDisposable
                 {
                     var line = await sr.ReadLineAsync();
                     if (line is null) break;
-
-                    if (i == 0)
-                    {
-                    }
 
                     if (line.Contains("clrmamepro", StringComparison.OrdinalIgnoreCase) &&
                         !line.TrimStart().StartsWith("<?xml", StringComparison.OrdinalIgnoreCase))
@@ -535,7 +575,7 @@ public partial class ValidatePage : IDisposable
                     const string errorMsg = "Incompatible DAT file format.\n\n" +
                                             "This application only supports No-Intro XML DAT files.\n\n" +
                                             "The selected file does not contain the required <datafile> root element.\n\n" +
-                                            "Please download a compatible DAT file from https://no-intro.org/";
+                                            "Please ensure you are using a No-Intro XML DAT file from https://no-intro.org/";
                     LogMessage($"Error: {errorMsg}");
 
                     // Send sample to developer
@@ -558,7 +598,7 @@ public partial class ValidatePage : IDisposable
             await using var deserializeStream = new FileStream(datFilePath, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, true);
             using var xmlReader = XmlReader.Create(deserializeStream, new XmlReaderSettings { DtdProcessing = DtdProcessing.Ignore, XmlResolver = null });
 
-            var datafile = (Datafile?)serializer.Deserialize(xmlReader);
+            var datafile = await Task.Run(() => (Datafile?)serializer.Deserialize(xmlReader));
             if (datafile?.Games is null || datafile.Games.Count == 0)
             {
                 const string errorMsg = "Incompatible or empty DAT file.\n\n" +
@@ -784,8 +824,8 @@ public partial class ValidatePage : IDisposable
 
     private static async Task RenameFileAsync(string sourcePath, string destPath)
     {
-        const int maxRetries = 5;
-        const int delayMs = 100;
+        const int maxRetries = 10;
+        const int delayMs = 200;
 
         if (!File.Exists(sourcePath))
         {
@@ -818,8 +858,8 @@ public partial class ValidatePage : IDisposable
 
     private async Task MoveFileAsync(string sourcePath, string destPath)
     {
-        const int maxRetries = 5;
-        const int delayMs = 100;
+        const int maxRetries = 10;
+        const int delayMs = 200;
 
         if (!File.Exists(sourcePath))
         {

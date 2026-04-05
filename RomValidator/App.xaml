@@ -3,6 +3,153 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              StartupUri="MainWindow.xaml">
     <Application.Resources>
-         
+        <!-- Colors -->
+        <SolidColorBrush x:Key="PrimaryBlueBrush" Color="#1976D2" />
+        <SolidColorBrush x:Key="AccentBlueBrush" Color="#2979FF" />
+        <SolidColorBrush x:Key="HoverBlueBrush" Color="#1E88E5" />
+        <SolidColorBrush x:Key="PressedBlueBrush" Color="#1565C0" />
+        <SolidColorBrush x:Key="SuccessGreenBrush" Color="#4CAF50" />
+        <SolidColorBrush x:Key="ErrorRedBrush" Color="#F44336" />
+        <SolidColorBrush x:Key="WarningOrangeBrush" Color="#FF9800" />
+        <SolidColorBrush x:Key="InfoPurpleBrush" Color="#9C27B0" />
+        <SolidColorBrush x:Key="NeutralGrayBrush" Color="#607D8B" />
+        <SolidColorBrush x:Key="BorderGrayBrush" Color="#BDBDBD" />
+        <SolidColorBrush x:Key="LightBackgroundBrush" Color="#F5F5F5" />
+        <SolidColorBrush x:Key="StatusBarGrayBrush" Color="#E0E0E0" />
+
+        <!-- Menu Button Style (MainWindow) -->
+        <Style x:Key="MenuButtonStyle" TargetType="Button">
+            <Setter Property="Padding" Value="12,8" />
+            <Setter Property="Margin" Value="5" />
+            <Setter Property="Background" Value="{StaticResource AccentBlueBrush}" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="4">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                            VerticalAlignment="Center"
+                                            Margin="{TemplateBinding Padding}" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="{StaticResource HoverBlueBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter Property="Background" Value="{StaticResource PressedBlueBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Action Button Style (Shared) -->
+        <Style x:Key="ActionButtonStyle" TargetType="Button">
+            <Setter Property="Padding" Value="15,8" />
+            <Setter Property="Margin" Value="5" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="Background" Value="{StaticResource AccentBlueBrush}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="4">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                            VerticalAlignment="Center"
+                                            Margin="{TemplateBinding Padding}" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Background" Value="{StaticResource BorderGrayBrush}" />
+                                <Setter Property="Opacity" Value="0.7" />
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="{StaticResource HoverBlueBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter Property="Background" Value="{StaticResource PressedBlueBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Specific Button Colors (Inherit from ActionButtonStyle) -->
+        <Style x:Key="StartButtonStyle" BasedOn="{StaticResource ActionButtonStyle}" TargetType="Button">
+            <Setter Property="Background" Value="{StaticResource SuccessGreenBrush}" />
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#43A047" />
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter Property="Background" Value="#388E3C" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="CancelButtonStyle" BasedOn="{StaticResource ActionButtonStyle}" TargetType="Button">
+            <Setter Property="Background" Value="{StaticResource ErrorRedBrush}" />
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#E53935" />
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter Property="Background" Value="#D32F2F" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="DownloadButtonStyle" BasedOn="{StaticResource ActionButtonStyle}" TargetType="Button">
+            <Setter Property="Background" Value="{StaticResource WarningOrangeBrush}" />
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#FB8C00" />
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter Property="Background" Value="#F57C00" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- Custom TextBox Style (Shared) -->
+        <Style x:Key="CustomTextBoxStyle" TargetType="TextBox">
+            <Setter Property="Padding" Value="10,8" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="BorderBrush" Value="{StaticResource BorderGrayBrush}" />
+            <Setter Property="Background" Value="White" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="IsReadOnlyCaretVisible" Value="True" />
+        </Style>
+
+        <!-- Alternating ListViewItem Style (GenerateDatPage) -->
+        <Style x:Key="AlternatingListViewItemStyle" TargetType="ListViewItem">
+            <Setter Property="Padding" Value="10,5" />
+            <Setter Property="BorderThickness" Value="0,0,0,1" />
+            <Setter Property="BorderBrush" Value="{StaticResource StatusBarGrayBrush}" />
+            <Style.Triggers>
+                <Trigger Property="ItemsControl.AlternationIndex" Value="0">
+                    <Setter Property="Background" Value="White" />
+                </Trigger>
+                <Trigger Property="ItemsControl.AlternationIndex" Value="1">
+                    <Setter Property="Background" Value="{StaticResource LightBackgroundBrush}" />
+                </Trigger>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#E3F2FD" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
     </Application.Resources>
 </Application>

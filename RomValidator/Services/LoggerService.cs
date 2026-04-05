@@ -11,6 +11,8 @@ public static class LoggerService
         AppDomain.CurrentDomain.BaseDirectory,
         "RomValidator.log");
 
+    private static readonly object LogFileLock = new();
+
     public static void LogError(string component, string message)
     {
         var timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff", CultureInfo.InvariantCulture);
@@ -22,7 +24,10 @@ public static class LoggerService
         // Write to file (persistent log)
         try
         {
-            File.AppendAllText(LogFilePath, logEntry + Environment.NewLine);
+            lock (LogFileLock)
+            {
+                File.AppendAllText(LogFilePath, logEntry + Environment.NewLine);
+            }
         }
         catch
         {

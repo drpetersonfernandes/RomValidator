@@ -7,39 +7,6 @@
         Title="ROM Validator" Height="720" Width="1200" MinHeight="600" MinWidth="900"
         WindowStartupLocation="CenterScreen"
         Closing="Window_Closing">
-    <Window.Resources>
-        <Style x:Key="MenuButtonStyle" TargetType="Button">
-            <Setter Property="Padding" Value="12,8" />
-            <Setter Property="Margin" Value="5" />
-            <Setter Property="Background" Value="#2979FF" />
-            <Setter Property="Foreground" Value="White" />
-            <Setter Property="FontSize" Value="14" />
-            <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="BorderThickness" Value="0" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border Background="{TemplateBinding Background}"
-                                BorderBrush="{TemplateBinding BorderBrush}"
-                                BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="4">
-                            <ContentPresenter HorizontalAlignment="Center"
-                                            VerticalAlignment="Center"
-                                            Margin="{TemplateBinding Padding}" />
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter Property="Background" Value="#1E88E5" />
-                            </Trigger>
-                            <Trigger Property="IsPressed" Value="True">
-                                <Setter Property="Background" Value="#1565C0" />
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-    </Window.Resources>
 
     <Grid>
         <Grid.RowDefinitions>
@@ -49,7 +16,7 @@
         </Grid.RowDefinitions>
 
         <!-- Header with application title and navigation buttons -->
-        <Border Grid.Row="0" Background="#1976D2" Padding="15">
+        <Border Grid.Row="0" Background="{StaticResource PrimaryBlueBrush}" Padding="15">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
@@ -64,8 +31,8 @@
                 </StackPanel>
 
                 <StackPanel Grid.Column="2" Orientation="Horizontal">
-                    <Button Content="About" Click="About_Click" Style="{StaticResource MenuButtonStyle}" Background="#9C27B0" ToolTip="View application information" />
-                    <Button Content="Exit" Click="Exit_Click" Style="{StaticResource MenuButtonStyle}" Background="#607D8B" ToolTip="Close the application" />
+                    <Button Content="About" Click="About_Click" Style="{StaticResource MenuButtonStyle}" Background="{StaticResource InfoPurpleBrush}" ToolTip="View application information" />
+                    <Button Content="Exit" Click="Exit_Click" Style="{StaticResource MenuButtonStyle}" Background="{StaticResource NeutralGrayBrush}" ToolTip="Close the application" />
                 </StackPanel>
             </Grid>
         </Border>
@@ -74,11 +41,11 @@
         <Frame Grid.Row="1"
                Name="MainContentFrame"
                NavigationUIVisibility="Hidden"
-               Background="#F5F5F5" />
+               Background="{StaticResource LightBackgroundBrush}" />
 
         <!-- Status bar -->
-        <StatusBar Grid.Row="2" Background="#E0E0E0" Padding="5">
-            <StatusBarItem>
+        <StatusBar Grid.Row="2" Background="{StaticResource StatusBarGrayBrush}" Padding="5">
+            <StatusBarItem ToolTip="Current application status">
                 <TextBlock x:Name="StatusBarMessageTextBlock" Text="Ready." />
             </StatusBarItem>
         </StatusBar>

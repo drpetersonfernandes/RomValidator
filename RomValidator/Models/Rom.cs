@@ -7,8 +7,25 @@ public class Rom
     [XmlAttribute("name")]
     public string Name { get; set; } = string.Empty;
 
-    [XmlAttribute("size")]
+    [XmlIgnore]
     public long Size { get; set; }
+
+    [XmlAttribute("size")]
+    public string SizeString
+    {
+        get => Size.ToString();
+        set
+        {
+            if (long.TryParse(value, out var result))
+            {
+                Size = result;
+            }
+            else
+            {
+                Size = 0;
+            }
+        }
+    }
 
     [XmlAttribute("crc")]
     public string Crc { get; set; } = string.Empty;

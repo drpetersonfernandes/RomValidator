@@ -1,7 +1,5 @@
-using System.Globalization;
 using System.IO;
 using System.Security.Cryptography;
-using System.Text;
 using System.Text.RegularExpressions;
 using SharpCompress.Archives;
 using RomValidator.Models;
@@ -174,10 +172,10 @@ public static partial class HashCalculator
                     algorithm.TransformFinalBlock(Array.Empty<byte>(), 0, 0);
                 }
 
-                gameFile.Crc32 = ToHexString(crc32.Hash);
-                gameFile.Md5 = ToHexString(md5.Hash);
-                gameFile.Sha1 = ToHexString(sha1.Hash);
-                gameFile.Sha256 = ToHexString(sha256.Hash);
+                gameFile.Crc32 = Convert.ToHexStringLower(crc32.Hash ?? []);
+                gameFile.Md5 = Convert.ToHexStringLower(md5.Hash ?? []);
+                gameFile.Sha1 = Convert.ToHexStringLower(sha1.Hash ?? []);
+                gameFile.Sha256 = Convert.ToHexStringLower(sha256.Hash ?? []);
 
                 return gameFile;
             }
@@ -232,19 +230,6 @@ public static partial class HashCalculator
         return ex.Message.Contains("access denied", StringComparison.OrdinalIgnoreCase) ||
                ex.Message.Contains("the process cannot access the file", StringComparison.OrdinalIgnoreCase) ||
                ex.Message.Contains("being used by another process", StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static string ToHexString(byte[]? bytes)
-    {
-        if (bytes == null) return string.Empty;
-
-        var sb = new StringBuilder(bytes.Length * 2);
-        foreach (var b in bytes)
-        {
-            sb.Append(b.ToString("x2", CultureInfo.InvariantCulture));
-        }
-
-        return sb.ToString();
     }
 
     [GeneratedRegex(@"\.(zip|7z|rar|gz|tar|bz2|xz|lzma|cab|iso|img|vhd|wim)$", RegexOptions.IgnoreCase, "pt-BR")]

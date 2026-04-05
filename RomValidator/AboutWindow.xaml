@@ -2,9 +2,9 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="About ROM Validator"
-        Width="500"
-        Height="450"
-        ResizeMode="NoResize"
+        Width="600"
+        Height="430"
+        ResizeMode="CanResize"
         WindowStartupLocation="CenterScreen">
     <Grid>
         <Grid.RowDefinitions>
@@ -14,7 +14,7 @@
         </Grid.RowDefinitions>
 
         <StackPanel Grid.Row="0" Margin="10,20,10,10" HorizontalAlignment="Center" Orientation="Horizontal">
-            <Image Width="128" Height="128" Source="pack://application:,,,/images/logo.png" />
+            <Image Width="128" Height="128" Source="pack://application:,,,/images/logo.png" ToolTip="ROM Validator Logo" />
         </StackPanel>
 
         <StackPanel Grid.Row="1" Margin="20,10,20,10">
@@ -23,14 +23,14 @@
                        Text="A utility for validating ROM files against DAT files and generating new No-Intro compliant DAT files from your collection." />
             <TextBlock Name="AppVersionTextBlock" Margin="0,10,0,0" />
             <TextBlock Margin="0,10,0,0" Text="This tool helps ensure your ROM collection is complete, accurate, and properly cataloged." />
-            <TextBlock Margin="0,10,0,0" Text="© 2025 Pure Logic Code. All rights reserved." />
+
             <TextBlock Margin="0,10,0,0">
-                <Hyperlink NavigateUri="http://www.purelogiccode.com" RequestNavigate="Hyperlink_RequestNavigate">
+                <Hyperlink NavigateUri="http://www.purelogiccode.com" RequestNavigate="Hyperlink_RequestNavigate" ToolTip="Visit the official website">
                     <TextBlock Text="http://www.purelogiccode.com" />
                 </Hyperlink>
             </TextBlock>
         </StackPanel>
 
-        <Button Grid.Row="2" Width="100" Margin="10,10,10,20" HorizontalAlignment="Center" Click="CloseButton_Click" Content="Close" />
+        <Button Grid.Row="2" Width="100" Margin="10,10,10,20" HorizontalAlignment="Center" Click="CloseButton_Click" Content="Close" ToolTip="Close this window" />
     </Grid>
 </Window>

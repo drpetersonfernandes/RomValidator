@@ -20,9 +20,6 @@ public class BugReportService(string apiUrl, string apiKey, string applicationNa
     {
         try
         {
-            _httpClient.DefaultRequestHeaders.Clear();
-            _httpClient.DefaultRequestHeaders.Add("X-API-KEY", _apiKey);
-
             var sb = new StringBuilder();
             sb.AppendLine("-- System Info --");
             sb.AppendLine(CultureInfo.InvariantCulture, $"Date (UTC): {DateTime.UtcNow:o}");
@@ -53,8 +50,7 @@ public class BugReportService(string apiUrl, string apiKey, string applicationNa
             // Truncate the message to fit the API's expected length
             if (fullMessage.Length > MaxMessageLength)
             {
-                fullMessage = fullMessage[..MaxMessageLength];
-                fullMessage += "\n\n[MESSAGE TRUNCATED DUE TO LENGTH LIMITS]";
+                fullMessage = string.Concat(fullMessage.AsSpan(0, MaxMessageLength), "\n\n[MESSAGE TRUNCATED DUE TO LENGTH LIMITS]");
             }
 
             // Create the request payload
@@ -64,10 +60,12 @@ public class BugReportService(string apiUrl, string apiKey, string applicationNa
                 ApplicationName = _applicationName
             };
 
-            var content = JsonContent.Create(payload);
+            // Send the request using HttpRequestMessage for thread safety
+            using var request = new HttpRequestMessage(HttpMethod.Post, _apiUrl);
+            request.Headers.Add("X-API-KEY", _apiKey);
+            request.Content = JsonContent.Create(payload);
 
-            // Send the request
-            var response = await _httpClient.PostAsync(_apiUrl, content);
+            var response = await _httpClient.SendAsync(request);
 
             if (response.IsSuccessStatusCode)
             {
