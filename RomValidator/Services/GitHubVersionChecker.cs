@@ -10,10 +10,12 @@ public class GitHubVersionChecker : IDisposable
 {
     private readonly HttpClient _httpClient;
     private readonly string _apiBaseUrl;
+    private readonly BugReportService? _bugReportService;
 
-    public GitHubVersionChecker(string repoOwner, string repoName)
+    public GitHubVersionChecker(string repoOwner, string repoName, BugReportService? bugReportService = null)
     {
         _apiBaseUrl = $"https://api.github.com/repos/{repoOwner}/{repoName}/releases/latest";
+        _bugReportService = bugReportService;
 
         _httpClient = new HttpClient();
         // GitHub API requires a User-Agent header
@@ -64,11 +66,13 @@ public class GitHubVersionChecker : IDisposable
         catch (HttpRequestException httpEx)
         {
             LoggerService.LogError("GitHubVersionChecker", $"HTTP request error checking for updates: {httpEx.Message}");
+            _ = _bugReportService?.SendBugReportAsync("HTTP error checking for updates from GitHub.", httpEx);
             return (false, null, null);
         }
         catch (Exception ex)
         {
             LoggerService.LogError("GitHubVersionChecker", $"General error checking for updates: {ex.Message}");
+            _ = _bugReportService?.SendBugReportAsync("Error checking for updates from GitHub.", ex);
             return (false, null, null);
         }
     }

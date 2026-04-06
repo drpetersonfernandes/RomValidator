@@ -11,7 +11,7 @@ public static partial class HashCalculator
     // Archive file extensions supported
     private static readonly Regex ArchiveExtensionRegex = MyRegex();
 
-    public static async Task<List<GameFile>> CalculateHashesAsync(string filePath, CancellationToken cancellationToken)
+    public static async Task<List<GameFile>> CalculateHashesAsync(string filePath, CancellationToken cancellationToken, BugReportService? bugReportService = null)
     {
         var fileInfo = new FileInfo(filePath);
         var gameFiles = new List<GameFile>();
@@ -41,7 +41,8 @@ public static partial class HashCalculator
                         entryStream,
                         entry.Key ?? "Unknown", // SharpCompress uses Key for filename
                         crc32, md5, sha1, sha256,
-                        cancellationToken);
+                        cancellationToken,
+                        bugReportService);
 
                     if (gameFile != null)
                         gameFiles.Add(gameFile);
@@ -55,6 +56,7 @@ public static partial class HashCalculator
             }
             catch (Exception ex)
             {
+                _ = bugReportService?.SendBugReportAsync($"Archive extraction failed for file '{fileInfo.Name}'", ex);
                 // Return an error object for the archive itself so the UI knows extraction failed.
                 // We do NOT hash the container anymore.
                 return
@@ -85,7 +87,8 @@ public static partial class HashCalculator
             var gameFile = await ProcessFileAsync(
                 filePath, fileInfo,
                 crc32, md5, sha1, sha256,
-                cancellationToken);
+                cancellationToken,
+                bugReportService);
 
             if (gameFile != null)
                 gameFiles.Add(gameFile);
@@ -98,7 +101,8 @@ public static partial class HashCalculator
         string filePath,
         FileInfo fileInfo,
         Crc32Algorithm crc32, MD5 md5, SHA1 sha1, SHA256 sha256,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        BugReportService? bugReportService = null)
     {
         try
         {
@@ -107,7 +111,8 @@ public static partial class HashCalculator
                 fileStream,
                 fileInfo.Name,
                 crc32, md5, sha1, sha256,
-                cancellationToken);
+                cancellationToken,
+                bugReportService);
         }
         catch (OperationCanceledException)
         {
@@ -115,6 +120,7 @@ public static partial class HashCalculator
         }
         catch (Exception ex)
         {
+            _ = bugReportService?.SendBugReportAsync($"Error processing file '{fileInfo.Name}'", ex);
             return new GameFile
             {
                 FileName = fileInfo.Name,
@@ -133,7 +139,8 @@ public static partial class HashCalculator
         Stream stream,
         string fileName,
         Crc32Algorithm crc32, MD5 md5, SHA1 sha1, SHA256 sha256,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        BugReportService? bugReportService = null)
     {
         var gameFile = new GameFile
         {
@@ -208,6 +215,7 @@ public static partial class HashCalculator
             }
             catch (Exception ex)
             {
+                _ = bugReportService?.SendBugReportAsync($"Error hashing stream for file '{fileName}'", ex);
                 gameFile.ErrorMessage = ex.Message;
                 gameFile.Crc32 = "ERROR";
                 gameFile.Md5 = "ERROR";

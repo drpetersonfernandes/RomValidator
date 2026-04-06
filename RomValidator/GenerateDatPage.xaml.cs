@@ -216,7 +216,7 @@ public partial class GenerateDatPage : IDisposable
 
         // Start a background task to count files so we can estimate progress bar Max
         // The actual Maximum will be set atomically in the main loop (Issue 2 & 3 fix)
-        _ = Task.Run(() => CountFilesInBackground(folderPath, enumerationOptions, ref _discoveredFilesCount, cancellationToken), cancellationToken);
+        _ = Task.Run(() => CountFilesInBackground(folderPath, enumerationOptions, ref _discoveredFilesCount, cancellationToken, _mainWindow.BugReportService), cancellationToken);
 
         // Stream the files using EnumerationOptions to skip inaccessible items (Issue 4 fix)
         var fileEnumerable = await Task.Run(() => Directory.EnumerateFiles(folderPath, "*", enumerationOptions), cancellationToken);
@@ -226,7 +226,7 @@ public partial class GenerateDatPage : IDisposable
         {
             if (cancellationToken.IsCancellationRequested) break;
 
-            var gameFiles = await HashCalculator.CalculateHashesAsync(filePath, cancellationToken);
+            var gameFiles = await HashCalculator.CalculateHashesAsync(filePath, cancellationToken, _mainWindow.BugReportService);
             var romsFromFile = gameFiles.Count;
 
             // Track how many extra items come from archives (files inside archives minus the archive file itself)
@@ -428,7 +428,7 @@ public partial class GenerateDatPage : IDisposable
         ExportDatButton.IsEnabled = false;
     }
 
-    private static void CountFilesInBackground(string folderPath, EnumerationOptions options, ref int counter, CancellationToken cancellationToken)
+    private static void CountFilesInBackground(string folderPath, EnumerationOptions options, ref int counter, CancellationToken cancellationToken, BugReportService? bugReportService = null)
     {
         try
         {
@@ -439,9 +439,9 @@ public partial class GenerateDatPage : IDisposable
                 Interlocked.Increment(ref counter);
             }
         }
-        catch
+        catch (Exception ex)
         {
-            /* Ignore enumeration errors in background count */
+            _ = bugReportService?.SendBugReportAsync("Error counting files in background.", ex);
         }
     }
 

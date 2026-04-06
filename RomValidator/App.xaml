@@ -151,5 +151,11 @@
                 </Trigger>
             </Style.Triggers>
         </Style>
+
+        <!-- Status/Stats Brushes -->
+        <SolidColorBrush x:Key="SuccessGreenTextBrush" Color="#008000" />
+        <SolidColorBrush x:Key="ErrorRedTextBrush" Color="#FF0000" />
+        <SolidColorBrush x:Key="WarningGoldenrodTextBrush" Color="#DAA520" />
+        <SolidColorBrush x:Key="InfoBlueTextBrush" Color="#0000FF" />
     </Application.Resources>
 </Application>

@@ -23,7 +23,7 @@ public partial class MainWindow : IDisposable
         const string apiKey = "hjh7yu6t56tyr540o9u8767676r5674534453235264c75b6t7ggghgg76trf564e";
         const string applicationName = "ROM Validator";
         BugReportService = new BugReportService(apiUrl, apiKey, applicationName);
-        VersionChecker = new GitHubVersionChecker("drpetersonfernandes", "RomValidator");
+        VersionChecker = new GitHubVersionChecker("drpetersonfernandes", "RomValidator", BugReportService);
 
         // Initialize Pages
         _validatePage = new ValidatePage(this);
@@ -59,7 +59,7 @@ public partial class MainWindow : IDisposable
 
     private void About_Click(object sender, RoutedEventArgs e)
     {
-        var aboutWindow = new AboutWindow { Owner = this };
+        var aboutWindow = new AboutWindow(BugReportService) { Owner = this };
         aboutWindow.ShowDialog();
     }
 

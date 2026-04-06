@@ -298,6 +298,7 @@ public partial class ValidatePage : IDisposable
                 {
                     Interlocked.Increment(ref _failCount);
                     LogMessage($"[FAILED] {fileName} - Hash matched {hashMatchedRom.Name} but rename failed: {ex.Message}");
+                    _ = _mainWindow.BugReportService.SendBugReportAsync($"Error renaming file '{fileName}' to '{hashMatchedRom.Name}'", ex);
                     if (moveFailed) await MoveFileAsync(filePath, Path.Combine(failPath, fileName));
                     return;
                 }
@@ -373,7 +374,7 @@ public partial class ValidatePage : IDisposable
         try
         {
             // Use HashCalculator to properly handle archives - extracts and hashes contents
-            var gameFiles = await HashCalculator.CalculateHashesAsync(filePath, token);
+            var gameFiles = await HashCalculator.CalculateHashesAsync(filePath, token, _mainWindow.BugReportService);
 
             // Check if extraction failed
             if (gameFiles.Count == 1 && !string.IsNullOrEmpty(gameFiles[0].ErrorMessage))
@@ -768,7 +769,7 @@ public partial class ValidatePage : IDisposable
         try
         {
             // Use HashCalculator to properly handle archives - extracts and hashes contents
-            var gameFiles = await HashCalculator.CalculateHashesAsync(filePath, token);
+            var gameFiles = await HashCalculator.CalculateHashesAsync(filePath, token, _mainWindow.BugReportService);
 
             // Check if extraction failed
             if (gameFiles.Count == 1 && !string.IsNullOrEmpty(gameFiles[0].ErrorMessage))
@@ -818,6 +819,7 @@ public partial class ValidatePage : IDisposable
         catch (Exception ex)
         {
             LoggerService.LogError("Validation", $"Error finding ROM by hash for '{filePath}': {ex.Message}");
+            _ = _mainWindow.BugReportService.SendBugReportAsync($"Error finding ROM by hash for file '{filePath}'", ex);
             return (null, string.Empty);
         }
     }

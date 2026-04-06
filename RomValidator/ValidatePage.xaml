@@ -113,25 +113,25 @@
             </Border>
             <Border Grid.Column="1" BorderBrush="{StaticResource BorderGrayBrush}" BorderThickness="1" Margin="2" Padding="8" CornerRadius="4" ToolTip="Number of successfully validated files">
                 <StackPanel Orientation="Vertical" HorizontalAlignment="Center">
-                    <TextBlock Text="Success:" FontWeight="SemiBold" Foreground="Green" HorizontalAlignment="Center"/>
+                    <TextBlock Text="Success:" FontWeight="SemiBold" Foreground="{StaticResource SuccessGreenTextBrush}" HorizontalAlignment="Center"/>
                     <TextBlock x:Name="SuccessValue" Text="0" HorizontalAlignment="Center"/>
                 </StackPanel>
             </Border>
             <Border Grid.Column="2" BorderBrush="{StaticResource BorderGrayBrush}" BorderThickness="1" Margin="2" Padding="8" CornerRadius="4" ToolTip="Number of files that failed validation">
                 <StackPanel Orientation="Vertical" HorizontalAlignment="Center">
-                    <TextBlock Text="Failed:" FontWeight="SemiBold" Foreground="Red" HorizontalAlignment="Center"/>
+                    <TextBlock Text="Failed:" FontWeight="SemiBold" Foreground="{StaticResource ErrorRedTextBrush}" HorizontalAlignment="Center"/>
                     <TextBlock x:Name="FailedValue" Text="0" HorizontalAlignment="Center"/>
                 </StackPanel>
             </Border>
             <Border Grid.Column="3" BorderBrush="{StaticResource BorderGrayBrush}" BorderThickness="1" Margin="2" Padding="8" CornerRadius="4" ToolTip="Number of unknown files (not in DAT)">
                 <StackPanel Orientation="Vertical" HorizontalAlignment="Center">
-                    <TextBlock Text="Unknown:" FontWeight="SemiBold" Foreground="Goldenrod" HorizontalAlignment="Center"/>
+                    <TextBlock Text="Unknown:" FontWeight="SemiBold" Foreground="{StaticResource WarningGoldenrodTextBrush}" HorizontalAlignment="Center"/>
                     <TextBlock x:Name="UnknownValue" Text="0" HorizontalAlignment="Center"/>
                 </StackPanel>
             </Border>
             <Border Grid.Column="4" BorderBrush="{StaticResource BorderGrayBrush}" BorderThickness="1" Margin="2" Padding="8" CornerRadius="4" ToolTip="Number of files that were renamed to match the DAT entry">
                 <StackPanel Orientation="Vertical" HorizontalAlignment="Center">
-                    <TextBlock Text="Renamed:" FontWeight="SemiBold" Foreground="Blue" HorizontalAlignment="Center"/>
+                    <TextBlock Text="Renamed:" FontWeight="SemiBold" Foreground="{StaticResource InfoBlueTextBrush}" HorizontalAlignment="Center"/>
                     <TextBlock x:Name="RenamedValue" Text="0" HorizontalAlignment="Center"/>
                 </StackPanel>
             </Border>

@@ -2,13 +2,17 @@ using System.Diagnostics;
 using System.Reflection;
 using System.Windows;
 using System.Windows.Navigation;
+using RomValidator.Services;
 
 namespace RomValidator;
 
 public partial class AboutWindow
 {
-    public AboutWindow()
+    public BugReportService BugReportService { get; }
+
+    public AboutWindow(BugReportService bugReportService)
     {
+        BugReportService = bugReportService;
         InitializeComponent();
         AppVersionTextBlock.Text = $"Version: {GetApplicationVersion()}";
     }
@@ -30,6 +34,7 @@ public partial class AboutWindow
         }
         catch (Exception ex)
         {
+            _ = BugReportService.SendBugReportAsync($"Error opening browser for URL: {e.Uri.AbsoluteUri}", ex);
             MessageBox.Show($"Unable to open browser: {ex.Message}", "Error", MessageBoxButton.OK,
                 MessageBoxImage.Warning);
         }
