@@ -9,6 +9,7 @@ public partial class MainWindow : IDisposable
     // Services
     public BugReportService BugReportService { get; }
     public GitHubVersionChecker VersionChecker { get; }
+    private readonly ApplicationStatsService _applicationStatsService;
 
     // Pages
     private readonly ValidatePage _validatePage;
@@ -24,6 +25,12 @@ public partial class MainWindow : IDisposable
         const string applicationName = "ROM Validator";
         BugReportService = new BugReportService(apiUrl, apiKey, applicationName);
         VersionChecker = new GitHubVersionChecker("drpetersonfernandes", "RomValidator", BugReportService);
+
+        // Initialize Application Stats Service
+        const string statsBaseUrl = "https://www.purelogiccode.com/ApplicationStats";
+        const string statsApplicationId = "rom-validator";
+        _applicationStatsService = new ApplicationStatsService(statsBaseUrl, apiKey, statsApplicationId);
+        _ = _applicationStatsService.RecordUsageAsync();
 
         // Initialize Pages
         _validatePage = new ValidatePage(this);
@@ -77,6 +84,7 @@ public partial class MainWindow : IDisposable
     {
         BugReportService.Dispose();
         VersionChecker.Dispose();
+        _applicationStatsService.Dispose();
         _validatePage.Dispose();
         _generateDatPage.Dispose();
         GC.SuppressFinalize(this);
