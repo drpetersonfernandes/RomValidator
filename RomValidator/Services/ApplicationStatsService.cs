@@ -35,14 +35,13 @@ public class ApplicationStatsService(string baseUrl, string apiKey, string appli
             }
 
             var errorContent = await response.Content.ReadAsStringAsync();
-            LoggerService.LogError("ApplicationStatsService",
-                $"Stats API call failed with HTTP status {response.StatusCode}. Content: {errorContent}");
+            LoggerService.LogError("ApplicationStatsService", $"Stats API call failed with HTTP status {response.StatusCode}. Content: {errorContent}");
+
             return false;
         }
         catch (Exception ex)
         {
-            LoggerService.LogError("ApplicationStatsService",
-                $"Exception while recording application stats: {ex.Message}");
+            LoggerService.LogError("ApplicationStatsService", $"Exception while recording application stats: {ex.Message}");
             return false;
         }
     }

@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Windows;
+using System.Windows.Media;
 using RomValidator.Services;
 
 namespace RomValidator;
@@ -24,6 +25,7 @@ public partial class MainWindow : IDisposable
         const string apiKey = "hjh7yu6t56tyr540o9u8767676r5674534453235264c75b6t7ggghgg76trf564e";
         const string applicationName = "ROM Validator";
         BugReportService = new BugReportService(apiUrl, apiKey, applicationName);
+        LoggerService.SetBugReportService(BugReportService);
         VersionChecker = new GitHubVersionChecker("drpetersonfernandes", "RomValidator", BugReportService);
 
         // Initialize Application Stats Service
@@ -38,6 +40,32 @@ public partial class MainWindow : IDisposable
 
         // Load initial page
         MainContentFrame.Navigate(_validatePage);
+        UpdateActivePageIndicator(_validatePage);
+    }
+
+    private void UpdateActivePageIndicator(object activePage)
+    {
+        var activeBrush = new SolidColorBrush(Colors.White);
+        var inactiveBrush = Brushes.Transparent;
+
+        if (Equals(activePage, _validatePage))
+        {
+            ValidateRomsButton.BorderThickness = new Thickness(0, 0, 0, 3);
+            ValidateRomsButton.BorderBrush = activeBrush;
+            ValidateRomsButton.Background = new SolidColorBrush(Color.FromRgb(0x1E, 0x88, 0xE5));
+            GenerateDatButton.BorderThickness = new Thickness(0);
+            GenerateDatButton.BorderBrush = inactiveBrush;
+            GenerateDatButton.Background = (Brush)FindResource("AccentBlueBrush");
+        }
+        else if (Equals(activePage, _generateDatPage))
+        {
+            GenerateDatButton.BorderThickness = new Thickness(0, 0, 0, 3);
+            GenerateDatButton.BorderBrush = activeBrush;
+            GenerateDatButton.Background = new SolidColorBrush(Color.FromRgb(0x1E, 0x88, 0xE5));
+            ValidateRomsButton.BorderThickness = new Thickness(0);
+            ValidateRomsButton.BorderBrush = inactiveBrush;
+            ValidateRomsButton.Background = (Brush)FindResource("AccentBlueBrush");
+        }
     }
 
     public void UpdateStatusBarMessage(string message)
@@ -53,6 +81,7 @@ public partial class MainWindow : IDisposable
         if (!Equals(MainContentFrame.Content, _validatePage))
         {
             MainContentFrame.Navigate(_validatePage);
+            UpdateActivePageIndicator(_validatePage);
         }
     }
 
@@ -61,6 +90,7 @@ public partial class MainWindow : IDisposable
         if (!Equals(MainContentFrame.Content, _generateDatPage))
         {
             MainContentFrame.Navigate(_generateDatPage);
+            UpdateActivePageIndicator(_generateDatPage);
         }
     }
 

@@ -1,7 +1,6 @@
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
-using System.Windows;
 
 namespace RomValidator.Services;
 
@@ -12,6 +11,13 @@ public static class LoggerService
         "RomValidator.log");
 
     private static readonly object LogFileLock = new();
+    private static BugReportService? _bugReportService;
+    private static bool _isSendingBugReport;
+
+    public static void SetBugReportService(BugReportService bugReportService)
+    {
+        _bugReportService = bugReportService;
+    }
 
     public static void LogError(string component, string message)
     {
@@ -34,10 +40,21 @@ public static class LoggerService
             // Ignore file logging failures to avoid infinite loops
         }
 
-        // Update status bar if MainWindow is available
-        Application.Current?.Dispatcher.InvokeAsync(() =>
+        // Send to bug report API (fire-and-forget, with recursion guard)
+        if (_bugReportService != null && !_isSendingBugReport)
         {
-            (Application.Current.MainWindow as MainWindow)?.UpdateStatusBarMessage($"Error: {message}");
-        });
+            _isSendingBugReport = true;
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await _bugReportService.SendBugReportAsync($"[{component}] {message}");
+                }
+                finally
+                {
+                    _isSendingBugReport = false;
+                }
+            });
+        }
     }
 }

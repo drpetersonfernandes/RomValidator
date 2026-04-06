@@ -2,6 +2,7 @@ using System.IO;
 using System.Security.Cryptography;
 using System.Text.RegularExpressions;
 using SharpCompress.Archives;
+using SharpCompress.Common;
 using RomValidator.Models;
 
 namespace RomValidator.Services;
@@ -53,6 +54,12 @@ public static partial class HashCalculator
             catch (OperationCanceledException)
             {
                 throw;
+            }
+            catch (Exception ex) when (ex is NotSupportedException && fileInfo.Extension.Equals(".zip", StringComparison.OrdinalIgnoreCase))
+            {
+                // Fallback: SharpCompress doesn't support this zip's compression method.
+                // Extract to temp file using System.IO.Compression, then hash.
+                return await ExtractAndHashZipFallbackAsync(filePath, fileInfo, cancellationToken, bugReportService);
             }
             catch (Exception ex)
             {
@@ -226,6 +233,87 @@ public static partial class HashCalculator
         }
 
         throw new InvalidOperationException("Unexpected exit from retry loop");
+    }
+
+    private static async Task<List<GameFile>> ExtractAndHashZipFallbackAsync(
+        string filePath,
+        FileInfo fileInfo,
+        CancellationToken cancellationToken,
+        BugReportService? bugReportService = null)
+    {
+        var gameFiles = new List<GameFile>();
+        var tempDir = Path.Combine(Path.GetTempPath(), $"romvalidator_{Guid.NewGuid():N}");
+
+        try
+        {
+            Directory.CreateDirectory(tempDir);
+
+            // Fallback: use WriteToDirectory instead of OpenEntryStreamAsync
+            // which supports a wider range of compression methods
+            using var archive = ArchiveFactory.OpenArchive(filePath);
+            archive.WriteToDirectory(tempDir, new ExtractionOptions
+            {
+                ExtractFullPath = true,
+                Overwrite = true
+            });
+
+            // Hash each extracted file
+            foreach (var extractedFile in Directory.EnumerateFiles(tempDir, "*", SearchOption.AllDirectories))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                using var crc32 = new Crc32Algorithm();
+                using var md5 = MD5.Create();
+                using var sha1 = SHA1.Create();
+                using var sha256 = SHA256.Create();
+
+                var relativePath = Path.GetRelativePath(tempDir, extractedFile);
+
+                var gameFile = await ProcessFileAsync(
+                    extractedFile, new FileInfo(extractedFile),
+                    crc32, md5, sha1, sha256,
+                    cancellationToken,
+                    bugReportService);
+
+                if (gameFile != null)
+                {
+                    gameFile.FileName = relativePath;
+                    gameFile.GameName = Path.GetFileNameWithoutExtension(relativePath);
+                    gameFiles.Add(gameFile);
+                }
+            }
+
+            return gameFiles;
+        }
+        catch (Exception ex)
+        {
+            _ = bugReportService?.SendBugReportAsync($"Zip fallback extraction failed for file '{fileInfo.Name}'", ex);
+            return
+            [
+                new GameFile
+                {
+                    FileName = fileInfo.Name,
+                    GameName = Path.GetFileNameWithoutExtension(fileInfo.Name),
+                    FileSize = fileInfo.Length,
+                    ErrorMessage = $"Archive extraction failed: {ex.Message}",
+                    Crc32 = "ERROR",
+                    Md5 = "ERROR",
+                    Sha1 = "ERROR",
+                    Sha256 = "ERROR"
+                }
+            ];
+        }
+        finally
+        {
+            try
+            {
+                Directory.Delete(tempDir, true);
+            }
+            catch
+            {
+                /* ignore cleanup errors */
+            }
+        }
     }
 
     private static bool IsArchiveFile(string fileName)
