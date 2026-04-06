@@ -4,11 +4,15 @@ using System.Globalization;
 using System.IO;
 using System.Reflection;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Windows;
 using System.Xml;
 using System.Xml.Serialization;
 using RomValidator.Models;
 using RomValidator.Services;
+using SharpCompress.Archives;
+using SharpCompress.Common;
+using System.IO.Compression;
 
 namespace RomValidator;
 
@@ -31,6 +35,9 @@ public partial class ValidatePage : IDisposable
     private int _unknownCount;
     private int _renamedCount;
     private readonly Stopwatch _operationTimer = new();
+
+    // Archive file extensions supported (same pattern as HashCalculator)
+    private static readonly Regex ArchiveExtensionRegex = MyRegex();
 
     public ValidatePage(MainWindow mainWindow)
     {
@@ -276,19 +283,41 @@ public partial class ValidatePage : IDisposable
 
             if (hashMatchedRom != null)
             {
-                // Found a match by hash! Rename the file
+                // Found a match by hash! Determine new file path
                 var directory = Path.GetDirectoryName(filePath);
-                var newFilePath = Path.Combine(directory ?? string.Empty, hashMatchedRom.Name);
+                string newFilePath;
+                string displayName;
+
+                // Check if this is an archive file - preserve archive extension
+                if (IsArchiveFile(fileName))
+                {
+                    var originalExtension = Path.GetExtension(fileName);
+                    var romNameWithoutExt = Path.GetFileNameWithoutExtension(hashMatchedRom.Name);
+                    newFilePath = Path.Combine(directory ?? string.Empty, romNameWithoutExt + originalExtension);
+                    displayName = romNameWithoutExt + originalExtension;
+                }
+                else
+                {
+                    newFilePath = Path.Combine(directory ?? string.Empty, hashMatchedRom.Name);
+                    displayName = hashMatchedRom.Name;
+                }
 
                 try
                 {
                     await RenameFileAsync(filePath, newFilePath);
+
+                    // If this is an archive, also rename the file inside to match the DAT entry
+                    if (IsArchiveFile(fileName))
+                    {
+                        await RenameFileInsideArchiveAsync(newFilePath, hashMatchedRom.Name);
+                    }
+
                     Interlocked.Increment(ref _renamedCount);
-                    LogMessage($"[RENAMED] {fileName} -> {hashMatchedRom.Name} (matched by {matchedHash})");
+                    LogMessage($"[RENAMED] {fileName} -> {displayName} (matched by {matchedHash})");
 
                     // Update variables to process renamed file
                     filePath = newFilePath;
-                    fileName = hashMatchedRom.Name;
+                    fileName = Path.GetFileName(newFilePath);
                     expectedRoms = [hashMatchedRom];
                     fileNameMatch = true;
                     hashesAlreadyVerified = true; // Hashes were just verified by FindRomByHashAsync (Issue 7 fix)
@@ -1128,6 +1157,81 @@ public partial class ValidatePage : IDisposable
 
         GC.SuppressFinalize(this);
     }
+
+    #endregion
+
+    #region Archive Helpers
+
+    private static bool IsArchiveFile(string fileName)
+    {
+        return ArchiveExtensionRegex.IsMatch(fileName);
+    }
+
+    /// <summary>
+    /// Renames the file inside a zip archive to match the target name specified in the DAT entry.
+    /// For zip files: extracts contents, renames file, repackages.
+    /// For other archive types: extracts contents, renames file, creates new zip.
+    /// </summary>
+    private static async Task RenameFileInsideArchiveAsync(string archivePath, string targetFileName)
+    {
+        var tempDir = Path.Combine(Path.GetTempPath(), $"romvalidator_rename_{Guid.NewGuid():N}");
+
+        try
+        {
+            Directory.CreateDirectory(tempDir);
+
+            // Extract archive contents
+            using (var archive = ArchiveFactory.OpenArchive(archivePath))
+            {
+                archive.WriteToDirectory(tempDir, new ExtractionOptions { ExtractFullPath = true, Overwrite = true });
+            }
+
+            // Find the extracted file(s)
+            var extractedFiles = Directory.GetFiles(tempDir, "*", SearchOption.AllDirectories);
+            if (extractedFiles.Length == 0)
+            {
+                throw new InvalidOperationException("Archive is empty or extraction failed.");
+            }
+
+            // Get the single file (or the first file if multiple)
+            var sourceFile = extractedFiles[0];
+            var targetPath = Path.Combine(Path.GetDirectoryName(sourceFile) ?? tempDir, targetFileName);
+
+            // Rename the file to match the DAT entry
+            if (!File.Exists(targetPath))
+            {
+                File.Move(sourceFile, targetPath);
+            }
+
+            // Delete the original archive
+            File.Delete(archivePath);
+
+            // Create new zip archive with renamed contents using System.IO.Compression
+            var fileName = Path.GetFileName(targetPath);
+            await using (var zip = ZipFile.Open(archivePath, ZipArchiveMode.Create))
+            {
+                zip.CreateEntryFromFile(targetPath, fileName);
+            }
+        }
+        finally
+        {
+            // Cleanup temp directory
+            try
+            {
+                if (Directory.Exists(tempDir))
+                {
+                    Directory.Delete(tempDir, true);
+                }
+            }
+            catch
+            {
+                /* ignore cleanup errors */
+            }
+        }
+    }
+
+    [GeneratedRegex(@"\.(zip|7z|rar|gz|tar|bz2|xz|lzma|cab|iso|img|vhd|wim)$", RegexOptions.IgnoreCase, "pt-BR")]
+    private static partial Regex MyRegex();
 
     #endregion
 }

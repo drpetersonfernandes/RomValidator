@@ -110,6 +110,11 @@ public partial class GenerateDatPage : IDisposable
             // Use the captured CTS instance
             await HashFilesAsync(FolderTextBox.Text, progress, operationCts.Token);
 
+            // Sync progress bar to actual count so it reaches 100%
+            HashProgressBar.Maximum = _processedFileCount;
+            HashProgressBar.Value = _processedFileCount;
+            ProgressText.Text = $"{_processedFileCount} / {_processedFileCount}";
+
             if (!operationCts.IsCancellationRequested)
             {
                 MessageBox.Show(_mainWindow, $"Hashing complete! {_processedFileCount} files processed.", "Complete", MessageBoxButton.OK, MessageBoxImage.Information);
@@ -229,15 +234,16 @@ public partial class GenerateDatPage : IDisposable
             var gameFiles = await HashCalculator.CalculateHashesAsync(filePath, cancellationToken, _mainWindow.BugReportService);
             var romsFromFile = gameFiles.Count;
 
+            // Read the discovered count from the background task (do NOT increment here —
+            // CountFilesInBackground already handles that)
+            var currentDiscovered = _discoveredFilesCount;
+
             // Track how many extra items come from archives (files inside archives minus the archive file itself)
             if (romsFromFile > 1)
             {
                 Interlocked.Add(ref _archiveExpansionCount, romsFromFile - 1);
             }
 
-            // Atomically update counters to avoid race conditions (Issue 2 & 12 fix)
-            // Using int consistently since HashProgressBar.Maximum is conceptually an integer count
-            var currentDiscovered = Interlocked.Increment(ref _discoveredFilesCount);
             var currentExpansion = _archiveExpansionCount; // Read is atomic for int
 
             // Throttle UI updates to prevent flooding the UI thread (Issue 5 fix)
