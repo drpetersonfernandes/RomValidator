@@ -15,7 +15,6 @@
 -   **Multi-Hash Verification**: Validates file integrity using CRC32, MD5, and SHA1/SHA256 checksums.
 -   **No-Intro Integration**: Native support for No-Intro XML DAT formats.
 -   **Archive Support**: Deep-scans within compressed archives (ZIP, 7z, RAR, etc.) without manual extraction.
--   **Parallel Processing**: High-speed validation utilizing multi-threaded hashing (optimized for modern multi-core CPUs).
 
 ### 📂 Collection Management
 -   **Automated Organization**: Automatically sorts files into `_success` or `_fail` directories based on validation results.
@@ -51,7 +50,7 @@
 ### Validating ROMs
 1.  **Select Source**: Choose the folder containing your ROM files.
 2.  **Load DAT**: Select a compatible No-Intro XML DAT file.
-3.  **Configure**: Toggle "Move successful items" or "Parallel Processing" as needed.
+3.  **Configure**: Toggle "Move successful items" as needed.
 4.  **Execute**: Click **Start Validation**. The application will categorize files as ✅ **Success**, ❌ **Failed**, or ❓ **Unknown**.
 
 ### Generating DATs

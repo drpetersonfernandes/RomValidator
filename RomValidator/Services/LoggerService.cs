@@ -35,9 +35,10 @@ public static class LoggerService
                 File.AppendAllText(LogFilePath, logEntry + Environment.NewLine);
             }
         }
-        catch
+        catch (Exception ex)
         {
-            // Ignore file logging failures to avoid infinite loops
+            // Log to debug output at minimum - don't silently fail
+            Debug.WriteLine($"Logger error: {ex.Message}");
         }
 
         // Send to bug report API (fire-and-forget, with recursion guard)

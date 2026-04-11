@@ -4,7 +4,7 @@
         Title="About ROM Validator"
         Width="600"
         Height="430"
-        ResizeMode="CanResize"
+        ResizeMode="NoResize"
         WindowStartupLocation="CenterScreen">
     <Grid>
         <Grid.RowDefinitions>

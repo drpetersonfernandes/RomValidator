@@ -11,7 +11,6 @@ using System.Xml.Serialization;
 using Microsoft.Win32;
 using RomValidator.Models;
 using RomValidator.Services;
-using Header = RomValidator.Models.Header;
 
 namespace RomValidator;
 
@@ -453,12 +452,31 @@ public partial class GenerateDatPage : IDisposable
 
     public void Dispose()
     {
-        _uiUpdateTimer?.Stop();
-        _uiUpdateTimer = null;
+        // Stop and dispose timer properly
+        if (_uiUpdateTimer != null)
+        {
+            _uiUpdateTimer.Stop();
+            _uiUpdateTimer.Tick -= UIUpdateTimer_Tick;
+            _uiUpdateTimer = null;
+        }
 
-        // Cancel before disposing to prevent ObjectDisposedException (Issue 9 fix)
-        _cts?.Cancel();
-        _cts?.Dispose();
+        // Clear UI buffer to release references
+        lock (_uiUpdateBuffer)
+        {
+            _uiUpdateBuffer.Clear();
+        }
+
+        // Cancel and dispose CTS with error handling
+        try
+        {
+            _cts?.Cancel();
+            _cts?.Dispose();
+        }
+        catch (ObjectDisposedException)
+        {
+            // Already disposed, ignore
+        }
+
         GC.SuppressFinalize(this);
     }
 }

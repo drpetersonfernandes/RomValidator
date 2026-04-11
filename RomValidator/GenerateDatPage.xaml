@@ -43,7 +43,7 @@
         </Grid>
 
         <Border Grid.Row="3" BorderBrush="{StaticResource BorderGrayBrush}" BorderThickness="1" CornerRadius="4" Margin="0,10,0,15" Background="White">
-            <ListView Name="HashListView" BorderThickness="0" ScrollViewer.VerticalScrollBarVisibility="Auto" AlternationCount="2" d:ItemsSource="{d:SampleData ItemCount=5}" ToolTip="List of files and their calculated hashes" ItemContainerStyle="{StaticResource AlternatingListViewItemStyle}">
+            <ListView Name="HashListView" BorderThickness="0" ScrollViewer.VerticalScrollBarVisibility="Auto" AlternationCount="2" ToolTip="List of files and their calculated hashes" ItemContainerStyle="{StaticResource AlternatingListViewItemStyle}">
                 <ListView.View>
                     <GridView>
                         <GridViewColumn Header="Filename" Width="250"><GridViewColumn.CellTemplate><DataTemplate DataType="models:GameFile"><TextBlock Text="{Binding FileName}" TextTrimming="CharacterEllipsis" ToolTip="{Binding FileName}" /></DataTemplate></GridViewColumn.CellTemplate></GridViewColumn>

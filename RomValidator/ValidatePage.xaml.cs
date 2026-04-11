@@ -4,7 +4,6 @@ using System.Globalization;
 using System.IO;
 using System.Reflection;
 using System.Text;
-using System.Text.RegularExpressions;
 using System.Windows;
 using System.Xml;
 using System.Xml.Serialization;
@@ -36,9 +35,6 @@ public partial class ValidatePage : IDisposable
     private int _renamedCount;
     private readonly Stopwatch _operationTimer = new();
 
-    // Archive file extensions supported (same pattern as HashCalculator)
-    private static readonly Regex ArchiveExtensionRegex = MyRegex();
-
     public ValidatePage(MainWindow mainWindow)
     {
         _mainWindow = mainWindow;
@@ -46,7 +42,13 @@ public partial class ValidatePage : IDisposable
         DisplayInstructions();
         ClearDatInfoDisplay();
         _mainWindow.UpdateStatusBarMessage("Ready.");
-        _ = CheckForUpdatesOnStartupAsync();
+        _ = CheckForUpdatesOnStartupAsync().ContinueWith(static t =>
+        {
+            if (t.IsFaulted)
+            {
+                LoggerService.LogError("Startup", $"Update check failed: {t.Exception?.InnerException?.Message}");
+            }
+        }, TaskContinuationOptions.OnlyOnFaulted);
     }
 
     private void DisplayInstructions()
@@ -240,7 +242,9 @@ public partial class ValidatePage : IDisposable
 
         var filesActuallyProcessedCount = 0;
 
-        // Sequential Processing to prevent race conditions on file moves
+        // Sequential Processing is intentional to prevent race conditions on file moves.
+        // Parallel processing could cause conflicts when multiple threads attempt to move
+        // files to the same _success/_fail directories simultaneously.
         foreach (var filePath in filesToScan)
         {
             // Check cancellation at the start of each file
@@ -285,21 +289,37 @@ public partial class ValidatePage : IDisposable
             {
                 // Found a match by hash! Determine new file path
                 var directory = Path.GetDirectoryName(filePath);
+                if (string.IsNullOrEmpty(directory))
+                {
+                    Interlocked.Increment(ref _failCount);
+                    LogMessage($"[FAILED] {fileName} - Could not determine directory for rename operation.");
+                    return;
+                }
+
+                // Sanitize the ROM name to prevent path traversal attacks
+                var sanitizedRomName = Path.GetFileName(hashMatchedRom.Name);
+                if (string.IsNullOrEmpty(sanitizedRomName))
+                {
+                    Interlocked.Increment(ref _failCount);
+                    LogMessage($"[FAILED] {fileName} - Invalid ROM name in DAT file.");
+                    return;
+                }
+
                 string newFilePath;
                 string displayName;
 
                 // Check if this is an archive file - preserve archive extension
-                if (IsArchiveFile(fileName))
+                if (HashCalculator.IsArchiveFile(fileName))
                 {
                     var originalExtension = Path.GetExtension(fileName);
-                    var romNameWithoutExt = Path.GetFileNameWithoutExtension(hashMatchedRom.Name);
-                    newFilePath = Path.Combine(directory ?? string.Empty, romNameWithoutExt + originalExtension);
+                    var romNameWithoutExt = Path.GetFileNameWithoutExtension(sanitizedRomName);
+                    newFilePath = Path.Combine(directory, romNameWithoutExt + originalExtension);
                     displayName = romNameWithoutExt + originalExtension;
                 }
                 else
                 {
-                    newFilePath = Path.Combine(directory ?? string.Empty, hashMatchedRom.Name);
-                    displayName = hashMatchedRom.Name;
+                    newFilePath = Path.Combine(directory, sanitizedRomName);
+                    displayName = sanitizedRomName;
                 }
 
                 try
@@ -307,9 +327,9 @@ public partial class ValidatePage : IDisposable
                     await RenameFileAsync(filePath, newFilePath);
 
                     // If this is an archive, also rename the file inside to match the DAT entry
-                    if (IsArchiveFile(fileName))
+                    if (HashCalculator.IsArchiveFile(fileName))
                     {
-                        await RenameFileInsideArchiveAsync(newFilePath, hashMatchedRom.Name);
+                        RenameFileInsideArchive(newFilePath, hashMatchedRom.Name);
                     }
 
                     Interlocked.Increment(ref _renamedCount);
@@ -377,7 +397,7 @@ public partial class ValidatePage : IDisposable
             LogMessage($"[FAILED] {fileName} - {matchDetails}");
 
             // If it was a critical error (like extraction failure), it will appear in matchDetails
-            if (matchDetails.Contains("Archive extraction failed") || matchDetails.Contains("Error"))
+            if (!string.IsNullOrEmpty(matchDetails) && (matchDetails.Contains("Archive extraction failed") || matchDetails.Contains("Error")))
             {
                 // Optional: Highlight critical errors
                 _mainWindow.UpdateStatusBarMessage($"Error processing {fileName}");
@@ -596,7 +616,7 @@ public partial class ValidatePage : IDisposable
             }
 
             // First validation pass - check for <datafile> root element
-            await using (var validationStream = new FileStream(datFilePath, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, true))
+            await using (var validationStream = new FileStream(datFilePath, FileMode.Open, FileAccess.Read, FileShare.Read, 65536, true))
             {
                 using var validationReader = XmlReader.Create(validationStream, new XmlReaderSettings { DtdProcessing = DtdProcessing.Ignore, XmlResolver = null });
 
@@ -625,7 +645,7 @@ public partial class ValidatePage : IDisposable
             var serializer = new XmlSerializer(typeof(Datafile));
 
             // Deserialize the DAT file
-            await using var deserializeStream = new FileStream(datFilePath, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, true);
+            await using var deserializeStream = new FileStream(datFilePath, FileMode.Open, FileAccess.Read, FileShare.Read, 65536, true);
             using var xmlReader = XmlReader.Create(deserializeStream, new XmlReaderSettings { DtdProcessing = DtdProcessing.Ignore, XmlResolver = null });
 
             var datafile = await Task.Run(() => (Datafile?)serializer.Deserialize(xmlReader));
@@ -858,22 +878,20 @@ public partial class ValidatePage : IDisposable
         const int maxRetries = 10;
         const int delayMs = 200;
 
-        if (!File.Exists(sourcePath))
-        {
-            throw new IOException($"Source file not found: {sourcePath}");
-        }
-
-        if (File.Exists(destPath))
-        {
-            throw new IOException($"Destination file already exists: {destPath}");
-        }
-
         for (var attempt = 1; attempt <= maxRetries; attempt++)
         {
             try
             {
                 await Task.Run(() => File.Move(sourcePath, destPath));
                 return;
+            }
+            catch (FileNotFoundException)
+            {
+                throw new IOException($"Source file not found: {sourcePath}");
+            }
+            catch (IOException ex) when (ex.Message.Contains("already exists", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new IOException($"Destination file already exists: {destPath}");
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
@@ -892,12 +910,6 @@ public partial class ValidatePage : IDisposable
         const int maxRetries = 10;
         const int delayMs = 200;
 
-        if (!File.Exists(sourcePath))
-        {
-            LogMessage($"   -> File not found, cannot move: {Path.GetFileName(sourcePath)}");
-            return;
-        }
-
         // Generate unique destination path to prevent overwriting existing files (Issue 11 fix)
         destPath = GetUniqueDestPath(destPath);
 
@@ -908,6 +920,11 @@ public partial class ValidatePage : IDisposable
                 var destDir = Path.GetDirectoryName(destPath);
                 if (destDir != null) Directory.CreateDirectory(destDir);
                 await Task.Run(() => File.Move(sourcePath, destPath));
+                return;
+            }
+            catch (FileNotFoundException)
+            {
+                LogMessage($"   -> File not found, cannot move: {Path.GetFileName(sourcePath)}");
                 return;
             }
             catch (IOException ex) when (IsDiskFullError(ex))
@@ -1162,24 +1179,17 @@ public partial class ValidatePage : IDisposable
 
     #region Archive Helpers
 
-    private static bool IsArchiveFile(string fileName)
-    {
-        return ArchiveExtensionRegex.IsMatch(fileName);
-    }
-
     /// <summary>
     /// Renames the file inside a zip archive to match the target name specified in the DAT entry.
     /// For zip files: extracts contents, renames file, repackages.
     /// For other archive types: extracts contents, renames file, creates new zip.
     /// </summary>
-    private static async Task RenameFileInsideArchiveAsync(string archivePath, string targetFileName)
+    private static void RenameFileInsideArchive(string archivePath, string targetFileName)
     {
-        var tempDir = Path.Combine(Path.GetTempPath(), $"romvalidator_rename_{Guid.NewGuid():N}");
+        var tempDir = TempDirectoryHelper.CreateTempDirectory("romvalidator_rename");
 
         try
         {
-            Directory.CreateDirectory(tempDir);
-
             // Extract archive contents
             using (var archive = ArchiveFactory.OpenArchive(archivePath))
             {
@@ -1190,48 +1200,71 @@ public partial class ValidatePage : IDisposable
             var extractedFiles = Directory.GetFiles(tempDir, "*", SearchOption.AllDirectories);
             if (extractedFiles.Length == 0)
             {
+                // Cleanup temp directory before throwing
+                TempDirectoryHelper.CleanupTempDirectory(tempDir);
                 throw new InvalidOperationException("Archive is empty or extraction failed.");
             }
 
-            // Get the single file (or the first file if multiple)
-            var sourceFile = extractedFiles[0];
-            var targetPath = Path.Combine(Path.GetDirectoryName(sourceFile) ?? tempDir, targetFileName);
+            // Process ALL files in the archive, not just the first one
+            var filesToRepackage = new List<string>();
+            var targetFileRenamed = false;
 
-            // Rename the file to match the DAT entry
-            if (!File.Exists(targetPath))
+            foreach (var sourceFile in extractedFiles)
             {
-                File.Move(sourceFile, targetPath);
+                var sourceFileName = Path.GetFileName(sourceFile);
+                string targetPath;
+                string destFileName;
+
+                // Rename the first file (or file matching target name pattern) to targetFileName
+                if (!targetFileRenamed)
+                {
+                    targetPath = Path.Combine(Path.GetDirectoryName(sourceFile) ?? tempDir, targetFileName);
+                    destFileName = targetFileName;
+                    targetFileRenamed = true;
+                }
+                else
+                {
+                    // Keep other files with their original names
+                    targetPath = Path.Combine(Path.GetDirectoryName(sourceFile) ?? tempDir, sourceFileName);
+                    destFileName = sourceFileName;
+                }
+
+                // Rename the file if needed and paths differ
+                if (!string.Equals(sourceFile, targetPath, StringComparison.OrdinalIgnoreCase))
+                {
+                    if (File.Exists(targetPath))
+                    {
+                        File.Delete(targetPath);
+                    }
+
+                    File.Move(sourceFile, targetPath);
+                }
+
+                filesToRepackage.Add(destFileName);
             }
 
             // Delete the original archive
             File.Delete(archivePath);
 
-            // Create new zip archive with renamed contents using System.IO.Compression
-            var fileName = Path.GetFileName(targetPath);
-            await using (var zip = ZipFile.Open(archivePath, ZipArchiveMode.Create))
+            // Create new zip archive with ALL renamed contents using System.IO.Compression
+            using (var zip = ZipFile.Open(archivePath, ZipArchiveMode.Create))
             {
-                zip.CreateEntryFromFile(targetPath, fileName);
+                foreach (var fileEntry in filesToRepackage)
+                {
+                    var entryPath = Path.Combine(tempDir, fileEntry);
+                    if (File.Exists(entryPath))
+                    {
+                        zip.CreateEntryFromFile(entryPath, fileEntry);
+                    }
+                }
             }
         }
         finally
         {
-            // Cleanup temp directory
-            try
-            {
-                if (Directory.Exists(tempDir))
-                {
-                    Directory.Delete(tempDir, true);
-                }
-            }
-            catch
-            {
-                /* ignore cleanup errors */
-            }
+            // Cleanup temp directory with error logging
+            TempDirectoryHelper.CleanupTempDirectory(tempDir);
         }
     }
-
-    [GeneratedRegex(@"\.(zip|7z|rar|gz|tar|bz2|xz|lzma|cab|iso|img|vhd|wim)$", RegexOptions.IgnoreCase, "pt-BR")]
-    private static partial Regex MyRegex();
 
     #endregion
 }

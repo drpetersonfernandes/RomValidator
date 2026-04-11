@@ -9,8 +9,8 @@ namespace RomValidator.Services;
 
 public static partial class HashCalculator
 {
-    // Archive file extensions supported
-    private static readonly Regex ArchiveExtensionRegex = MyRegex();
+    // Archive file extensions supported - shared regex pattern (DUPLICATION fix)
+    private static readonly Regex SArchiveExtensionRegex = MyRegex();
 
     public static async Task<List<GameFile>> CalculateHashesAsync(string filePath, CancellationToken cancellationToken, BugReportService? bugReportService = null)
     {
@@ -25,6 +25,8 @@ public static partial class HashCalculator
                 // Open archive using SharpCompress (Supports Zip, 7z, Rar, Tar, etc.)
                 using var archive = ArchiveFactory.OpenArchive(filePath);
 
+                // Note: SharpCompress archive entries don't implement IDisposable,
+                // so explicit disposal is not required. The 'using var archive' handles cleanup.
                 foreach (var entry in archive.Entries)
                 {
                     if (entry.IsDirectory) continue;
@@ -36,14 +38,14 @@ public static partial class HashCalculator
                     using var sha256 = SHA256.Create();
 
                     // OpenEntryStream provides a stream to the uncompressed data
-                    await using var entryStream = await entry.OpenEntryStreamAsync(cancellationToken);
+                    await using var entryStream = await entry.OpenEntryStreamAsync(cancellationToken).ConfigureAwait(false);
 
                     var gameFile = await ProcessStreamAsync(
                         entryStream,
                         entry.Key ?? "Unknown", // SharpCompress uses Key for filename
                         crc32, md5, sha1, sha256,
                         cancellationToken,
-                        bugReportService);
+                        bugReportService).ConfigureAwait(false);
 
                     if (gameFile != null)
                         gameFiles.Add(gameFile);
@@ -55,31 +57,34 @@ public static partial class HashCalculator
             {
                 throw;
             }
-            catch (Exception ex) when (ex is NotSupportedException && fileInfo.Extension.Equals(".zip", StringComparison.OrdinalIgnoreCase))
+            catch (Exception ex) when (ex is NotSupportedException && fileInfo?.Extension?.Equals(".zip", StringComparison.OrdinalIgnoreCase) == true)
             {
                 // Fallback: SharpCompress doesn't support this zip's compression method.
                 // Extract to temp file using System.IO.Compression, then hash.
-                return await ExtractAndHashZipFallbackAsync(filePath, fileInfo, cancellationToken, bugReportService);
+                return await ExtractAndHashZipFallbackAsync(filePath, fileInfo, cancellationToken, bugReportService).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
-                _ = bugReportService?.SendBugReportAsync($"Archive extraction failed for file '{fileInfo.Name}'", ex);
-                // Return an error object for the archive itself so the UI knows extraction failed.
-                // We do NOT hash the container anymore.
-                return
-                [
-                    new GameFile
-                    {
-                        FileName = fileInfo.Name,
-                        GameName = Path.GetFileNameWithoutExtension(fileInfo.Name),
-                        FileSize = fileInfo.Length,
-                        ErrorMessage = $"Archive extraction failed: {ex.Message}",
-                        Crc32 = "ERROR",
-                        Md5 = "ERROR",
-                        Sha1 = "ERROR",
-                        Sha256 = "ERROR"
-                    }
-                ];
+                if (fileInfo != null)
+                {
+                    _ = bugReportService?.SendBugReportAsync($"Archive extraction failed for file '{fileInfo.Name}'", ex);
+                    // Return an error object for the archive itself so the UI knows extraction failed.
+                    // We do NOT hash the container anymore.
+                    return
+                    [
+                        new GameFile
+                        {
+                            FileName = fileInfo.Name,
+                            GameName = Path.GetFileNameWithoutExtension(fileInfo.Name),
+                            FileSize = fileInfo.Length,
+                            ErrorMessage = $"Archive extraction failed: {ex.Message}",
+                            Crc32 = "ERROR",
+                            Md5 = "ERROR",
+                            Sha1 = "ERROR",
+                            Sha256 = "ERROR"
+                        }
+                    ];
+                }
             }
         }
         else
@@ -95,13 +100,15 @@ public static partial class HashCalculator
                 filePath, fileInfo,
                 crc32, md5, sha1, sha256,
                 cancellationToken,
-                bugReportService);
+                bugReportService).ConfigureAwait(false);
 
             if (gameFile != null)
                 gameFiles.Add(gameFile);
 
             return gameFiles;
         }
+
+        return gameFiles;
     }
 
     private static async Task<GameFile?> ProcessFileAsync(
@@ -119,7 +126,7 @@ public static partial class HashCalculator
                 fileInfo.Name,
                 crc32, md5, sha1, sha256,
                 cancellationToken,
-                bugReportService);
+                bugReportService).ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
@@ -169,11 +176,12 @@ public static partial class HashCalculator
                 sha1.Initialize();
                 sha256.Initialize();
 
-                var algorithms = new HashAlgorithm[] { crc32, md5, sha1, sha256 };
+                // Use array instead of Span to allow usage across await boundaries
+                HashAlgorithm[] algorithms = [crc32, md5, sha1, sha256];
 
                 var buffer = new byte[65536];
                 int bytesRead;
-                while ((bytesRead = await stream.ReadAsync(buffer, cancellationToken)) > 0)
+                while ((bytesRead = await stream.ReadAsync(buffer, cancellationToken).ConfigureAwait(false)) > 0)
                 {
                     foreach (var algorithm in algorithms)
                     {
@@ -186,10 +194,11 @@ public static partial class HashCalculator
                     algorithm.TransformFinalBlock(Array.Empty<byte>(), 0, 0);
                 }
 
-                gameFile.Crc32 = Convert.ToHexStringLower(crc32.Hash ?? []);
-                gameFile.Md5 = Convert.ToHexStringLower(md5.Hash ?? []);
-                gameFile.Sha1 = Convert.ToHexStringLower(sha1.Hash ?? []);
-                gameFile.Sha256 = Convert.ToHexStringLower(sha256.Hash ?? []);
+                // Batch hex conversions using local function (PERF fix)
+                gameFile.Crc32 = ToHexLower(crc32.Hash);
+                gameFile.Md5 = ToHexLower(md5.Hash);
+                gameFile.Sha1 = ToHexLower(sha1.Hash);
+                gameFile.Sha256 = ToHexLower(sha256.Hash);
 
                 return gameFile;
             }
@@ -205,7 +214,7 @@ public static partial class HashCalculator
                     return gameFile;
                 }
 
-                await Task.Delay(retryDelay, cancellationToken);
+                await Task.Delay(retryDelay, cancellationToken).ConfigureAwait(false);
                 retryDelay *= 2; // Exponential backoff
 
                 // Reset stream position for retry (only works for seekable streams like FileStream)
@@ -232,7 +241,9 @@ public static partial class HashCalculator
             }
         }
 
-        throw new InvalidOperationException("Unexpected exit from retry loop");
+        _ = bugReportService?.SendBugReportAsync("Unexpected exit from retry loop in ProcessStreamAsync", new InvalidOperationException("Retry loop exceeded max attempts without returning or throwing"));
+        gameFile.ErrorMessage = "Unexpected error during hash calculation";
+        return gameFile;
     }
 
     private static async Task<List<GameFile>> ExtractAndHashZipFallbackAsync(
@@ -242,12 +253,10 @@ public static partial class HashCalculator
         BugReportService? bugReportService = null)
     {
         var gameFiles = new List<GameFile>();
-        var tempDir = Path.Combine(Path.GetTempPath(), $"romvalidator_{Guid.NewGuid():N}");
+        var tempDir = TempDirectoryHelper.CreateTempDirectory();
 
         try
         {
-            Directory.CreateDirectory(tempDir);
-
             // Fallback: use WriteToDirectory instead of OpenEntryStreamAsync
             // which supports a wider range of compression methods
             using var archive = ArchiveFactory.OpenArchive(filePath);
@@ -273,7 +282,7 @@ public static partial class HashCalculator
                     extractedFile, new FileInfo(extractedFile),
                     crc32, md5, sha1, sha256,
                     cancellationToken,
-                    bugReportService);
+                    bugReportService).ConfigureAwait(false);
 
                 if (gameFile != null)
                 {
@@ -305,20 +314,19 @@ public static partial class HashCalculator
         }
         finally
         {
-            try
-            {
-                Directory.Delete(tempDir, true);
-            }
-            catch
-            {
-                /* ignore cleanup errors */
-            }
+            TempDirectoryHelper.CleanupTempDirectory(tempDir);
         }
     }
 
-    private static bool IsArchiveFile(string fileName)
+    internal static bool IsArchiveFile(string fileName)
     {
-        return ArchiveExtensionRegex.IsMatch(fileName);
+        return SArchiveExtensionRegex.IsMatch(fileName);
+    }
+
+    // Local function for efficient hex conversion (PERF fix)
+    private static string ToHexLower(byte[]? hash)
+    {
+        return Convert.ToHexStringLower(hash ?? []);
     }
 
     private static bool IsAccessDeniedError(IOException ex)
@@ -328,6 +336,6 @@ public static partial class HashCalculator
                ex.Message.Contains("being used by another process", StringComparison.OrdinalIgnoreCase);
     }
 
-    [GeneratedRegex(@"\.(zip|7z|rar|gz|tar|bz2|xz|lzma|cab|iso|img|vhd|wim)$", RegexOptions.IgnoreCase, "pt-BR")]
+    [GeneratedRegex(@"\.(zip|7z|rar|gz|tar|bz2|xz|lzma|cab|iso|img|vhd|wim)$", RegexOptions.IgnoreCase, "en-US")]
     private static partial Regex MyRegex();
 }

@@ -7,6 +7,11 @@ namespace RomValidator;
 
 public partial class MainWindow : IDisposable
 {
+    // Cached brushes for UI consistency (PERF fix)
+    private static readonly SolidColorBrush SActiveBrush = new(Colors.White);
+    private static readonly SolidColorBrush SActiveBackgroundBrush = new(Color.FromRgb(0x1E, 0x88, 0xE5));
+    private static readonly Brush SInactiveBrush = Brushes.Transparent;
+
     // Services
     public BugReportService BugReportService { get; }
     public GitHubVersionChecker VersionChecker { get; }
@@ -32,7 +37,13 @@ public partial class MainWindow : IDisposable
         const string statsBaseUrl = "https://www.purelogiccode.com/ApplicationStats";
         const string statsApplicationId = "rom-validator";
         _applicationStatsService = new ApplicationStatsService(statsBaseUrl, apiKey, statsApplicationId);
-        _ = _applicationStatsService.RecordUsageAsync();
+        _ = _applicationStatsService.RecordUsageAsync().ContinueWith(static t =>
+        {
+            if (t.IsFaulted)
+            {
+                LoggerService.LogError("Startup", $"Stats recording failed: {t.Exception?.InnerException?.Message}");
+            }
+        }, TaskContinuationOptions.OnlyOnFaulted);
 
         // Initialize Pages
         _validatePage = new ValidatePage(this);
@@ -45,25 +56,22 @@ public partial class MainWindow : IDisposable
 
     private void UpdateActivePageIndicator(object activePage)
     {
-        var activeBrush = new SolidColorBrush(Colors.White);
-        var inactiveBrush = Brushes.Transparent;
-
         if (Equals(activePage, _validatePage))
         {
             ValidateRomsButton.BorderThickness = new Thickness(0, 0, 0, 3);
-            ValidateRomsButton.BorderBrush = activeBrush;
-            ValidateRomsButton.Background = new SolidColorBrush(Color.FromRgb(0x1E, 0x88, 0xE5));
+            ValidateRomsButton.BorderBrush = SActiveBrush;
+            ValidateRomsButton.Background = SActiveBackgroundBrush;
             GenerateDatButton.BorderThickness = new Thickness(0);
-            GenerateDatButton.BorderBrush = inactiveBrush;
+            GenerateDatButton.BorderBrush = SInactiveBrush;
             GenerateDatButton.Background = (Brush)FindResource("AccentBlueBrush");
         }
         else if (Equals(activePage, _generateDatPage))
         {
             GenerateDatButton.BorderThickness = new Thickness(0, 0, 0, 3);
-            GenerateDatButton.BorderBrush = activeBrush;
-            GenerateDatButton.Background = new SolidColorBrush(Color.FromRgb(0x1E, 0x88, 0xE5));
+            GenerateDatButton.BorderBrush = SActiveBrush;
+            GenerateDatButton.Background = SActiveBackgroundBrush;
             ValidateRomsButton.BorderThickness = new Thickness(0);
-            ValidateRomsButton.BorderBrush = inactiveBrush;
+            ValidateRomsButton.BorderBrush = SInactiveBrush;
             ValidateRomsButton.Background = (Brush)FindResource("AccentBlueBrush");
         }
     }
@@ -112,11 +120,52 @@ public partial class MainWindow : IDisposable
 
     public void Dispose()
     {
-        BugReportService.Dispose();
-        VersionChecker.Dispose();
-        _applicationStatsService.Dispose();
-        _validatePage.Dispose();
-        _generateDatPage.Dispose();
+        // Dispose services individually with error handling to prevent cascade failures
+        try
+        {
+            BugReportService.Dispose();
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"BugReportService dispose error: {ex.Message}");
+        }
+
+        try
+        {
+            VersionChecker.Dispose();
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"VersionChecker dispose error: {ex.Message}");
+        }
+
+        try
+        {
+            _applicationStatsService.Dispose();
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"ApplicationStatsService dispose error: {ex.Message}");
+        }
+
+        try
+        {
+            _validatePage.Dispose();
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"ValidatePage dispose error: {ex.Message}");
+        }
+
+        try
+        {
+            _generateDatPage.Dispose();
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"GenerateDatPage dispose error: {ex.Message}");
+        }
+
         GC.SuppressFinalize(this);
     }
 }

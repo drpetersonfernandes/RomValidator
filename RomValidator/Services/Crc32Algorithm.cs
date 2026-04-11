@@ -3,7 +3,8 @@ using System.Security.Cryptography;
 namespace RomValidator.Services;
 
 /// <summary>
-/// Implements a 32-bit CRC hash algorithm for compatibility with HashAlgorithm.
+/// Implements a 32-bit CRC (Cyclic Redundancy Check) hash algorithm.
+/// Compatible with System.Security.Cryptography.HashAlgorithm for use in hashing operations.
 /// </summary>
 public class Crc32Algorithm : HashAlgorithm
 {
