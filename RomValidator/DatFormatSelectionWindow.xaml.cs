@@ -11,7 +11,7 @@ public enum DatFormatType
     AutoDetect
 }
 
-public partial class DatFormatSelectionWindow : Window
+public partial class DatFormatSelectionWindow
 {
     public DatFormatType SelectedFormat { get; private set; } = DatFormatType.AutoDetect;
 

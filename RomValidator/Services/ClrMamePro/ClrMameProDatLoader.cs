@@ -1,7 +1,6 @@
 using System.IO;
 using System.Xml;
 using System.Xml.Serialization;
-using RomValidator.Services;
 using ClrMameProModels = RomValidator.Models.ClrMamePro;
 
 namespace RomValidator.Services.ClrMamePro;
@@ -59,7 +58,7 @@ public class ClrMameProDatLoader
             using var xmlReader = XmlReader.Create(deserializeStream, new XmlReaderSettings { DtdProcessing = DtdProcessing.Ignore, XmlResolver = null });
 
             var datafile = await Task.Run(() => (ClrMameProModels.Datafile?)serializer.Deserialize(xmlReader));
-            
+
             if (datafile?.Machines is null || datafile.Machines.Count == 0)
             {
                 var detailedError = $"User attempted to load empty/invalid ClrMamePro DAT file: {Path.GetFileName(datFilePath)}\n\nFile Preview:\n{datFilePreview}";

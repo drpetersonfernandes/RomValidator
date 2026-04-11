@@ -1,8 +1,5 @@
-using System.Collections.Concurrent;
-using System.Diagnostics;
 using System.IO;
 using RomValidator.Models;
-using RomValidator.Services;
 using ClrMameProModels = RomValidator.Models.ClrMamePro;
 
 namespace RomValidator.Services.ClrMamePro;
@@ -25,9 +22,9 @@ public class ClrMameProValidator
         _bugReportService = bugReportService;
     }
 
-    public async Task<bool> LoadDatFileAsync(ClrMameProModels.Datafile datafile)
+    public Task<bool> LoadDatFileAsync(ClrMameProModels.Datafile datafile)
     {
-        return await Task.Run(() =>
+        return Task.Run(() =>
         {
             try
             {
@@ -45,24 +42,25 @@ public class ClrMameProValidator
 
                     foreach (var rom in machine.Roms)
                     {
-                        // Index by ROM name (including machine name for uniqueness)
-                        var uniqueRomName = $"{machine.Name}/{rom.Name}";
-                        
-                        if (!_romDatabase.ContainsKey(rom.Name))
+                        if (!_romDatabase.TryGetValue(rom.Name, out var value))
                         {
-                            _romDatabase[rom.Name] = new List<ClrMameProModels.Rom>();
+                            value = new List<ClrMameProModels.Rom>();
+                            _romDatabase[rom.Name] = value;
                         }
-                        _romDatabase[rom.Name].Add(rom);
+
+                        value.Add(rom);
 
                         // Index by hashes for lookup
                         if (!string.IsNullOrEmpty(rom.Sha1))
                         {
                             _romDatabaseBySha1[rom.Sha1.ToLowerInvariant()] = rom;
                         }
+
                         if (!string.IsNullOrEmpty(rom.Md5))
                         {
                             _romDatabaseByMd5[rom.Md5.ToLowerInvariant()] = rom;
                         }
+
                         if (!string.IsNullOrEmpty(rom.Crc))
                         {
                             _romDatabaseByCrc[rom.Crc.ToLowerInvariant()] = rom;
@@ -121,11 +119,11 @@ public class ClrMameProValidator
             {
                 // Find which machine this ROM belongs to
                 var machine = FindMachineForRom(matchedRom);
-                
+
                 result.MachineName = machine?.Name;
                 result.RomName = matchedRom.Name;
                 result.MatchedHash = $"SHA1: {gameFile.Sha1}";
-                
+
                 // Check if filename matches (allowing for archive extensions)
                 var expectedName = matchedRom.Name;
                 var actualName = gameFile.FileName;
@@ -141,33 +139,42 @@ public class ClrMameProValidator
                     result.ActualName = actualName;
                 }
 
-                // Handle file operations
-                if (result.Status == ValidationStatus.Success && moveSuccess)
+                switch (result.Status)
                 {
-                    await MoveFileAsync(filePath, Path.Combine(successPath, fileName));
-                }
-                else if ((result.Status == ValidationStatus.HashMatchWrongName || result.Status == ValidationStatus.Unknown) && renameMatched && !string.IsNullOrEmpty(result.ExpectedName))
-                {
-                    // Rename the file to match the DAT entry
-                    var directory = Path.GetDirectoryName(filePath);
-                    var extension = Path.GetExtension(filePath);
-                    var newFilePath = Path.Combine(directory ?? string.Empty, result.ExpectedName + extension);
-                    await RenameFileAsync(filePath, newFilePath);
-                    result.WasRenamed = true;
-                    
-                    if (moveSuccess)
+                    // Handle file operations
+                    case ValidationStatus.Success when moveSuccess:
+                        await MoveFileAsync(filePath, Path.Combine(successPath, fileName));
+                        break;
+                    case ValidationStatus.HashMatchWrongName or ValidationStatus.Unknown when renameMatched && !string.IsNullOrEmpty(result.ExpectedName):
                     {
-                        await MoveFileAsync(newFilePath, Path.Combine(successPath, result.ExpectedName + extension));
+                        // Rename the file to match the DAT entry
+                        var directory = Path.GetDirectoryName(filePath);
+                        var extension = Path.GetExtension(filePath);
+                        var newFilePath = Path.Combine(directory ?? string.Empty, result.ExpectedName + extension);
+                        await RenameFileAsync(filePath, newFilePath);
+                        result.WasRenamed = true;
+
+                        if (moveSuccess)
+                        {
+                            await MoveFileAsync(newFilePath, Path.Combine(successPath, result.ExpectedName + extension));
+                        }
+
+                        break;
                     }
-                }
-                else if (result.Status != ValidationStatus.Success && moveFailed)
-                {
-                    await MoveFileAsync(filePath, Path.Combine(failPath, fileName));
-                }
-                else if (result.Status != ValidationStatus.Success && deleteFailed)
-                {
-                    await DeleteFileAsync(filePath);
-                    result.WasDeleted = true;
+                    default:
+                    {
+                        if (result.Status != ValidationStatus.Success && moveFailed)
+                        {
+                            await MoveFileAsync(filePath, Path.Combine(failPath, fileName));
+                        }
+                        else if (result.Status != ValidationStatus.Success && deleteFailed)
+                        {
+                            await DeleteFileAsync(filePath);
+                            result.WasDeleted = true;
+                        }
+
+                        break;
+                    }
                 }
             }
             else
@@ -237,12 +244,13 @@ public class ClrMameProValidator
     {
         foreach (var machine in LoadedDatafile?.Machines ?? new List<ClrMameProModels.Machine>())
         {
-            if (machine.Roms.Any(r => r == rom || 
-                (r.Name == rom.Name && r.Sha1 == rom.Sha1)))
+            if (machine.Roms.Any(r => r == rom ||
+                                      (r.Name == rom.Name && r.Sha1 == rom.Sha1)))
             {
                 return machine;
             }
         }
+
         return null;
     }
 
