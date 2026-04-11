@@ -54,7 +54,7 @@ public partial class ValidatePage : IDisposable
     private void DisplayInstructions()
     {
         LogMessage("Welcome to the ROM Validator.");
-        LogMessage("This tool validates your ROM files against a standard DAT file to ensure they are accurate and uncorrupted.");
+        LogMessage("This tool validates your ROM files against NoIntro DAT file to ensure they are accurate and uncorrupted.");
         LogMessage("");
         LogMessage("Please follow these steps:");
         LogMessage("1. Select the folder containing the ROM files you want to scan.");

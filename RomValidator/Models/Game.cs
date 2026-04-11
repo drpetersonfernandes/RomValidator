@@ -16,7 +16,7 @@ public class Game
 
     // No-Intro elements - Order is important for XmlSerializer
     [XmlElement("category")]
-    public string? Category { get; set; }
+    public List<string> Categories { get; set; } = new();
 
     [XmlElement("description")]
     public string Description { get; set; } = string.Empty;
