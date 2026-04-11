@@ -33,12 +33,14 @@ public partial class ValidatePage : IDisposable
     private int _failCount;
     private int _unknownCount;
     private int _renamedCount;
+    private int _deletedCount;
     private readonly Stopwatch _operationTimer = new();
 
     public ValidatePage(MainWindow mainWindow)
     {
         _mainWindow = mainWindow;
         InitializeComponent();
+        SetupCheckboxHandlers();
         DisplayInstructions();
         ClearDatInfoDisplay();
         _mainWindow.UpdateStatusBarMessage("Ready.");
@@ -49,6 +51,26 @@ public partial class ValidatePage : IDisposable
                 LoggerService.LogError("Startup", $"Update check failed: {t.Exception?.InnerException?.Message}");
             }
         }, TaskContinuationOptions.OnlyOnFaulted);
+    }
+
+    private void SetupCheckboxHandlers()
+    {
+        // Make Delete and Move mutually exclusive for safety
+        DeleteFailedCheckBox.Checked += (_, _) =>
+        {
+            if (DeleteFailedCheckBox.IsChecked == true)
+            {
+                MoveFailedCheckBox.IsChecked = false;
+            }
+        };
+
+        MoveFailedCheckBox.Checked += (_, _) =>
+        {
+            if (MoveFailedCheckBox.IsChecked == true)
+            {
+                DeleteFailedCheckBox.IsChecked = false;
+            }
+        };
     }
 
     private void DisplayInstructions()
@@ -111,6 +133,7 @@ public partial class ValidatePage : IDisposable
             var datFilePath = DatFileTextBox.Text;
             var moveSuccess = MoveSuccessCheckBox.IsChecked == true;
             var moveFailed = MoveFailedCheckBox.IsChecked == true;
+            var deleteFailed = DeleteFailedCheckBox.IsChecked == true;
             var renameMatched = RenameMatchedFilesCheckBox.IsChecked == true;
 
             if (string.IsNullOrEmpty(romsFolderPath) || string.IsNullOrEmpty(datFilePath))
@@ -132,6 +155,25 @@ public partial class ValidatePage : IDisposable
                 ShowError($"The selected DAT file does not exist: {datFilePath}");
                 _mainWindow.UpdateStatusBarMessage("Error: DAT file not found.");
                 return;
+            }
+
+            // Confirmation dialog for permanent deletion
+            if (deleteFailed)
+            {
+                var confirmationResult = MessageBox.Show(
+                    "WARNING: You have selected to PERMANENTLY DELETE failed/unknown files.\n\n" +
+                    "This action CANNOT be undone. Files will be permanently removed from your disk.\n\n" +
+                    $"Source folder: {romsFolderPath}\n\n" +
+                    "Are you absolutely sure you want to continue?",
+                    "Confirm Permanent Deletion",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Warning);
+
+                if (confirmationResult != MessageBoxResult.Yes)
+                {
+                    _mainWindow.UpdateStatusBarMessage("Validation cancelled - deletion not confirmed.");
+                    return;
+                }
             }
 
             // Cancel previous operation and create new CancellationTokenSource
@@ -179,7 +221,7 @@ public partial class ValidatePage : IDisposable
             }
 
             _mainWindow.UpdateStatusBarMessage("DAT file loaded. Starting ROM validation...");
-            await PerformValidationAsync(romsFolderPath, moveSuccess, moveFailed, renameMatched, operationCts.Token);
+            await PerformValidationAsync(romsFolderPath, moveSuccess, moveFailed, deleteFailed, renameMatched, operationCts.Token);
         }
         catch (OperationCanceledException)
         {
@@ -214,7 +256,7 @@ public partial class ValidatePage : IDisposable
         }
     }
 
-    private async Task PerformValidationAsync(string romsFolderPath, bool moveSuccess, bool moveFailed, bool renameMatched, CancellationToken token)
+    private async Task PerformValidationAsync(string romsFolderPath, bool moveSuccess, bool moveFailed, bool deleteFailed, bool renameMatched, CancellationToken token)
     {
         token.ThrowIfCancellationRequested();
 
@@ -225,6 +267,7 @@ public partial class ValidatePage : IDisposable
 
         LogMessage($"Move successful files: {moveSuccess}" + (moveSuccess ? $" (to {successPath})" : ""));
         LogMessage($"Move failed/unknown files: {moveFailed}" + (moveFailed ? $" (to {failPath})" : ""));
+        LogMessage($"Delete failed/unknown files: {deleteFailed}" + (deleteFailed ? " (⚠️ PERMANENT - files will be deleted!)" : ""));
         LogMessage($"Rename files on hash match: {renameMatched}");
 
         var filesToScan = await Task.Run(() => Directory.GetFiles(romsFolderPath), token);
@@ -250,7 +293,7 @@ public partial class ValidatePage : IDisposable
             // Check cancellation at the start of each file
             if (token.IsCancellationRequested) break;
 
-            await ProcessFileAsync(filePath, successPath, failPath, moveSuccess, moveFailed, renameMatched, token);
+            await ProcessFileAsync(filePath, successPath, failPath, moveSuccess, moveFailed, deleteFailed, renameMatched, token);
 
             var processedSoFar = Interlocked.Increment(ref filesActuallyProcessedCount);
             UpdateProgressDisplay(processedSoFar, _totalFilesToProcess, Path.GetFileName(filePath));
@@ -261,7 +304,7 @@ public partial class ValidatePage : IDisposable
         _mainWindow.UpdateStatusBarMessage("Validation complete.");
     }
 
-    private async Task ProcessFileAsync(string filePath, string successPath, string failPath, bool moveSuccess, bool moveFailed, bool renameMatched, CancellationToken token)
+    private async Task ProcessFileAsync(string filePath, string successPath, string failPath, bool moveSuccess, bool moveFailed, bool deleteFailed, bool renameMatched, CancellationToken token)
     {
         var fileName = Path.GetFileName(filePath);
         token.ThrowIfCancellationRequested();
@@ -348,7 +391,15 @@ public partial class ValidatePage : IDisposable
                     Interlocked.Increment(ref _failCount);
                     LogMessage($"[FAILED] {fileName} - Hash matched {hashMatchedRom.Name} but rename failed: {ex.Message}");
                     _ = _mainWindow.BugReportService.SendBugReportAsync($"Error renaming file '{fileName}' to '{hashMatchedRom.Name}'", ex);
-                    if (moveFailed) await MoveFileAsync(filePath, Path.Combine(failPath, fileName));
+                    if (moveFailed)
+                    {
+                        await MoveFileAsync(filePath, Path.Combine(failPath, fileName));
+                    }
+                    else if (deleteFailed)
+                    {
+                        await DeleteFileAsync(filePath, fileName);
+                    }
+
                     return;
                 }
             }
@@ -358,7 +409,15 @@ public partial class ValidatePage : IDisposable
         {
             Interlocked.Increment(ref _unknownCount);
             LogMessage($"[UNKNOWN] {fileName} - Not found in DAT file.");
-            if (moveFailed) await MoveFileAsync(filePath, Path.Combine(failPath, fileName));
+            if (moveFailed)
+            {
+                await MoveFileAsync(filePath, Path.Combine(failPath, fileName));
+            }
+            else if (deleteFailed)
+            {
+                await DeleteFileAsync(filePath, fileName);
+            }
+
             return;
         }
 
@@ -403,7 +462,14 @@ public partial class ValidatePage : IDisposable
                 _mainWindow.UpdateStatusBarMessage($"Error processing {fileName}");
             }
 
-            if (moveFailed) await MoveFileAsync(filePath, Path.Combine(failPath, fileName));
+            if (moveFailed)
+            {
+                await MoveFileAsync(filePath, Path.Combine(failPath, fileName));
+            }
+            else if (deleteFailed)
+            {
+                await DeleteFileAsync(filePath, fileName);
+            }
         }
     }
 
@@ -984,6 +1050,47 @@ public partial class ValidatePage : IDisposable
         return ex.HResult == errorDiskFull;
     }
 
+    private async Task DeleteFileAsync(string filePath, string fileName)
+    {
+        const int maxRetries = 10;
+        const int delayMs = 200;
+
+        for (var attempt = 1; attempt <= maxRetries; attempt++)
+        {
+            try
+            {
+                await Task.Run(() => File.Delete(filePath));
+                Interlocked.Increment(ref _deletedCount);
+                LogMessage($"   -> DELETED: {fileName}");
+                return;
+            }
+            catch (FileNotFoundException)
+            {
+                LogMessage($"   -> File not found, cannot delete: {fileName}");
+                return;
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                if (attempt == maxRetries)
+                {
+                    LogMessage($"   -> FAILED to delete {fileName} after {maxRetries} attempts. Error: {ex.Message}");
+                    _mainWindow.UpdateStatusBarMessage($"Failed to delete {fileName}.");
+                    _ = _mainWindow.BugReportService.SendBugReportAsync($"Error deleting file '{filePath}' after {maxRetries} attempts", ex);
+                    return;
+                }
+
+                await Task.Delay(delayMs * attempt);
+            }
+            catch (Exception ex)
+            {
+                LogMessage($"   -> FAILED to delete {fileName}. Error: {ex.Message}");
+                _mainWindow.UpdateStatusBarMessage($"Failed to delete {fileName}.");
+                _ = _mainWindow.BugReportService.SendBugReportAsync($"Error deleting file '{filePath}'", ex);
+                return;
+            }
+        }
+    }
+
     #region UI and Control Methods
 
     private void BrowseRomsFolderButton_Click(object sender, RoutedEventArgs e)
@@ -1048,6 +1155,7 @@ public partial class ValidatePage : IDisposable
         BrowseDatFileButton.IsEnabled = enabled;
         MoveSuccessCheckBox.IsEnabled = enabled;
         MoveFailedCheckBox.IsEnabled = enabled;
+        DeleteFailedCheckBox.IsEnabled = enabled;
         RenameMatchedFilesCheckBox.IsEnabled = enabled;
         DownloadDatFilesButton.IsEnabled = enabled;
         StartValidationButton.IsEnabled = enabled;
@@ -1083,6 +1191,7 @@ public partial class ValidatePage : IDisposable
         _failCount = 0;
         _unknownCount = 0;
         _renamedCount = 0;
+        _deletedCount = 0;
         _operationTimer.Reset();
         UpdateStatsDisplay();
         UpdateProcessingTimeDisplay();
@@ -1099,6 +1208,7 @@ public partial class ValidatePage : IDisposable
             FailedValue.Text = _failCount.ToString(CultureInfo.InvariantCulture);
             UnknownValue.Text = _unknownCount.ToString(CultureInfo.InvariantCulture);
             RenamedValue.Text = _renamedCount.ToString(CultureInfo.InvariantCulture);
+            DeletedValue.Text = _deletedCount.ToString(CultureInfo.InvariantCulture);
         });
     }
 
@@ -1152,10 +1262,11 @@ public partial class ValidatePage : IDisposable
         LogMessage($"Failed: {_failCount}");
         LogMessage($"Unknown: {_unknownCount}");
         LogMessage($"Renamed: {_renamedCount}");
+        LogMessage($"Deleted: {_deletedCount}");
         LogMessage($@"Total time: {_operationTimer.Elapsed:hh\:mm\:ss}");
         _mainWindow.UpdateStatusBarMessage("Validation complete.");
 
-        var summaryText = $"Validation complete.\n\nSuccessful: {_successCount}\nFailed: {_failCount}\nUnknown: {_unknownCount}\nRenamed: {_renamedCount}";
+        var summaryText = $"Validation complete.\n\nSuccessful: {_successCount}\nFailed: {_failCount}\nUnknown: {_unknownCount}\nRenamed: {_renamedCount}\nDeleted: {_deletedCount}";
         MessageBox.Show(_mainWindow, summaryText, "Validation Complete", MessageBoxButton.OK, MessageBoxImage.Information);
     }
 

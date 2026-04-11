@@ -128,6 +128,7 @@ public partial class MainWindow : IDisposable
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"BugReportService dispose error: {ex.Message}");
+            _ = BugReportService.SendBugReportAsync("Error disposing BugReportService", ex);
         }
 
         try
@@ -137,6 +138,7 @@ public partial class MainWindow : IDisposable
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"VersionChecker dispose error: {ex.Message}");
+            _ = BugReportService.SendBugReportAsync("Error disposing VersionChecker", ex);
         }
 
         try
@@ -146,6 +148,7 @@ public partial class MainWindow : IDisposable
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"ApplicationStatsService dispose error: {ex.Message}");
+            _ = BugReportService.SendBugReportAsync("Error disposing ApplicationStatsService", ex);
         }
 
         try
@@ -155,6 +158,7 @@ public partial class MainWindow : IDisposable
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"ValidatePage dispose error: {ex.Message}");
+            _ = BugReportService.SendBugReportAsync("Error disposing ValidatePage", ex);
         }
 
         try
@@ -164,6 +168,7 @@ public partial class MainWindow : IDisposable
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"GenerateDatPage dispose error: {ex.Message}");
+            _ = BugReportService.SendBugReportAsync("Error disposing GenerateDatPage", ex);
         }
 
         GC.SuppressFinalize(this);

@@ -40,9 +40,10 @@
                 </Grid>
 
                 <StackPanel Margin="0,15,0,0" Orientation="Vertical">
-                    <CheckBox x:Name="MoveSuccessCheckBox" Content="Move successful items to '_success' folder" IsChecked="True" VerticalAlignment="Center" Margin="0,2,0,2" ToolTip="If checked, valid ROMs will be moved to the '_success' subfolder"/>
-                    <CheckBox x:Name="MoveFailedCheckBox" Content="Move failed/unknown items to '_fail' folder" IsChecked="True" Margin="0,8,0,8" VerticalAlignment="Center" ToolTip="If checked, invalid or unknown ROMs will be moved to the '_fail' subfolder"/>
-                    <CheckBox x:Name="RenameMatchedFilesCheckBox" Content="Automatically rename files when hash matches but filename differs" IsChecked="True" Margin="0,8,0,8" VerticalAlignment="Center" ToolTip="If checked, files with matching hashes but different names will be renamed to match the DAT entry"/>
+                    <CheckBox x:Name="MoveSuccessCheckBox" Content="Move successful items to '_success' folder" IsChecked="True" VerticalAlignment="Center" Margin="5" ToolTip="If checked, valid ROMs will be moved to the '_success' subfolder"/>
+                    <CheckBox x:Name="MoveFailedCheckBox" Content="Move failed/unknown items to '_fail' folder" IsChecked="True" Margin="5" VerticalAlignment="Center" ToolTip="If checked, invalid or unknown ROMs will be moved to the '_fail' subfolder"/>
+                    <CheckBox x:Name="DeleteFailedCheckBox" Content="Permanently delete failed/unknown files (⚠️ irreversible)" IsChecked="False" Margin="5" VerticalAlignment="Center" Foreground="{StaticResource ErrorRedBrush}" FontWeight="SemiBold" ToolTip="If checked, invalid or unknown ROMs will be permanently deleted from disk. This action cannot be undone!"/>
+                    <CheckBox x:Name="RenameMatchedFilesCheckBox" Content="Automatically rename files when hash matches but filename differs" IsChecked="True" Margin="5" VerticalAlignment="Center" ToolTip="If checked, files with matching hashes but different names will be renamed to match the DAT entry"/>
                 </StackPanel>
 
                 <StackPanel Margin="0,15,0,0" Orientation="Horizontal" HorizontalAlignment="Center">
@@ -102,7 +103,7 @@
         <!-- Stats Panel -->
         <Grid Grid.Row="2" Margin="10,0,10,10">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" /><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /><ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" /><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /><ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
 
             <Border Grid.Column="0" BorderBrush="{StaticResource BorderGrayBrush}" BorderThickness="1" Margin="2" Padding="8" CornerRadius="4" ToolTip="Total number of files to process">
@@ -135,7 +136,13 @@
                     <TextBlock x:Name="RenamedValue" Text="0" HorizontalAlignment="Center"/>
                 </StackPanel>
             </Border>
-            <Border Grid.Column="5" BorderBrush="{StaticResource BorderGrayBrush}" BorderThickness="1" Margin="2" Padding="8" CornerRadius="4" ToolTip="Time elapsed during validation">
+            <Border Grid.Column="5" BorderBrush="{StaticResource BorderGrayBrush}" BorderThickness="1" Margin="2" Padding="8" CornerRadius="4" ToolTip="Number of files that were permanently deleted">
+                <StackPanel Orientation="Vertical" HorizontalAlignment="Center">
+                    <TextBlock Text="Deleted:" FontWeight="SemiBold" Foreground="DarkRed" HorizontalAlignment="Center"/>
+                    <TextBlock x:Name="DeletedValue" Text="0" HorizontalAlignment="Center"/>
+                </StackPanel>
+            </Border>
+            <Border Grid.Column="6" BorderBrush="{StaticResource BorderGrayBrush}" BorderThickness="1" Margin="2" Padding="8" CornerRadius="4" ToolTip="Time elapsed during validation">
                 <StackPanel Orientation="Vertical" HorizontalAlignment="Center">
                     <TextBlock Text="Processing Time:" FontWeight="SemiBold" HorizontalAlignment="Center"/>
                     <TextBlock x:Name="ProcessingTimeValue" Text="00:00:00" HorizontalAlignment="Center"/>

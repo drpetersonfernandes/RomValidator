@@ -15,16 +15,19 @@
 -   **Multi-Hash Verification**: Validates file integrity using CRC32, MD5, and SHA1/SHA256 checksums.
 -   **No-Intro Integration**: Native support for No-Intro XML DAT formats.
 -   **Archive Support**: Deep-scans within compressed archives (ZIP, 7z, RAR, etc.) without manual extraction.
+-   **Smart File Renaming**: Automatically renames files when hash matches but filename differs, ensuring your collection matches the DAT exactly.
 
 ### 📂 Collection Management
 -   **Automated Organization**: Automatically sorts files into `_success` or `_fail` directories based on validation results.
+-   **Flexible File Handling**: Optional permanent deletion of failed/unknown files with safety confirmations.
 -   **DAT Generation**: Create No-Intro compliant DAT files from any folder, complete with custom metadata (Author, Version, Description).
+-   **DAT Format Validation**: Automatic detection of incompatible file formats (ZIP, HTML, ClrMamePro text format) with clear error messages.
 -   **Real-time Logging**: Detailed, timestamped logs for every operation, including specific reasons for validation failures.
 
 ### 💻 User Experience
 -   **Modern WPF Interface**: A clean, responsive UI with progress monitoring and statistical breakdowns.
--   **Update Notifications**: Integrated GitHub version checking to ensure you are always using the latest preservation logic.
--   **Bug Reporting**: Built-in service to report issues directly to the development team.
+-   **Update Notifications**: Integrated GitHub version checking with automatic notifications when new releases are available.
+-   **Automatic Bug Reporting**: Built-in service to automatically report application errors to the development team for faster issue resolution.
 
 ---
 
@@ -50,7 +53,11 @@
 ### Validating ROMs
 1.  **Select Source**: Choose the folder containing your ROM files.
 2.  **Load DAT**: Select a compatible No-Intro XML DAT file.
-3.  **Configure**: Toggle "Move successful items" as needed.
+3.  **Configure Options**:
+    -   Toggle "Move successful items" to organize valid ROMs into a `_success` folder.
+    -   Toggle "Move failed/unknown items" to organize invalid ROMs into a `_fail` folder.
+    -   Enable "Automatically rename files" to match DAT entries when hashes match but filenames differ.
+    -   ⚠️ **Caution**: The "Permanently delete failed files" option cannot be undone.
 4.  **Execute**: Click **Start Validation**. The application will categorize files as ✅ **Success**, ❌ **Failed**, or ❓ **Unknown**.
 
 ### Generating DATs
