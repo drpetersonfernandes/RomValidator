@@ -1,0 +1,133 @@
+<Window x:Class="RomValidator.DatFormatSelectionWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Select DAT File Format"
+        Width="450"
+        Height="350"
+        ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner"
+        Background="White">
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- Title -->
+        <TextBlock Grid.Row="0"
+                   Text="Select DAT File Format"
+                   FontSize="18"
+                   FontWeight="Bold"
+                   Margin="0,0,0,10"
+                   Foreground="{StaticResource PrimaryBlueBrush}" />
+
+        <!-- Description -->
+        <TextBlock Grid.Row="1"
+                   Text="What type of DAT file are you using?"
+                   FontSize="12"
+                   Margin="0,0,0,15"
+                   Foreground="Gray" />
+
+        <!-- Options -->
+        <StackPanel Grid.Row="2" Margin="0,10,0,0">
+            <!-- No-Intro Option -->
+            <Border BorderBrush="{StaticResource BorderGrayBrush}"
+                    BorderThickness="1"
+                    CornerRadius="4"
+                    Padding="15"
+                    Margin="0,0,0,10"
+                    Background="White"
+                    Cursor="Hand"
+                    MouseLeftButtonUp="NoIntroBorder_MouseLeftButtonUp">
+                <RadioButton x:Name="NoIntroRadioButton"
+                             GroupName="DatFormat"
+                             VerticalAlignment="Center"
+                             Checked="FormatRadioButton_Checked">
+                    <RadioButton.Content>
+                        <StackPanel Margin="5,0,0,0">
+                            <TextBlock Text="No-Intro"
+                                       FontWeight="Bold"
+                                       FontSize="14" />
+                            <TextBlock Text="Standard No-Intro DAT format (Nintendo, Sega, etc.)"
+                                       FontSize="11"
+                                       Foreground="Gray"
+                                       Margin="0,2,0,0" />
+                        </StackPanel>
+                    </RadioButton.Content>
+                </RadioButton>
+            </Border>
+
+            <!-- ClrMamePro Option -->
+            <Border BorderBrush="{StaticResource BorderGrayBrush}"
+                    BorderThickness="1"
+                    CornerRadius="4"
+                    Padding="15"
+                    Margin="0,0,0,10"
+                    Background="White"
+                    Cursor="Hand"
+                    MouseLeftButtonUp="ClrMameProBorder_MouseLeftButtonUp">
+                <RadioButton x:Name="ClrMameProRadioButton"
+                             GroupName="DatFormat"
+                             VerticalAlignment="Center"
+                             Checked="FormatRadioButton_Checked">
+                    <RadioButton.Content>
+                        <StackPanel Margin="5,0,0,0">
+                            <TextBlock Text="ClrMamePro / MAME"
+                                       FontWeight="Bold"
+                                       FontSize="14" />
+                            <TextBlock Text="MAME arcade DAT format (machines with multiple ROMs)"
+                                       FontSize="11"
+                                       Foreground="Gray"
+                                       Margin="0,2,0,0" />
+                        </StackPanel>
+                    </RadioButton.Content>
+                </RadioButton>
+            </Border>
+
+            <!-- Auto-Detect Option -->
+            <Border BorderBrush="{StaticResource BorderGrayBrush}"
+                    BorderThickness="1"
+                    CornerRadius="4"
+                    Padding="15"
+                    Background="White"
+                    Cursor="Hand"
+                    MouseLeftButtonUp="AutoDetectBorder_MouseLeftButtonUp">
+                <RadioButton x:Name="AutoDetectRadioButton"
+                             GroupName="DatFormat"
+                             IsChecked="True"
+                             VerticalAlignment="Center"
+                             Checked="FormatRadioButton_Checked">
+                    <RadioButton.Content>
+                        <StackPanel Margin="5,0,0,0">
+                            <TextBlock Text="Auto-Detect"
+                                       FontWeight="Bold"
+                                       FontSize="14" />
+                            <TextBlock Text="Automatically detect the DAT format from file content"
+                                       FontSize="11"
+                                       Foreground="Gray"
+                                       Margin="0,2,0,0" />
+                        </StackPanel>
+                    </RadioButton.Content>
+                </RadioButton>
+            </Border>
+        </StackPanel>
+
+        <!-- Buttons -->
+        <StackPanel Grid.Row="3"
+                    Orientation="Horizontal"
+                    HorizontalAlignment="Right"
+                    Margin="0,15,0,0">
+            <Button Content="Cancel"
+                    Width="80"
+                    Margin="0,0,10,0"
+                    Click="CancelButton_Click"
+                    Style="{StaticResource ActionButtonStyle}" />
+            <Button Content="OK"
+                    Width="80"
+                    Click="OkButton_Click"
+                    Style="{StaticResource StartButtonStyle}" />
+        </StackPanel>
+    </Grid>
+</Window>
