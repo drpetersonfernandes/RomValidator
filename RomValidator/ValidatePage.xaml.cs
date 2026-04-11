@@ -7,7 +7,7 @@ using System.Text;
 using System.Windows;
 using System.Xml;
 using System.Xml.Serialization;
-using RomValidator.Models;
+using RomValidator.Models.NoIntro;
 using RomValidator.Services;
 using SharpCompress.Archives;
 using SharpCompress.Common;

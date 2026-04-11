@@ -40,4 +40,9 @@
         <Page Remove="References\**" />
     </ItemGroup>
 
+    <ItemGroup>
+      <Folder Include="Models\ClrMamePro\" />
+      <Folder Include="Models\NoIntro\" />
+    </ItemGroup>
+
 </Project>

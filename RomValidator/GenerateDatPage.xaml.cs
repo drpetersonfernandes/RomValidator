@@ -10,6 +10,7 @@ using System.Xml;
 using System.Xml.Serialization;
 using Microsoft.Win32;
 using RomValidator.Models;
+using RomValidator.Models.NoIntro;
 using RomValidator.Services;
 
 namespace RomValidator;

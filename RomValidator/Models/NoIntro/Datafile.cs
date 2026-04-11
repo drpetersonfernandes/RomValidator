@@ -1,6 +1,6 @@
 using System.Xml.Serialization;
 
-namespace RomValidator.Models;
+namespace RomValidator.Models.NoIntro;
 
 [XmlRoot("datafile")]
 public class Datafile

@@ -1,6 +1,6 @@
 using System.Xml.Serialization;
 
-namespace RomValidator.Models;
+namespace RomValidator.Models.NoIntro;
 
 public class Header
 {
@@ -26,7 +26,7 @@ public class Header
     public string Url { get; set; } = "https://www.purelogiccode.com";
 
     [XmlElement("clrmamepro")]
-    public ClrMamePro ClrMamePro { get; set; } = new();
+    public ClrMamePro? ClrMamePro { get; set; }
 
     // Optional elements found in various DAT formats
     [XmlElement("date")]
