@@ -10,9 +10,17 @@ public class ApplicationStatsService(string baseUrl, string apiKey, string appli
     private readonly string _statsUrl = $"{baseUrl.TrimEnd('/')}/stats";
     private readonly string _apiKey = apiKey;
     private readonly string _applicationId = applicationId;
+    private bool _hasRecordedUsage;
 
     public async Task<bool> RecordUsageAsync()
     {
+        if (_hasRecordedUsage)
+        {
+            return true; // Already recorded
+        }
+
+        _hasRecordedUsage = true; // Mark as attempted immediately to prevent duplicate calls per launch
+
         try
         {
             var version = Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "unknown";
@@ -32,6 +40,12 @@ public class ApplicationStatsService(string baseUrl, string apiKey, string appli
             if (response.IsSuccessStatusCode)
             {
                 return true;
+            }
+
+            // Don't log error for Rate Limit (429) to avoid bug reports (User feedback Apr 11, 2026)
+            if (response.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
+            {
+                return false;
             }
 
             var errorContent = await response.Content.ReadAsStringAsync();

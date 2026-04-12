@@ -77,16 +77,13 @@ public class BugReportService(string apiUrl, string apiKey, string applicationNa
                 }
                 else
                 {
-                    var errors = apiResponse?.Data?.Errors != null ? string.Join(", ", apiResponse.Data.Errors) : "No specific errors reported.";
-                    LoggerService.LogError("BugReportService", $"BugReportService API reported failure. Errors: {errors}");
+                    // Silently fail - don't log to avoid recursive bug reports
                     return false;
                 }
             }
             else
             {
-                // Log the non-success HTTP status code and content for debugging
-                var errorContent = await response.Content.ReadAsStringAsync();
-                LoggerService.LogError("BugReportService", $"BugReportService API call failed with HTTP status {response.StatusCode}. Content: {errorContent}");
+                // Silently fail - don't log to avoid recursive bug reports
                 return false;
             }
         }

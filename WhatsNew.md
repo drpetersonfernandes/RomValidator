@@ -26,7 +26,14 @@ This release marks a significant milestone in the evolution of **ROM Validator**
 ### 💻 System & UX
 - **Centralized Logging**: Introduced `LoggerService` for standardized error and activity logging.
 - **Automatic Bug Reporting**: Integrated `BugReportService` to automatically capture and report application exceptions for faster troubleshooting.
+- **Usage Metrics**: Added `ApplicationStatsService` to track basic usage telemetry (called once per launch, with rate-limit handling).
 - **Modern Standards**: Updated codebase to **.NET 10** and **C# 14**, utilizing `GeneratedRegex` and other modern language features.
+
+### 🐛 Bug Reporting Improvements
+- **Reduced Noise**: Eliminated bug reports for:
+  - Stats API rate-limiting (429) errors
+  - Bug report service API failures (prevents recursive reporting)
+  - File rename "destination already exists" errors (user/data issue, not code bug)
 
 ---
 **Note:** This version exclusively supports **No-Intro XML DAT** files. Users attempting to load ClrMamePro or MAME-specific DATs will be notified to download compatible XML files from the No-Intro website.

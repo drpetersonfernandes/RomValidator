@@ -391,7 +391,11 @@ public partial class ValidatePage : IDisposable
                 {
                     Interlocked.Increment(ref _failCount);
                     LogMessage($"[FAILED] {fileName} - Hash matched {hashMatchedRom.Name} but rename failed: {ex.Message}");
-                    _ = _mainWindow.BugReportService.SendBugReportAsync($"Error renaming file '{fileName}' to '{hashMatchedRom.Name}'", ex);
+                    // Don't send bug report for "destination already exists" - it's a user/data issue, not a code bug
+                    if (!ex.Message.Contains("already exists", StringComparison.OrdinalIgnoreCase))
+                    {
+                        _ = _mainWindow.BugReportService.SendBugReportAsync($"Error renaming file '{fileName}' to '{hashMatchedRom.Name}'", ex);
+                    }
                     if (moveFailed)
                     {
                         await MoveFileAsync(filePath, Path.Combine(failPath, fileName));
