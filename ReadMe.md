@@ -13,7 +13,7 @@
 
 ### 🔍 Advanced Validation
 -   **Multi-Hash Verification**: Validates file integrity using CRC32, MD5, and SHA1/SHA256 checksums.
--   **No-Intro Integration**: Native support for No-Intro XML DAT formats.
+-   **No-Intro Integration**: Native support for No-Intro XML DAT formats (currently the only supported format).
 -   **Archive Support**: Deep-scans within compressed archives (ZIP, 7z, RAR, etc.) without manual extraction.
 -   **Smart File Renaming**: Automatically renames files when hash matches but filename differs, ensuring your collection matches the DAT exactly.
 
@@ -21,7 +21,7 @@
 -   **Automated Organization**: Automatically sorts files into `_success` or `_fail` directories based on validation results.
 -   **Flexible File Handling**: Optional permanent deletion of failed/unknown files with safety confirmations.
 -   **DAT Generation**: Create No-Intro compliant DAT files from any folder, complete with custom metadata (Author, Version, Description).
--   **DAT Format Validation**: Automatic detection of incompatible file formats (ZIP, HTML, ClrMamePro text format) with clear error messages.
+-   **DAT Format Validation**: Automatic detection of incompatible file formats (ZIP, HTML, ClrMamePro, MAME) with clear error messages. Note: This version exclusively supports No-Intro XML DATs.
 -   **Real-time Logging**: Detailed, timestamped logs for every operation, including specific reasons for validation failures.
 
 ### 💻 User Experience

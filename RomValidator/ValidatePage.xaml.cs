@@ -22,6 +22,7 @@ public partial class ValidatePage : IDisposable
     private Dictionary<string, Rom> _romDatabaseBySha1 = [];
     private Dictionary<string, Rom> _romDatabaseByMd5 = [];
     private Dictionary<string, Rom> _romDatabaseByCrc = [];
+    private Dictionary<string, Rom> _romDatabaseBySha256 = [];
     private string _loadedDatFilePath = string.Empty;
     private DateTime _loadedDatFileTimestamp;
     private CancellationTokenSource? _cts;
@@ -477,6 +478,7 @@ public partial class ValidatePage : IDisposable
     {
         return hashType.ToUpperInvariant() switch
         {
+            "SHA256" => rom.Sha256,
             "SHA1" => rom.Sha1,
             "MD5" => rom.Md5,
             "CRC32" => rom.Crc,
@@ -511,13 +513,15 @@ public partial class ValidatePage : IDisposable
                 foreach (var expectedRom in expectedRoms)
                 {
                     var sizeMatch = gameFile.FileSize == expectedRom.Size;
+                    var sha256Match = !string.IsNullOrEmpty(gameFile.Sha256) && (string.IsNullOrEmpty(expectedRom.Sha256) || gameFile.Sha256.Equals(expectedRom.Sha256, StringComparison.OrdinalIgnoreCase));
                     var sha1Match = !string.IsNullOrEmpty(gameFile.Sha1) && (string.IsNullOrEmpty(expectedRom.Sha1) || gameFile.Sha1.Equals(expectedRom.Sha1, StringComparison.OrdinalIgnoreCase));
                     var md5Match = !string.IsNullOrEmpty(gameFile.Md5) && (string.IsNullOrEmpty(expectedRom.Md5) || gameFile.Md5.Equals(expectedRom.Md5, StringComparison.OrdinalIgnoreCase));
                     var crcMatch = !string.IsNullOrEmpty(gameFile.Crc32) && (string.IsNullOrEmpty(expectedRom.Crc) || gameFile.Crc32.Equals(expectedRom.Crc, StringComparison.OrdinalIgnoreCase));
 
-                    if (sizeMatch && sha1Match && md5Match && crcMatch)
+                    if (sizeMatch && sha256Match && sha1Match && md5Match && crcMatch)
                     {
                         var details = new List<string>();
+                        if (!string.IsNullOrEmpty(expectedRom.Sha256)) details.Add($"SHA256: {gameFile.Sha256}");
                         if (!string.IsNullOrEmpty(expectedRom.Sha1)) details.Add($"SHA1: {gameFile.Sha1}");
                         if (!string.IsNullOrEmpty(expectedRom.Md5)) details.Add($"MD5: {gameFile.Md5}");
                         if (!string.IsNullOrEmpty(expectedRom.Crc)) details.Add($"CRC32: {gameFile.Crc32}");
@@ -530,6 +534,7 @@ public partial class ValidatePage : IDisposable
                     // Collect error info for this expected ROM
                     var mismatchReason = new List<string>();
                     if (!sizeMatch) mismatchReason.Add($"Size (Exp: {expectedRom.Size}, Got: {gameFile.FileSize})");
+                    if (!sha256Match) mismatchReason.Add("SHA256 mismatch");
                     if (!sha1Match) mismatchReason.Add("SHA1 mismatch");
                     if (!md5Match) mismatchReason.Add("MD5 mismatch");
                     if (!crcMatch) mismatchReason.Add("CRC32 mismatch");
@@ -637,41 +642,51 @@ public partial class ValidatePage : IDisposable
                 return false;
             }
 
-            // 3. Scan the first several lines to detect ClrMamePro format
+            // 3. Scan the first several lines to detect incompatible formats (ClrMamePro, MAME, etc.)
             var isClrMameProFormat = false;
+            var isMameFormat = false;
             using (var sr = new StreamReader(datFilePath, Encoding.UTF8, true, 4096))
             {
-                for (var i = 0; i < 10; i++)
+                for (var i = 0; i < 20; i++) // Scan more lines for better detection
                 {
                     var line = await sr.ReadLineAsync();
                     if (line is null) break;
 
-                    if (line.Contains("clrmamepro", StringComparison.OrdinalIgnoreCase) &&
-                        !line.TrimStart().StartsWith("<?xml", StringComparison.OrdinalIgnoreCase))
+                    var trimmedLine = line.TrimStart();
+
+                    // Detect ClrMamePro text format
+                    if (trimmedLine.Contains("clrmamepro (", StringComparison.OrdinalIgnoreCase) &&
+                        !trimmedLine.StartsWith("<?xml", StringComparison.OrdinalIgnoreCase))
                     {
                         isClrMameProFormat = true;
                         break;
                     }
 
-                    // Stop early if we hit XML declaration or content
-                    if (line.TrimStart().StartsWith("<?xml", StringComparison.OrdinalIgnoreCase) ||
-                        line.TrimStart().StartsWith("<datafile", StringComparison.OrdinalIgnoreCase))
+                    // Detect MAME/ClrMamePro XML format (uses <machine> instead of <game>)
+                    if (trimmedLine.Contains("<machine", StringComparison.OrdinalIgnoreCase))
+                    {
+                        isMameFormat = true;
+                        break;
+                    }
+
+                    // Stop early if we hit No-Intro specific tags to avoid false positives
+                    if (trimmedLine.StartsWith("<game", StringComparison.OrdinalIgnoreCase))
                     {
                         break;
                     }
                 }
             }
 
-            if (isClrMameProFormat)
+            if (isClrMameProFormat || isMameFormat)
             {
-                const string errorMsg = "Incompatible DAT file format.\n\n" +
-                                        "This application only supports No-Intro XML DAT files.\n\n" +
-                                        "The selected file appears to be a ClrMamePro text format DAT file, which is not supported.\n\n" +
-                                        "Please download an XML format DAT file from https://no-intro.org/";
+                var formatType = isClrMameProFormat ? "ClrMamePro text" : "MAME/ClrMamePro XML";
+                var errorMsg = $"Incompatible DAT file format ({formatType}).\n\n" +
+                               "The current version of ROM Validator only supports No-Intro XML DAT files.\n\n" +
+                               "Please download a compatible XML format DAT file from https://no-intro.org/";
                 LogMessage($"Error: {errorMsg}");
 
                 // Send sample to developer
-                var detailedError = $"User attempted to load ClrMamePro text format DAT file: {Path.GetFileName(datFilePath)}\n\n" +
+                var detailedError = $"User attempted to load {formatType} format DAT file: {Path.GetFileName(datFilePath)}\n\n" +
                                     $"File Preview:\n{datFilePreview}";
                 _ = _mainWindow.BugReportService.SendBugReportAsync(detailedError);
 
@@ -758,6 +773,11 @@ public partial class ValidatePage : IDisposable
             _romDatabaseByCrc = allRoms
                 .Where(static r => !string.IsNullOrEmpty(r.Crc))
                 .GroupBy(static r => r.Crc, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(static g => g.Key, static g => g.First(), StringComparer.OrdinalIgnoreCase);
+
+            _romDatabaseBySha256 = allRoms
+                .Where(static r => !string.IsNullOrEmpty(r.Sha256))
+                .GroupBy(static r => r.Sha256, StringComparer.OrdinalIgnoreCase)
                 .ToDictionary(static g => g.Key, static g => g.First(), StringComparer.OrdinalIgnoreCase);
 
             // Validate we actually got ROM entries
@@ -895,7 +915,17 @@ public partial class ValidatePage : IDisposable
             // For archives, check each file inside. For regular files, there's just one entry.
             foreach (var gameFile in gameFiles)
             {
-                // Try SHA1 first (most reliable), then MD5, then CRC
+                // Try SHA256 first (most reliable), then SHA1, then MD5, then CRC
+                if (!string.IsNullOrEmpty(gameFile.Sha256) && _romDatabaseBySha256.TryGetValue(gameFile.Sha256, out var romBySha256))
+                {
+                    if (romBySha256.Size == gameFile.FileSize)
+                    {
+                        return (romBySha256, "SHA256");
+                    }
+                }
+
+                token.ThrowIfCancellationRequested();
+
                 if (!string.IsNullOrEmpty(gameFile.Sha1) && _romDatabaseBySha1.TryGetValue(gameFile.Sha1, out var romBySha1))
                 {
                     if (romBySha1.Size == gameFile.FileSize)
@@ -1249,6 +1279,7 @@ public partial class ValidatePage : IDisposable
         _romDatabaseBySha1 = [];
         _romDatabaseByMd5 = [];
         _romDatabaseByCrc = [];
+        _romDatabaseBySha256 = [];
         _loadedDatFilePath = string.Empty;
         _loadedDatFileTimestamp = DateTime.MinValue;
     }
