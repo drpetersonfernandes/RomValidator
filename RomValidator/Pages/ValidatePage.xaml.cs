@@ -369,48 +369,72 @@ public partial class ValidatePage : IDisposable
                     displayName = sanitizedRomName;
                 }
 
-                try
+                // Check if the file already has the correct filename - no need to rename
+                if (string.Equals(fileName, displayName, StringComparison.OrdinalIgnoreCase))
                 {
-                    await RenameFileAsync(filePath, newFilePath);
-
-                    // If this is an archive, also rename the file inside to match the DAT entry
-                    if (HashCalculator.IsArchiveFile(fileName))
-                    {
-                        RenameFileInsideArchive(newFilePath, hashMatchedRom.Name);
-                    }
-
-                    Interlocked.Increment(ref _renamedCount);
-                    LogMessage($"[RENAMED] {fileName} -> {displayName} (matched by {matchedHash})");
-
-                    // Update variables to process renamed file
-                    filePath = newFilePath;
-                    fileName = Path.GetFileName(newFilePath);
+                    // Filename is already correct, just treat it as a match without renaming
                     expectedRoms = [hashMatchedRom];
                     fileNameMatch = true;
-                    hashesAlreadyVerified = true; // Hashes were just verified by FindRomByHashAsync (Issue 7 fix)
+                    hashesAlreadyVerified = true;
                     verifiedMatchDetails = $"{matchedHash}: {GetHashValueByType(hashMatchedRom, matchedHash)}";
+                    // Continue to hash validation below (file will be processed as a success without rename)
                 }
-                catch (Exception ex)
+                else
                 {
-                    Interlocked.Increment(ref _failCount);
-                    LogMessage($"[FAILED] {fileName} - Hash matched {hashMatchedRom.Name} but rename failed: {ex.Message}");
-                    // Don't send bug report for "destination already exists" - it's a user/data issue, not a code bug
-                    if (!ex.Message.Contains("already exists", StringComparison.OrdinalIgnoreCase))
+                    // Filename differs, proceed with rename
+                    try
                     {
-                        _ = _mainWindow.BugReportService.SendBugReportAsync($"Error renaming file '{fileName}' to '{hashMatchedRom.Name}'", ex);
-                    }
+                        await RenameFileAsync(filePath, newFilePath);
 
-                    if (moveFailed)
-                    {
-                        await MoveFileAsync(filePath, Path.Combine(failPath, fileName));
-                    }
-                    else if (deleteFailed)
-                    {
-                        await DeleteFileAsync(filePath, fileName);
-                    }
+                        // If this is an archive, also rename the file inside to match the DAT entry
+                        if (HashCalculator.IsArchiveFile(fileName))
+                        {
+                            try
+                            {
+                                await RenameFileInsideArchiveAsync(newFilePath, hashMatchedRom.Name);
+                            }
+                            catch (Exception archiveEx)
+                            {
+                                // Log the error but don't fail the entire rename operation
+                                // The file was already renamed successfully, only the internal archive rename failed
+                                LogMessage($"[WARNING] {fileName} -> {displayName} renamed, but failed to rename content inside archive: {archiveEx.Message}");
+                                _ = _mainWindow.BugReportService.SendBugReportAsync($"Error renaming file inside archive '{newFilePath}' to '{hashMatchedRom.Name}'", archiveEx);
+                            }
+                        }
 
-                    return;
-                }
+                        Interlocked.Increment(ref _renamedCount);
+                        LogMessage($"[RENAMED] {fileName} -> {displayName} (matched by {matchedHash})");
+
+                        // Update variables to process renamed file
+                        filePath = newFilePath;
+                        fileName = Path.GetFileName(newFilePath);
+                        expectedRoms = [hashMatchedRom];
+                        fileNameMatch = true;
+                        hashesAlreadyVerified = true; // Hashes were just verified by FindRomByHashAsync (Issue 7 fix)
+                        verifiedMatchDetails = $"{matchedHash}: {GetHashValueByType(hashMatchedRom, matchedHash)}";
+                    }
+                    catch (Exception ex)
+                    {
+                        Interlocked.Increment(ref _failCount);
+                        LogMessage($"[FAILED] {fileName} - Hash matched {hashMatchedRom.Name} but rename failed: {ex.Message}");
+                        // Don't send bug report for "destination already exists" - it's a user/data issue, not a code bug
+                        if (!ex.Message.Contains("already exists", StringComparison.OrdinalIgnoreCase))
+                        {
+                            _ = _mainWindow.BugReportService.SendBugReportAsync($"Error renaming file '{fileName}' to '{hashMatchedRom.Name}'", ex);
+                        }
+
+                        if (moveFailed)
+                        {
+                            await MoveFileAsync(filePath, Path.Combine(failPath, fileName));
+                        }
+                        else if (deleteFailed)
+                        {
+                            await DeleteFileAsync(filePath, fileName);
+                        }
+
+                        return;
+                    }
+                } // Close the else block for "filename differs, proceed with rename"
             }
         }
 
@@ -1351,28 +1375,51 @@ public partial class ValidatePage : IDisposable
     /// For zip files: extracts contents, renames file, repackages as zip using System.IO.Compression.
     /// For other archive types: extracts contents, renames file, creates new 7z archive.
     /// </summary>
-    private static void RenameFileInsideArchive(string archivePath, string targetFileName)
+    private async Task RenameFileInsideArchiveAsync(string archivePath, string targetFileName)
     {
         var tempDir = TempDirectoryHelper.CreateTempDirectory("romvalidator_rename");
         var is7ZFile = archivePath.EndsWith(".7z", StringComparison.OrdinalIgnoreCase);
+        var archiveFileName = Path.GetFileName(archivePath);
 
         try
         {
             // Initialize SevenZipSharp
-            HashCalculator.InitializeSevenZip();
+            try
+            {
+                await Task.Run(static () => HashCalculator.InitializeSevenZip());
+            }
+            catch (Exception initEx)
+            {
+                var errorMsg = $"Failed to initialize SevenZipSharp for archive '{archiveFileName}'";
+                LoggerService.LogError("RenameInsideArchive", errorMsg);
+                _ = _mainWindow.BugReportService.SendBugReportAsync(errorMsg, initEx);
+                throw new InvalidOperationException($"SevenZipSharp initialization failed: {initEx.Message}", initEx);
+            }
 
             // Extract archive contents using SevenZipSharp
-            using (var extractor = new SharpSevenZipExtractor(archivePath))
+            try
             {
-                extractor.ExtractArchive(tempDir);
+                await Task.Run(() =>
+                {
+                    using var extractor = new SharpSevenZipExtractor(archivePath);
+                    extractor.ExtractArchive(tempDir);
+                });
+            }
+            catch (Exception extractEx)
+            {
+                var errorMsg = $"Failed to extract archive '{archiveFileName}' for internal file rename";
+                LoggerService.LogError("RenameInsideArchive", errorMsg);
+                _ = _mainWindow.BugReportService.SendBugReportAsync(errorMsg, extractEx);
+                throw new InvalidOperationException($"Archive extraction failed: {extractEx.Message}", extractEx);
             }
 
             // Find the extracted file(s)
             var extractedFiles = Directory.GetFiles(tempDir, "*", SearchOption.AllDirectories);
             if (extractedFiles.Length == 0)
             {
-                // Cleanup temp directory before throwing
-                TempDirectoryHelper.CleanupTempDirectory(tempDir);
+                var errorMsg = $"Archive '{archiveFileName}' is empty or extraction failed - no files found in temp directory";
+                LoggerService.LogError("RenameInsideArchive", errorMsg);
+                _ = _mainWindow.BugReportService.SendBugReportAsync(errorMsg);
                 throw new InvalidOperationException("Archive is empty or extraction failed.");
             }
 
@@ -1401,37 +1448,73 @@ public partial class ValidatePage : IDisposable
             }
 
             // Delete the original archive
-            File.Delete(archivePath);
+            try
+            {
+                File.Delete(archivePath);
+            }
+            catch (Exception deleteEx)
+            {
+                var errorMsg = $"Failed to delete original archive '{archiveFileName}' before repackaging";
+                LoggerService.LogError("RenameInsideArchive", errorMsg);
+                _ = _mainWindow.BugReportService.SendBugReportAsync(errorMsg, deleteEx);
+                throw new InvalidOperationException($"Cannot delete original archive: {deleteEx.Message}", deleteEx);
+            }
 
             if (is7ZFile)
             {
                 // Create new 7z archive using SevenZipSharp compressor
-                var compressor = new SharpSevenZipCompressor
+                try
                 {
-                    ArchiveFormat = OutArchiveFormat.SevenZip,
-                    CompressionLevel = SharpSevenZip.CompressionLevel.Normal,
-                    CompressionMethod = CompressionMethod.Lzma2
-                };
+                    await Task.Run(() =>
+                    {
+                        var compressor = new SharpSevenZipCompressor
+                        {
+                            ArchiveFormat = OutArchiveFormat.SevenZip,
+                            CompressionLevel = SharpSevenZip.CompressionLevel.Normal,
+                            CompressionMethod = CompressionMethod.Lzma2
+                        };
 
-                // Create a temporary dictionary mapping file paths to archive entry names
-                var filesDictionary = new Dictionary<string, string>();
-                foreach (var (originalPath, newName) in fileMapping)
-                {
-                    filesDictionary[originalPath] = newName;
+                        // Create a temporary dictionary mapping file paths to archive entry names
+                        var filesDictionary = new Dictionary<string, string>();
+                        foreach (var (originalPath, newName) in fileMapping)
+                        {
+                            filesDictionary[originalPath] = newName;
+                        }
+
+                        compressor.CompressFileDictionary(filesDictionary, archivePath);
+                    });
                 }
-
-                compressor.CompressFileDictionary(filesDictionary, archivePath);
+                catch (Exception compressEx)
+                {
+                    var errorMsg = $"Failed to compress 7z archive '{archiveFileName}' after renaming internal file";
+                    LoggerService.LogError("RenameInsideArchive", errorMsg);
+                    _ = _mainWindow.BugReportService.SendBugReportAsync(errorMsg, compressEx);
+                    throw new InvalidOperationException($"Archive compression failed: {compressEx.Message}", compressEx);
+                }
             }
             else
             {
                 // Create new zip archive using System.IO.Compression
-                using var zip = ZipFile.Open(archivePath, ZipArchiveMode.Create);
-                foreach (var (originalPath, newName) in fileMapping)
+                try
                 {
-                    if (File.Exists(originalPath))
+                    await Task.Run(() =>
                     {
-                        zip.CreateEntryFromFile(originalPath, newName);
-                    }
+                        using var zip = ZipFile.Open(archivePath, ZipArchiveMode.Create);
+                        foreach (var (originalPath, newName) in fileMapping)
+                        {
+                            if (File.Exists(originalPath))
+                            {
+                                zip.CreateEntryFromFile(originalPath, newName);
+                            }
+                        }
+                    });
+                }
+                catch (Exception zipEx)
+                {
+                    var errorMsg = $"Failed to create zip archive '{archiveFileName}' after renaming internal file";
+                    LoggerService.LogError("RenameInsideArchive", errorMsg);
+                    _ = _mainWindow.BugReportService.SendBugReportAsync(errorMsg, zipEx);
+                    throw new InvalidOperationException($"ZIP archive creation failed: {zipEx.Message}", zipEx);
                 }
             }
         }
