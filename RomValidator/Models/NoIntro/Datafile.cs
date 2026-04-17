@@ -6,8 +6,8 @@ namespace RomValidator.Models.NoIntro;
 public class Datafile
 {
     // XML Schema Instance namespace for schema location
-    [XmlAttribute("xmlns:xsi", Namespace = "http://www.w3.org/2000/xmlns/")]
-    public string XmlnsXsi { get; set; } = "http://www.w3.org/2001/XMLSchema-instance";
+    [XmlNamespaceDeclarations]
+    public XmlSerializerNamespaces? Xmlns { get; set; }
 
     // Schema location attribute
     [XmlAttribute("schemaLocation", Namespace = "http://www.w3.org/2001/XMLSchema-instance")]

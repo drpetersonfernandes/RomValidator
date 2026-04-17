@@ -203,7 +203,7 @@ public partial class GenerateDatPage : IDisposable
         StopButton.IsEnabled = false;
     }
 
-    private async Task HashFilesAsync(string folderPath, IProgress<GameFile> progress, CancellationToken cancellationToken)
+    private Task HashFilesAsync(string folderPath, IProgress<GameFile> progress, CancellationToken cancellationToken)
     {
         var totalRomCount = 0;
         _discoveredFilesCount = 0;
@@ -223,64 +223,68 @@ public partial class GenerateDatPage : IDisposable
         // The actual Maximum will be set atomically in the main loop (Issue 2 & 3 fix)
         _ = Task.Run(() => CountFilesInBackground(folderPath, enumerationOptions, ref _discoveredFilesCount, cancellationToken, _mainWindow.BugReportService), cancellationToken);
 
-        // Stream the files using EnumerationOptions to skip inaccessible items (Issue 4 fix)
-        var fileEnumerable = await Task.Run(() => Directory.EnumerateFiles(folderPath, "*", enumerationOptions), cancellationToken);
-
-        // Sequential processing
-        foreach (var filePath in fileEnumerable)
+        // Run the entire file processing loop on a background thread to keep UI responsive
+        return Task.Run(async () =>
         {
-            if (cancellationToken.IsCancellationRequested) break;
+            // Stream the files using EnumerationOptions to skip inaccessible items (Issue 4 fix)
+            var fileEnumerable = Directory.EnumerateFiles(folderPath, "*", enumerationOptions);
 
-            var gameFiles = await HashCalculator.CalculateHashesAsync(filePath, cancellationToken, _mainWindow.BugReportService);
-            var romsFromFile = gameFiles.Count;
-
-            // Read the discovered count from the background task (do NOT increment here —
-            // CountFilesInBackground already handles that)
-            var currentDiscovered = _discoveredFilesCount;
-
-            // Track how many extra items come from archives (files inside archives minus the archive file itself)
-            if (romsFromFile > 1)
+            // Sequential processing
+            foreach (var filePath in fileEnumerable)
             {
-                Interlocked.Add(ref _archiveExpansionCount, romsFromFile - 1);
-            }
+                if (cancellationToken.IsCancellationRequested) break;
 
-            var currentExpansion = _archiveExpansionCount; // Read is atomic for int
+                var gameFiles = await HashCalculator.CalculateHashesAsync(filePath, cancellationToken, _mainWindow.BugReportService);
+                var romsFromFile = gameFiles.Count;
 
-            // Throttle UI updates to prevent flooding the UI thread (Issue 5 fix)
-            // Only dispatch to UI thread every 100ms to avoid queuing thousands of operations
-            var now = DateTime.UtcNow;
-            if ((now - lastUiUpdate).TotalMilliseconds >= uiUpdateIntervalMs)
-            {
-                lastUiUpdate = now;
-                var newMaximum = currentDiscovered + currentExpansion;
-                await Dispatcher.InvokeAsync(() =>
+                // Read the discovered count from the background task (do NOT increment here —
+                // CountFilesInBackground already handles that)
+                var currentDiscovered = _discoveredFilesCount;
+
+                // Track how many extra items come from archives (files inside archives minus the archive file itself)
+                if (romsFromFile > 1)
                 {
-                    HashProgressBar.Maximum = newMaximum;
-                });
-            }
+                    Interlocked.Add(ref _archiveExpansionCount, romsFromFile - 1);
+                }
 
-            foreach (var gameFile in gameFiles)
-            {
-                if (gameFile.ErrorMessage != null)
+                var currentExpansion = _archiveExpansionCount; // Read is atomic for int
+
+                // Throttle UI updates to prevent flooding the UI thread (Issue 5 fix)
+                // Only dispatch to UI thread every 100ms to avoid queuing thousands of operations
+                var now = DateTime.UtcNow;
+                if ((now - lastUiUpdate).TotalMilliseconds >= uiUpdateIntervalMs)
                 {
-                    // Log error to bug report service or UI
-                    if (gameFile.ErrorMessage != "File is locked or access denied after retries")
+                    lastUiUpdate = now;
+                    var newMaximum = currentDiscovered + currentExpansion;
+                    await Dispatcher.InvokeAsync(() =>
                     {
-                        _ = _mainWindow.BugReportService.SendBugReportAsync($"Error hashing file {filePath}: {gameFile.ErrorMessage}");
-                    }
+                        HashProgressBar.Maximum = newMaximum;
+                    });
                 }
 
-                lock (_operationLock)
+                foreach (var gameFile in gameFiles)
                 {
-                    _processedFilesList.Add(gameFile);
+                    if (gameFile.ErrorMessage != null)
+                    {
+                        // Log error to bug report service or UI
+                        if (gameFile.ErrorMessage != "File is locked or access denied after retries")
+                        {
+                            _ = _mainWindow.BugReportService.SendBugReportAsync($"Error hashing file {filePath}: {gameFile.ErrorMessage}");
+                        }
+                    }
+
+                    lock (_operationLock)
+                    {
+                        _processedFilesList.Add(gameFile);
+                    }
+
+                    progress.Report(gameFile);
+                    Interlocked.Increment(ref totalRomCount);
                 }
-
-                progress.Report(gameFile);
-                Interlocked.Increment(ref totalRomCount);
             }
-        }
 
-        _processedFileCount = totalRomCount;
+            _processedFileCount = totalRomCount;
+        }, cancellationToken);
     }
 
     private static string SanitizeFileName(string name)
