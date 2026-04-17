@@ -22,6 +22,12 @@
         <None Remove="images\exit.png" />
         <None Remove="images\logo.png" />
         <Resource Include="images\logo.png" />
+        <None Update="7z_arm64.dll">
+          <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+        </None>
+        <None Update="7z_x64.dll">
+          <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+        </None>
     </ItemGroup>
 
     <ItemGroup>
@@ -31,10 +37,6 @@
     <!-- Ensure 7z native libraries are copied to output directory with correct naming for each architecture -->
     <ItemGroup>
       <!-- x64 architecture library -->
-      <None Include="$(NuGetPackageRoot)\sharpsevenzip\2.0.36\build\x64\7z.dll" Condition="Exists('$(NuGetPackageRoot)\sharpsevenzip\2.0.36\build\x64\7z.dll')">
-        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-        <TargetPath>7z_x64.dll</TargetPath>
-      </None>
       <!-- ARM64 architecture library -->
       <None Include="$(NuGetPackageRoot)\sharpsevenzip\2.0.36\build\arm64\7z.dll" Condition="Exists('$(NuGetPackageRoot)\sharpsevenzip\2.0.36\build\arm64\7z.dll')">
         <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
