@@ -90,11 +90,11 @@ public partial class App
         try
         {
             var dialogMessage = $"The required 7-Zip library (7z_{architectureName}.dll) is missing from the application.\n\n" +
-                               "This file is essential for the application to work with archive files.\n\n" +
-                               "Missing file location:\n" +
-                               missingLibraryPath + "\n\n" +
-                               "Please reinstall the application to fix this issue.\n\n" +
-                               "If the problem persists, please contact support.";
+                                "This file is essential for the application to work with archive files.\n\n" +
+                                "Missing file location:\n" +
+                                missingLibraryPath + "\n\n" +
+                                "Please reinstall the application to fix this issue.\n\n" +
+                                "If the problem persists, please contact support.";
 
             MessageBox.Show(
                 dialogMessage,
