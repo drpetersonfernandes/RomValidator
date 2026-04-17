@@ -1,11 +1,11 @@
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Globalization;
-using System.Windows.Threading;
 using System.IO;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Windows;
+using System.Windows.Threading;
 using System.Xml;
 using System.Xml.Serialization;
 using Microsoft.Win32;
@@ -13,7 +13,7 @@ using RomValidator.Models;
 using RomValidator.Models.NoIntro;
 using RomValidator.Services;
 
-namespace RomValidator;
+namespace RomValidator.Pages;
 
 public partial class GenerateDatPage : IDisposable
 {

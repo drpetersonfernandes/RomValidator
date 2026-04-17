@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Windows;
 using System.Windows.Media;
+using RomValidator.Pages;
 using RomValidator.Services;
 
 namespace RomValidator;

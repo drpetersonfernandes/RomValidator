@@ -1,18 +1,19 @@
-using Microsoft.Win32;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
+using System.IO.Compression;
 using System.Reflection;
 using System.Text;
 using System.Windows;
+using System.Windows.Threading;
 using System.Xml;
 using System.Xml.Serialization;
+using Microsoft.Win32;
 using RomValidator.Models.NoIntro;
 using RomValidator.Services;
 using SharpSevenZip;
-using System.IO.Compression;
 
-namespace RomValidator;
+namespace RomValidator.Pages;
 
 public partial class ValidatePage : IDisposable
 {
@@ -265,16 +266,16 @@ public partial class ValidatePage : IDisposable
         if (moveSuccess) Directory.CreateDirectory(successPath);
         if (moveFailed) Directory.CreateDirectory(failPath);
 
-        LogMessage($"Move successful files: {moveSuccess}" + (moveSuccess ? $" (to {successPath})" : ""));
-        LogMessage($"Move failed/unknown files: {moveFailed}" + (moveFailed ? $" (to {failPath})" : ""));
-        LogMessage($"Delete failed/unknown files: {deleteFailed}" + (deleteFailed ? " (⚠️ PERMANENT - files will be deleted!)" : ""));
-        LogMessage($"Rename files on hash match: {renameMatched}");
+        await LogMessageAsync($"Move successful files: {moveSuccess}" + (moveSuccess ? $" (to {successPath})" : ""));
+        await LogMessageAsync($"Move failed/unknown files: {moveFailed}" + (moveFailed ? $" (to {failPath})" : ""));
+        await LogMessageAsync($"Delete failed/unknown files: {deleteFailed}" + (deleteFailed ? " (⚠️ PERMANENT - files will be deleted!)" : ""));
+        await LogMessageAsync($"Rename files on hash match: {renameMatched}");
 
         var filesToScan = await Task.Run(() => Directory.GetFiles(romsFolderPath), token);
         _totalFilesToProcess = filesToScan.Length;
-        ProgressBar.Maximum = _totalFilesToProcess;
+        await Application.Current.Dispatcher.InvokeAsync(() => ProgressBar.Maximum = _totalFilesToProcess);
         UpdateStatsDisplay();
-        LogMessage($"Found {_totalFilesToProcess} files to validate.");
+        await LogMessageAsync($"Found {_totalFilesToProcess} files to validate.");
         _mainWindow.UpdateStatusBarMessage($"Found {_totalFilesToProcess} files. Starting validation...");
 
         if (_totalFilesToProcess == 0)
@@ -299,6 +300,9 @@ public partial class ValidatePage : IDisposable
             UpdateProgressDisplay(processedSoFar, _totalFilesToProcess, Path.GetFileName(filePath));
             UpdateStatsDisplay();
             UpdateProcessingTimeDisplay();
+
+            // Force UI to refresh after each file for real-time log display
+            await FlushUiUpdatesAsync();
         }
 
         _mainWindow.UpdateStatusBarMessage("Validation complete.");
@@ -1215,7 +1219,23 @@ public partial class ValidatePage : IDisposable
         {
             LogViewer.AppendText($"{timestampedMessage}{Environment.NewLine}");
             LogViewer.ScrollToEnd();
-        });
+        }, DispatcherPriority.Background);
+    }
+
+    private async Task LogMessageAsync(string message)
+    {
+        var timestampedMessage = $"[{DateTime.Now:HH:mm:ss.fff}] {message}";
+        await Application.Current.Dispatcher.InvokeAsync(() =>
+        {
+            LogViewer.AppendText($"{timestampedMessage}{Environment.NewLine}");
+            LogViewer.ScrollToEnd();
+        }, DispatcherPriority.Background);
+    }
+
+    private static async Task FlushUiUpdatesAsync()
+    {
+        // Force the dispatcher to process pending UI updates
+        await Application.Current.Dispatcher.InvokeAsync(static () => { }, DispatcherPriority.Render);
     }
 
     private void ResetOperationStats()

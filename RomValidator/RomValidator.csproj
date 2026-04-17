@@ -54,6 +54,16 @@
 
     <ItemGroup>
         <Page Remove="References\**" />
+        <Page Update="Pages\GenerateDatPage.xaml">
+          <Generator>MSBuild:Compile</Generator>
+          <XamlRuntime>Wpf</XamlRuntime>
+          <SubType>Designer</SubType>
+        </Page>
+        <Page Update="Pages\ValidatePage.xaml">
+          <Generator>MSBuild:Compile</Generator>
+          <XamlRuntime>Wpf</XamlRuntime>
+          <SubType>Designer</SubType>
+        </Page>
     </ItemGroup>
 
     <ItemGroup>
