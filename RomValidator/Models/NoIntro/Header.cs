@@ -4,8 +4,9 @@ namespace RomValidator.Models.NoIntro;
 
 public class Header
 {
+    // Optional header id
     [XmlElement("id")]
-    public string Id { get; set; } = string.Empty;
+    public string? Id { get; set; }
 
     [XmlElement("name")]
     public string Name { get; set; } = string.Empty;
@@ -20,15 +21,12 @@ public class Header
     public string Author { get; set; } = string.Empty;
 
     [XmlElement("homepage")]
-    public string Homepage { get; set; } = "Pure Logic Code";
+    public string Homepage { get; set; } = "No-Intro";
 
     [XmlElement("url")]
-    public string Url { get; set; } = "https://www.purelogiccode.com";
+    public string Url { get; set; } = "https://www.no-intro.org";
 
-    [XmlElement("clrmamepro")]
-    public ClrMamePro? ClrMamePro { get; set; }
-
-    // Optional elements found in various DAT formats
+    // Optional fields for full No-Intro compatibility
     [XmlElement("date")]
     public string? Date { get; set; }
 
@@ -43,4 +41,17 @@ public class Header
 
     [XmlElement("category")]
     public string? Category { get; set; }
+
+    // ClrMamePro settings element (forcenodump attribute)
+    [XmlElement("clrmamepro")]
+    public ClrMameProSettings? ClrMamePro { get; set; }
+}
+
+/// <summary>
+/// ClrMamePro settings for No-Intro DAT header
+/// </summary>
+public class ClrMameProSettings
+{
+    [XmlAttribute("forcenodump")]
+    public string ForceNoDump { get; set; } = "required";
 }

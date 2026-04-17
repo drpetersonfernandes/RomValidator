@@ -3,20 +3,55 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              StartupUri="MainWindow.xaml">
     <Application.Resources>
-        <!-- Colors -->
+        <!-- ============================================ -->
+        <!-- COLORS                                       -->
+        <!-- ============================================ -->
+        
+        <!-- Primary Blue Colors -->
         <SolidColorBrush x:Key="PrimaryBlueBrush" Color="#1976D2" />
         <SolidColorBrush x:Key="AccentBlueBrush" Color="#2979FF" />
         <SolidColorBrush x:Key="HoverBlueBrush" Color="#1E88E5" />
         <SolidColorBrush x:Key="PressedBlueBrush" Color="#1565C0" />
+        
+        <!-- Status Colors -->
         <SolidColorBrush x:Key="SuccessGreenBrush" Color="#4CAF50" />
+        <SolidColorBrush x:Key="SuccessGreenHoverBrush" Color="#43A047" />
+        <SolidColorBrush x:Key="SuccessGreenPressedBrush" Color="#388E3C" />
+        
         <SolidColorBrush x:Key="ErrorRedBrush" Color="#F44336" />
+        <SolidColorBrush x:Key="ErrorRedHoverBrush" Color="#E53935" />
+        <SolidColorBrush x:Key="ErrorRedPressedBrush" Color="#D32F2F" />
+        <SolidColorBrush x:Key="DarkRedBrush" Color="DarkRed" />
+        
         <SolidColorBrush x:Key="WarningOrangeBrush" Color="#FF9800" />
+        <SolidColorBrush x:Key="WarningOrangeHoverBrush" Color="#FB8C00" />
+        <SolidColorBrush x:Key="WarningOrangePressedBrush" Color="#F57C00" />
+        
         <SolidColorBrush x:Key="InfoPurpleBrush" Color="#9C27B0" />
+        
+        <!-- Neutral Colors -->
         <SolidColorBrush x:Key="NeutralGrayBrush" Color="#607D8B" />
         <SolidColorBrush x:Key="BorderGrayBrush" Color="#BDBDBD" />
         <SolidColorBrush x:Key="LightBackgroundBrush" Color="#F5F5F5" />
         <SolidColorBrush x:Key="StatusBarGrayBrush" Color="#E0E0E0" />
+        <SolidColorBrush x:Key="GrayTextBrush" Color="Gray" />
+        <SolidColorBrush x:Key="DarkGrayTextBrush" Color="#424242" />
+        
+        <!-- Background Colors -->
+        <SolidColorBrush x:Key="WhiteBrush" Color="White" />
+        <SolidColorBrush x:Key="BlackBrush" Color="Black" />
+        <SolidColorBrush x:Key="HoverBackgroundBrush" Color="#E3F2FD" />
+        
+        <!-- Text Colors for Stats -->
+        <SolidColorBrush x:Key="SuccessGreenTextBrush" Color="#008000" />
+        <SolidColorBrush x:Key="ErrorRedTextBrush" Color="#FF0000" />
+        <SolidColorBrush x:Key="WarningGoldenrodTextBrush" Color="#DAA520" />
+        <SolidColorBrush x:Key="InfoBlueTextBrush" Color="#0000FF" />
 
+        <!-- ============================================ -->
+        <!-- BUTTON STYLES                                -->
+        <!-- ============================================ -->
+        
         <!-- Menu Button Style (MainWindow) -->
         <Style x:Key="MenuButtonStyle" TargetType="Button">
             <Setter Property="Padding" Value="12,8" />
@@ -86,76 +121,204 @@
             </Setter>
         </Style>
 
-        <!-- Specific Button Colors (Inherit from ActionButtonStyle) -->
+        <!-- Start Button Style (Green) -->
         <Style x:Key="StartButtonStyle" BasedOn="{StaticResource ActionButtonStyle}" TargetType="Button">
             <Setter Property="Background" Value="{StaticResource SuccessGreenBrush}" />
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#43A047" />
+                    <Setter Property="Background" Value="{StaticResource SuccessGreenHoverBrush}" />
                 </Trigger>
                 <Trigger Property="IsPressed" Value="True">
-                    <Setter Property="Background" Value="#388E3C" />
+                    <Setter Property="Background" Value="{StaticResource SuccessGreenPressedBrush}" />
                 </Trigger>
             </Style.Triggers>
         </Style>
 
+        <!-- Cancel Button Style (Red) -->
         <Style x:Key="CancelButtonStyle" BasedOn="{StaticResource ActionButtonStyle}" TargetType="Button">
             <Setter Property="Background" Value="{StaticResource ErrorRedBrush}" />
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#E53935" />
+                    <Setter Property="Background" Value="{StaticResource ErrorRedHoverBrush}" />
                 </Trigger>
                 <Trigger Property="IsPressed" Value="True">
-                    <Setter Property="Background" Value="#D32F2F" />
+                    <Setter Property="Background" Value="{StaticResource ErrorRedPressedBrush}" />
                 </Trigger>
             </Style.Triggers>
         </Style>
 
+        <!-- Download Button Style (Orange) -->
         <Style x:Key="DownloadButtonStyle" BasedOn="{StaticResource ActionButtonStyle}" TargetType="Button">
             <Setter Property="Background" Value="{StaticResource WarningOrangeBrush}" />
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#FB8C00" />
+                    <Setter Property="Background" Value="{StaticResource WarningOrangeHoverBrush}" />
                 </Trigger>
                 <Trigger Property="IsPressed" Value="True">
-                    <Setter Property="Background" Value="#F57C00" />
+                    <Setter Property="Background" Value="{StaticResource WarningOrangePressedBrush}" />
                 </Trigger>
             </Style.Triggers>
         </Style>
 
-        <!-- Custom TextBox Style (Shared) -->
+        <!-- Close Button Style -->
+        <Style x:Key="CloseButtonStyle" BasedOn="{StaticResource ActionButtonStyle}" TargetType="Button">
+            <Setter Property="Width" Value="100" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+        </Style>
+
+        <!-- ============================================ -->
+        <!-- TEXTBOX STYLES                               -->
+        <!-- ============================================ -->
+        
+        <!-- Custom TextBox Style -->
         <Style x:Key="CustomTextBoxStyle" TargetType="TextBox">
             <Setter Property="Padding" Value="10,8" />
             <Setter Property="FontSize" Value="13" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="BorderBrush" Value="{StaticResource BorderGrayBrush}" />
-            <Setter Property="Background" Value="White" />
+            <Setter Property="Background" Value="{StaticResource WhiteBrush}" />
             <Setter Property="VerticalContentAlignment" Value="Center" />
             <Setter Property="IsReadOnlyCaretVisible" Value="True" />
         </Style>
 
-        <!-- Alternating ListViewItem Style (GenerateDatPage) -->
+        <!-- ============================================ -->
+        <!-- LISTVIEW STYLES                              -->
+        <!-- ============================================ -->
+        
+        <!-- Alternating ListViewItem Style -->
         <Style x:Key="AlternatingListViewItemStyle" TargetType="ListViewItem">
             <Setter Property="Padding" Value="10,5" />
             <Setter Property="BorderThickness" Value="0,0,0,1" />
             <Setter Property="BorderBrush" Value="{StaticResource StatusBarGrayBrush}" />
             <Style.Triggers>
                 <Trigger Property="ItemsControl.AlternationIndex" Value="0">
-                    <Setter Property="Background" Value="White" />
+                    <Setter Property="Background" Value="{StaticResource WhiteBrush}" />
                 </Trigger>
                 <Trigger Property="ItemsControl.AlternationIndex" Value="1">
                     <Setter Property="Background" Value="{StaticResource LightBackgroundBrush}" />
                 </Trigger>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#E3F2FD" />
+                    <Setter Property="Background" Value="{StaticResource HoverBackgroundBrush}" />
                 </Trigger>
             </Style.Triggers>
         </Style>
 
-        <!-- Status/Stats Brushes -->
-        <SolidColorBrush x:Key="SuccessGreenTextBrush" Color="#008000" />
-        <SolidColorBrush x:Key="ErrorRedTextBrush" Color="#FF0000" />
-        <SolidColorBrush x:Key="WarningGoldenrodTextBrush" Color="#DAA520" />
-        <SolidColorBrush x:Key="InfoBlueTextBrush" Color="#0000FF" />
+        <!-- ============================================ -->
+        <!-- BORDER STYLES                                -->
+        <!-- ============================================ -->
+        
+        <!-- Standard Card Border Style -->
+        <Style x:Key="CardBorderStyle" TargetType="Border">
+            <Setter Property="BorderBrush" Value="{StaticResource BorderGrayBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="4" />
+            <Setter Property="Background" Value="{StaticResource WhiteBrush}" />
+        </Style>
+
+        <!-- Option Card Border Style (for radio button options) -->
+        <Style x:Key="OptionCardBorderStyle" TargetType="Border">
+            <Setter Property="BorderBrush" Value="{StaticResource BorderGrayBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="4" />
+            <Setter Property="Padding" Value="15" />
+            <Setter Property="Background" Value="{StaticResource WhiteBrush}" />
+            <Setter Property="Cursor" Value="Hand" />
+        </Style>
+
+        <!-- Controls Container Border Style -->
+        <Style x:Key="ControlsContainerBorderStyle" TargetType="Border">
+            <Setter Property="BorderBrush" Value="{StaticResource BorderGrayBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="4" />
+            <Setter Property="Padding" Value="15" />
+            <Setter Property="Margin" Value="10" />
+        </Style>
+
+        <!-- Progress Bar Container Border Style -->
+        <Style x:Key="ProgressBarContainerStyle" TargetType="Border">
+            <Setter Property="BorderBrush" Value="{StaticResource BorderGrayBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="4" />
+            <Setter Property="Padding" Value="1" />
+        </Style>
+
+        <!-- Stats Panel Border Style -->
+        <Style x:Key="StatsPanelBorderStyle" TargetType="Border">
+            <Setter Property="BorderBrush" Value="{StaticResource BorderGrayBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Margin" Value="2" />
+            <Setter Property="Padding" Value="8" />
+            <Setter Property="CornerRadius" Value="4" />
+        </Style>
+
+        <!-- ============================================ -->
+        <!-- TEXTBLOCK STYLES                             -->
+        <!-- ============================================ -->
+        
+        <!-- Header TextBlock Style -->
+        <Style x:Key="HeaderTextBlockStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="22" />
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="Margin" Value="0,0,0,15" />
+            <Setter Property="Foreground" Value="{StaticResource PrimaryBlueBrush}" />
+        </Style>
+
+        <!-- SubHeader TextBlock Style -->
+        <Style x:Key="SubHeaderTextBlockStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="18" />
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="Margin" Value="0,0,0,10" />
+            <Setter Property="Foreground" Value="{StaticResource PrimaryBlueBrush}" />
+        </Style>
+
+        <!-- Label TextBlock Style -->
+        <Style x:Key="LabelTextBlockStyle" TargetType="TextBlock">
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+
+        <!-- Option Title TextBlock Style -->
+        <Style x:Key="OptionTitleTextBlockStyle" TargetType="TextBlock">
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="FontSize" Value="14" />
+        </Style>
+
+        <!-- Option Description TextBlock Style -->
+        <Style x:Key="OptionDescriptionTextBlockStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="Foreground" Value="{StaticResource GrayTextBrush}" />
+            <Setter Property="Margin" Value="0,2,0,0" />
+        </Style>
+
+        <!-- Gray Description TextBlock Style -->
+        <Style x:Key="GrayDescriptionTextBlockStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="{StaticResource GrayTextBrush}" />
+            <Setter Property="Margin" Value="0,0,0,15" />
+        </Style>
+
+        <!-- ============================================ -->
+        <!-- PROGRESSBAR STYLE                            -->
+        <!-- ============================================ -->
+        
+        <!-- Standard ProgressBar Style -->
+        <Style x:Key="StandardProgressBarStyle" TargetType="ProgressBar">
+            <Setter Property="Height" Value="24" />
+            <Setter Property="Background" Value="{StaticResource WhiteBrush}" />
+            <Setter Property="Foreground" Value="{StaticResource SuccessGreenBrush}" />
+            <Setter Property="BorderThickness" Value="0" />
+        </Style>
+
+        <!-- ============================================ -->
+        <!-- GRIDSPLITTER STYLE                           -->
+        <!-- ============================================ -->
+        
+        <!-- Standard GridSplitter Style -->
+        <Style x:Key="StandardGridSplitterStyle" TargetType="GridSplitter">
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="VerticalAlignment" Value="Stretch" />
+            <Setter Property="Background" Value="{StaticResource StatusBarGrayBrush}" />
+            <Setter Property="ShowsPreview" Value="True" />
+        </Style>
     </Application.Resources>
 </Application>

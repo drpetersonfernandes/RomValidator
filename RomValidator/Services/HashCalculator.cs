@@ -1,19 +1,64 @@
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text.RegularExpressions;
-using SharpCompress.Archives;
-using SharpCompress.Common;
+using SharpSevenZip;
 using RomValidator.Models;
 
 namespace RomValidator.Services;
 
 public static partial class HashCalculator
 {
-    // Archive file extensions supported - shared regex pattern (DUPLICATION fix)
+    // Archive file extensions supported - shared regex pattern
     private static readonly Regex SArchiveExtensionRegex = MyRegex();
+    private static bool _sevenZipInitialized;
+    private static readonly object InitLock = new();
+
+    /// <summary>
+    /// Initializes SharpSevenZip by setting the library path.
+    /// This is called from App.xaml.cs at startup, but this method ensures
+    /// it's initialized before any archive operations if needed.
+    /// </summary>
+    public static void InitializeSevenZip()
+    {
+        lock (InitLock)
+        {
+            if (_sevenZipInitialized) return;
+        }
+
+        lock (InitLock)
+        {
+            if (_sevenZipInitialized) return;
+
+            var appDirectory = AppDomain.CurrentDomain.BaseDirectory;
+            string libraryPath;
+
+            // Detect architecture and set appropriate library path
+            // Supports win-x64 and win-arm64
+            if (RuntimeInformation.OSArchitecture == Architecture.Arm64)
+            {
+                libraryPath = Path.Combine(appDirectory, "7z_arm64.dll");
+            }
+            else
+            {
+                // Default to x64 for x64 and other architectures
+                libraryPath = Path.Combine(appDirectory, "7z_x64.dll");
+            }
+
+            if (File.Exists(libraryPath))
+            {
+                SharpSevenZipBase.SetLibraryPath(libraryPath);
+            }
+            // If not found, SharpSevenZip will attempt auto-detection
+
+            _sevenZipInitialized = true;
+        }
+    }
 
     public static async Task<List<GameFile>> CalculateHashesAsync(string filePath, CancellationToken cancellationToken, BugReportService? bugReportService = null)
     {
+        InitializeSevenZip();
+
         var fileInfo = new FileInfo(filePath);
         var gameFiles = new List<GameFile>();
 
@@ -22,14 +67,16 @@ public static partial class HashCalculator
         {
             try
             {
-                // Open archive using SharpCompress (Supports Zip, 7z, Rar, Tar, etc.)
-                using var archive = ArchiveFactory.OpenArchive(filePath);
+                // Open archive using SevenZipSharp
+                using var extractor = new SharpSevenZipExtractor(filePath);
+                cancellationToken.ThrowIfCancellationRequested();
 
-                // Note: SharpCompress archive entries don't implement IDisposable,
-                // so explicit disposal is not required. The 'using var archive' handles cleanup.
-                foreach (var entry in archive.Entries)
+                // Process each file in the archive
+                foreach (var entry in extractor.ArchiveFileData)
                 {
                     if (entry.IsDirectory) continue;
+
+                    cancellationToken.ThrowIfCancellationRequested();
 
                     // Create algorithm instances once per archive entry
                     using var crc32 = new Crc32Algorithm();
@@ -37,12 +84,14 @@ public static partial class HashCalculator
                     using var sha1 = SHA1.Create();
                     using var sha256 = SHA256.Create();
 
-                    // OpenEntryStream provides a stream to the uncompressed data
-                    await using var entryStream = await entry.OpenEntryStreamAsync(cancellationToken).ConfigureAwait(false);
+                    // Extract to memory stream and hash
+                    await using var entryStream = new MemoryStream();
+                    extractor.ExtractFile(entry.Index, entryStream);
+                    entryStream.Position = 0;
 
                     var gameFile = await ProcessStreamAsync(
                         entryStream,
-                        entry.Key ?? "Unknown", // SharpCompress uses Key for filename
+                        entry.FileName,
                         crc32, md5, sha1, sha256,
                         cancellationToken,
                         bugReportService).ConfigureAwait(false);
@@ -57,34 +106,25 @@ public static partial class HashCalculator
             {
                 throw;
             }
-            catch (Exception ex) when (ex is NotSupportedException && fileInfo?.Extension?.Equals(".zip", StringComparison.OrdinalIgnoreCase) == true)
-            {
-                // Fallback: SharpCompress doesn't support this zip's compression method.
-                // Extract to temp file using System.IO.Compression, then hash.
-                return await ExtractAndHashZipFallbackAsync(filePath, fileInfo, cancellationToken, bugReportService).ConfigureAwait(false);
-            }
             catch (Exception ex)
             {
-                if (fileInfo != null)
-                {
-                    _ = bugReportService?.SendBugReportAsync($"Archive extraction failed for file '{fileInfo.Name}'", ex);
-                    // Return an error object for the archive itself so the UI knows extraction failed.
-                    // We do NOT hash the container anymore.
-                    return
-                    [
-                        new GameFile
-                        {
-                            FileName = fileInfo.Name,
-                            GameName = Path.GetFileNameWithoutExtension(fileInfo.Name),
-                            FileSize = fileInfo.Length,
-                            ErrorMessage = $"Archive extraction failed: {ex.Message}",
-                            Crc32 = "ERROR",
-                            Md5 = "ERROR",
-                            Sha1 = "ERROR",
-                            Sha256 = "ERROR"
-                        }
-                    ];
-                }
+                _ = bugReportService?.SendBugReportAsync($"Archive extraction failed for file '{fileInfo.Name}'", ex);
+                // Return an error object for the archive itself so the UI knows extraction failed.
+                // We do NOT hash the container anymore.
+                return
+                [
+                    new GameFile
+                    {
+                        FileName = fileInfo.Name,
+                        GameName = Path.GetFileNameWithoutExtension(fileInfo.Name),
+                        FileSize = fileInfo.Length,
+                        ErrorMessage = $"Archive extraction failed: {ex.Message}",
+                        Crc32 = "ERROR",
+                        Md5 = "ERROR",
+                        Sha1 = "ERROR",
+                        Sha256 = "ERROR"
+                    }
+                ];
             }
         }
         else
@@ -107,8 +147,6 @@ public static partial class HashCalculator
 
             return gameFiles;
         }
-
-        return gameFiles;
     }
 
     private static async Task<GameFile?> ProcessFileAsync(
@@ -156,11 +194,25 @@ public static partial class HashCalculator
         CancellationToken cancellationToken,
         BugReportService? bugReportService = null)
     {
+        // Some streams may not support Length
+        long fileSize = 0;
+        try
+        {
+            if (stream.CanSeek)
+            {
+                fileSize = stream.Length;
+            }
+        }
+        catch (NotSupportedException)
+        {
+            // Length not supported, leave as 0
+        }
+
         var gameFile = new GameFile
         {
             FileName = fileName,
             GameName = Path.GetFileNameWithoutExtension(fileName),
-            FileSize = stream.Length
+            FileSize = fileSize
         };
 
         const int maxRetries = 3;
@@ -170,7 +222,7 @@ public static partial class HashCalculator
         {
             try
             {
-                // Reinitialize algorithms for each retry attempt (Fix for Issue B)
+                // Reinitialize algorithms for each retry attempt
                 crc32.Initialize();
                 md5.Initialize();
                 sha1.Initialize();
@@ -194,7 +246,7 @@ public static partial class HashCalculator
                     algorithm.TransformFinalBlock(Array.Empty<byte>(), 0, 0);
                 }
 
-                // Batch hex conversions using local function (PERF fix)
+                // Batch hex conversions using local function
                 gameFile.Crc32 = ToHexLower(crc32.Hash);
                 gameFile.Md5 = ToHexLower(md5.Hash);
                 gameFile.Sha1 = ToHexLower(sha1.Hash);
@@ -246,84 +298,12 @@ public static partial class HashCalculator
         return gameFile;
     }
 
-    private static async Task<List<GameFile>> ExtractAndHashZipFallbackAsync(
-        string filePath,
-        FileInfo fileInfo,
-        CancellationToken cancellationToken,
-        BugReportService? bugReportService = null)
-    {
-        var gameFiles = new List<GameFile>();
-        var tempDir = TempDirectoryHelper.CreateTempDirectory();
-
-        try
-        {
-            // Fallback: use WriteToDirectory instead of OpenEntryStreamAsync
-            // which supports a wider range of compression methods
-            using var archive = ArchiveFactory.OpenArchive(filePath);
-            archive.WriteToDirectory(tempDir, new ExtractionOptions
-            {
-                ExtractFullPath = true,
-                Overwrite = true
-            });
-
-            // Hash each extracted file
-            foreach (var extractedFile in Directory.EnumerateFiles(tempDir, "*", SearchOption.AllDirectories))
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-
-                using var crc32 = new Crc32Algorithm();
-                using var md5 = MD5.Create();
-                using var sha1 = SHA1.Create();
-                using var sha256 = SHA256.Create();
-
-                var relativePath = Path.GetRelativePath(tempDir, extractedFile);
-
-                var gameFile = await ProcessFileAsync(
-                    extractedFile, new FileInfo(extractedFile),
-                    crc32, md5, sha1, sha256,
-                    cancellationToken,
-                    bugReportService).ConfigureAwait(false);
-
-                if (gameFile != null)
-                {
-                    gameFile.FileName = relativePath;
-                    gameFile.GameName = Path.GetFileNameWithoutExtension(relativePath);
-                    gameFiles.Add(gameFile);
-                }
-            }
-
-            return gameFiles;
-        }
-        catch (Exception ex)
-        {
-            _ = bugReportService?.SendBugReportAsync($"Zip fallback extraction failed for file '{fileInfo.Name}'", ex);
-            return
-            [
-                new GameFile
-                {
-                    FileName = fileInfo.Name,
-                    GameName = Path.GetFileNameWithoutExtension(fileInfo.Name),
-                    FileSize = fileInfo.Length,
-                    ErrorMessage = $"Archive extraction failed: {ex.Message}",
-                    Crc32 = "ERROR",
-                    Md5 = "ERROR",
-                    Sha1 = "ERROR",
-                    Sha256 = "ERROR"
-                }
-            ];
-        }
-        finally
-        {
-            TempDirectoryHelper.CleanupTempDirectory(tempDir);
-        }
-    }
-
     internal static bool IsArchiveFile(string fileName)
     {
         return SArchiveExtensionRegex.IsMatch(fileName);
     }
 
-    // Local function for efficient hex conversion (PERF fix)
+    // Local function for efficient hex conversion
     private static string ToHexLower(byte[]? hash)
     {
         return Convert.ToHexStringLower(hash ?? []);

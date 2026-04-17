@@ -30,7 +30,11 @@ public partial class MainWindow : IDisposable
         const string apiKey = "hjh7yu6t56tyr540o9u8767676r5674534453235264c75b6t7ggghgg76trf564e";
         const string applicationName = "ROM Validator";
         BugReportService = new BugReportService(apiUrl, apiKey, applicationName);
+
+        // Initialize global exception handling
         LoggerService.SetBugReportService(BugReportService);
+        ExceptionHandler.SetBugReportService(BugReportService);
+
         VersionChecker = new GitHubVersionChecker("drpetersonfernandes", "RomValidator", BugReportService);
 
         // Initialize Application Stats Service

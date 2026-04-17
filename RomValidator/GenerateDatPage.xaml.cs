@@ -361,7 +361,14 @@ public partial class GenerateDatPage : IDisposable
 
                 _mainWindow.UpdateStatusBarMessage("Serializing and saving DAT file...");
                 await using var writer = XmlWriter.Create(saveFileDialog.FileName, settings);
-                await Task.Run(() => serializer.Serialize(writer, dataFile)); // Offload sync serialization (Issue 12 fix)
+
+                // Serialize with proper No-Intro namespaces
+                await Task.Run(() =>
+                {
+                    var namespaces = new XmlSerializerNamespaces();
+                    namespaces.Add("xsi", "http://www.w3.org/2001/XMLSchema-instance");
+                    serializer.Serialize(writer, dataFile, namespaces);
+                }); // Offload sync serialization (Issue 12 fix)
 
                 var result = MessageBox.Show(_mainWindow, "DAT file exported successfully! Would you like to open it?", "Export Complete", MessageBoxButton.YesNo, MessageBoxImage.Question);
                 if (result == MessageBoxResult.Yes)

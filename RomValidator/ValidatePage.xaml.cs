@@ -9,8 +9,7 @@ using System.Xml;
 using System.Xml.Serialization;
 using RomValidator.Models.NoIntro;
 using RomValidator.Services;
-using SharpCompress.Archives;
-using SharpCompress.Common;
+using SharpSevenZip;
 using System.IO.Compression;
 
 namespace RomValidator;
@@ -396,6 +395,7 @@ public partial class ValidatePage : IDisposable
                     {
                         _ = _mainWindow.BugReportService.SendBugReportAsync($"Error renaming file '{fileName}' to '{hashMatchedRom.Name}'", ex);
                     }
+
                     if (moveFailed)
                     {
                         await MoveFileAsync(filePath, Path.Combine(failPath, fileName));
@@ -1326,20 +1326,25 @@ public partial class ValidatePage : IDisposable
     #region Archive Helpers
 
     /// <summary>
-    /// Renames the file inside a zip archive to match the target name specified in the DAT entry.
-    /// For zip files: extracts contents, renames file, repackages.
-    /// For other archive types: extracts contents, renames file, creates new zip.
+    /// Renames the file inside an archive to match the target name specified in the DAT entry.
+    /// For 7z files: extracts contents, renames file, repackages as 7z using SevenZipSharp.
+    /// For zip files: extracts contents, renames file, repackages as zip using System.IO.Compression.
+    /// For other archive types: extracts contents, renames file, creates new 7z archive.
     /// </summary>
     private static void RenameFileInsideArchive(string archivePath, string targetFileName)
     {
         var tempDir = TempDirectoryHelper.CreateTempDirectory("romvalidator_rename");
+        var is7ZFile = archivePath.EndsWith(".7z", StringComparison.OrdinalIgnoreCase);
 
         try
         {
-            // Extract archive contents
-            using (var archive = ArchiveFactory.OpenArchive(archivePath))
+            // Initialize SevenZipSharp
+            HashCalculator.InitializeSevenZip();
+
+            // Extract archive contents using SevenZipSharp
+            using (var extractor = new SharpSevenZipExtractor(archivePath))
             {
-                archive.WriteToDirectory(tempDir, new ExtractionOptions { ExtractFullPath = true, Overwrite = true });
+                extractor.ExtractArchive(tempDir);
             }
 
             // Find the extracted file(s)
@@ -1351,56 +1356,61 @@ public partial class ValidatePage : IDisposable
                 throw new InvalidOperationException("Archive is empty or extraction failed.");
             }
 
-            // Process ALL files in the archive, not just the first one
-            var filesToRepackage = new List<string>();
+            // Build a mapping of original paths to new names
+            var fileMapping = new List<(string OriginalPath, string NewName)>();
             var targetFileRenamed = false;
 
             foreach (var sourceFile in extractedFiles)
             {
                 var sourceFileName = Path.GetFileName(sourceFile);
-                string targetPath;
                 string destFileName;
 
-                // Rename the first file (or file matching target name pattern) to targetFileName
+                // Rename the first file to targetFileName
                 if (!targetFileRenamed)
                 {
-                    targetPath = Path.Combine(Path.GetDirectoryName(sourceFile) ?? tempDir, targetFileName);
                     destFileName = targetFileName;
                     targetFileRenamed = true;
                 }
                 else
                 {
                     // Keep other files with their original names
-                    targetPath = Path.Combine(Path.GetDirectoryName(sourceFile) ?? tempDir, sourceFileName);
                     destFileName = sourceFileName;
                 }
 
-                // Rename the file if needed and paths differ
-                if (!string.Equals(sourceFile, targetPath, StringComparison.OrdinalIgnoreCase))
-                {
-                    if (File.Exists(targetPath))
-                    {
-                        File.Delete(targetPath);
-                    }
-
-                    File.Move(sourceFile, targetPath);
-                }
-
-                filesToRepackage.Add(destFileName);
+                fileMapping.Add((sourceFile, destFileName));
             }
 
             // Delete the original archive
             File.Delete(archivePath);
 
-            // Create new zip archive with ALL renamed contents using System.IO.Compression
-            using (var zip = ZipFile.Open(archivePath, ZipArchiveMode.Create))
+            if (is7ZFile)
             {
-                foreach (var fileEntry in filesToRepackage)
+                // Create new 7z archive using SevenZipSharp compressor
+                var compressor = new SharpSevenZipCompressor
                 {
-                    var entryPath = Path.Combine(tempDir, fileEntry);
-                    if (File.Exists(entryPath))
+                    ArchiveFormat = OutArchiveFormat.SevenZip,
+                    CompressionLevel = SharpSevenZip.CompressionLevel.Normal,
+                    CompressionMethod = CompressionMethod.Lzma2
+                };
+
+                // Create a temporary dictionary mapping file paths to archive entry names
+                var filesDictionary = new Dictionary<string, string>();
+                foreach (var (originalPath, newName) in fileMapping)
+                {
+                    filesDictionary[originalPath] = newName;
+                }
+
+                compressor.CompressFileDictionary(filesDictionary, archivePath);
+            }
+            else
+            {
+                // Create new zip archive using System.IO.Compression
+                using var zip = ZipFile.Open(archivePath, ZipArchiveMode.Create);
+                foreach (var (originalPath, newName) in fileMapping)
+                {
+                    if (File.Exists(originalPath))
                     {
-                        zip.CreateEntryFromFile(entryPath, fileEntry);
+                        zip.CreateEntryFromFile(originalPath, newName);
                     }
                 }
             }

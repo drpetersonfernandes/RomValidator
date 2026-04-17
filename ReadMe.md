@@ -12,22 +12,25 @@
 ## 🚀 Key Features
 
 ### 🔍 Advanced Validation
--   **Multi-Hash Verification**: Validates file integrity using CRC32, MD5, and SHA1/SHA256 checksums.
+-   **Multi-Hash Verification**: Validates file integrity using CRC32, MD5, SHA1, and SHA256 checksums.
 -   **No-Intro Integration**: Native support for No-Intro XML DAT formats (currently the only supported format).
--   **Archive Support**: Deep-scans within compressed archives (ZIP, 7z, RAR, etc.) without manual extraction.
--   **Smart File Renaming**: Automatically renames files when hash matches but filename differs, ensuring your collection matches the DAT exactly.
+-   **Archive Support**: Deep-scans within compressed archives (ZIP, 7z, RAR, etc.) without manual extraction, powered by SevenZipSharp.
+-   **Smart File Renaming**: Automatically renames files when hash matches but filename differs, ensuring your collection matches the DAT exactly. Supports renaming files inside ZIP and 7z archives.
 
 ### 📂 Collection Management
 -   **Automated Organization**: Automatically sorts files into `_success` or `_fail` directories based on validation results.
 -   **Flexible File Handling**: Optional permanent deletion of failed/unknown files with safety confirmations.
 -   **DAT Generation**: Create No-Intro compliant DAT files from any folder, complete with custom metadata (Author, Version, Description).
 -   **DAT Format Validation**: Automatic detection of incompatible file formats (ZIP, HTML, ClrMamePro, MAME) with clear error messages. Note: This version exclusively supports No-Intro XML DATs.
+-   **7z Archive Creation**: Repackage renamed ROM files into new 7z archives with LZMA2 compression.
 -   **Real-time Logging**: Detailed, timestamped logs for every operation, including specific reasons for validation failures.
 
 ### 💻 User Experience
--   **Modern WPF Interface**: A clean, responsive UI with progress monitoring and statistical breakdowns.
+-   **Modern WPF Interface**: A clean, responsive UI with progress monitoring, statistical breakdowns, and centralized styling.
+-   **Async Architecture**: Non-blocking I/O operations for improved responsiveness during large scans.
 -   **Update Notifications**: Integrated GitHub version checking with automatic notifications when new releases are available.
--   **Automatic Bug Reporting**: Built-in service to automatically report application errors to the development team for faster issue resolution.
+-   **Automatic Bug Reporting**: Enhanced service with structured error reporting, exception context capture, and intelligent noise reduction for faster issue resolution.
+-   **Centralized Exception Handling**: New `ExceptionHandler` service ensures consistent error handling across the application.
 
 ---
 
