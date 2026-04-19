@@ -3,6 +3,7 @@ using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text.RegularExpressions;
 using SharpSevenZip;
+using SharpSevenZip.Exceptions;
 using RomValidator.Models;
 
 namespace RomValidator.Services;
@@ -86,7 +87,30 @@ public static partial class HashCalculator
 
                     // Extract to memory stream and hash
                     await using var entryStream = new MemoryStream();
-                    extractor.ExtractFile(entry.Index, entryStream);
+
+                    try
+                    {
+                        await extractor.ExtractFileAsync(entry.Index, entryStream);
+                    }
+                    catch (ExtractionFailedException entryEx)
+                    {
+                        // Individual entry is corrupted - log it but continue with other files
+                        // Send bug report for tracking during development
+                        _ = bugReportService?.SendBugReportAsync($"Archive entry extraction failed for '{entry.FileName}' in archive", entryEx);
+                        gameFiles.Add(new GameFile
+                        {
+                            FileName = entry.FileName,
+                            GameName = Path.GetFileNameWithoutExtension(entry.FileName),
+                            FileSize = (long)entry.Size,
+                            ErrorMessage = "File is corrupted within archive",
+                            Crc32 = "ERROR",
+                            Md5 = "ERROR",
+                            Sha1 = "ERROR",
+                            Sha256 = "ERROR"
+                        });
+                        continue;
+                    }
+
                     entryStream.Position = 0;
 
                     var gameFile = await ProcessStreamAsync(
@@ -105,6 +129,26 @@ public static partial class HashCalculator
             catch (OperationCanceledException)
             {
                 throw;
+            }
+            catch (ExtractionFailedException archiveEx)
+            {
+                // Archive is corrupted or has data errors
+                // Send bug report for tracking during development
+                _ = bugReportService?.SendBugReportAsync($"Archive extraction failed for file '{fileInfo.Name}'", archiveEx);
+                return
+                [
+                    new GameFile
+                    {
+                        FileName = fileInfo.Name,
+                        GameName = Path.GetFileNameWithoutExtension(fileInfo.Name),
+                        FileSize = fileInfo.Length,
+                        ErrorMessage = "Archive is corrupted or has data errors",
+                        Crc32 = "ERROR",
+                        Md5 = "ERROR",
+                        Sha1 = "ERROR",
+                        Sha256 = "ERROR"
+                    }
+                ];
             }
             catch (Exception ex)
             {

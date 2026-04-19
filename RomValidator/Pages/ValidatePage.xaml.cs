@@ -1475,10 +1475,31 @@ public partial class ValidatePage : IDisposable
                         };
 
                         // Create a temporary dictionary mapping file paths to archive entry names
+                        // Only include files that actually exist (SharpSevenZip requires all files to exist)
                         var filesDictionary = new Dictionary<string, string>();
+                        var missingFiles = new List<string>();
                         foreach (var (originalPath, newName) in fileMapping)
                         {
-                            filesDictionary[originalPath] = newName;
+                            if (File.Exists(originalPath))
+                            {
+                                filesDictionary[originalPath] = newName;
+                            }
+                            else
+                            {
+                                missingFiles.Add($"'{originalPath}' (expected entry name: '{newName}')");
+                            }
+                        }
+
+                        if (missingFiles.Count > 0)
+                        {
+                            throw new FileNotFoundException(
+                                $"Cannot create archive: {missingFiles.Count} file(s) not found in temp directory: {string.Join(", ", missingFiles)}. " +
+                                $"This may indicate the archive structure changed during extraction or files were moved unexpectedly.");
+                        }
+
+                        if (filesDictionary.Count == 0)
+                        {
+                            throw new InvalidOperationException("No files available to create archive. All extracted files are missing from temp directory.");
                         }
 
                         compressor.CompressFileDictionary(filesDictionary, archivePath);
