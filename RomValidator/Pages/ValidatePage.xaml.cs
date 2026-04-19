@@ -1447,6 +1447,25 @@ public partial class ValidatePage : IDisposable
                 fileMapping.Add((sourceFile, destFileName));
             }
 
+            // Actually rename the files on disk before compression
+            var renamedFilesMapping = new List<(string OriginalPath, string NewPath)>();
+            foreach (var (originalPath, newName) in fileMapping)
+            {
+                var newPath = Path.Combine(Path.GetDirectoryName(originalPath) ?? throw new InvalidOperationException(), newName);
+
+                // Only rename if the name is different
+                if (!string.Equals(Path.GetFileName(originalPath), newName, StringComparison.OrdinalIgnoreCase))
+                {
+                    File.Move(originalPath, newPath);
+                }
+                else
+                {
+                    newPath = originalPath; // Same file, no rename needed
+                }
+
+                renamedFilesMapping.Add((newPath, newName));
+            }
+
             // Delete the original archive
             try
             {
@@ -1478,15 +1497,15 @@ public partial class ValidatePage : IDisposable
                         // Only include files that actually exist (SharpSevenZip requires all files to exist)
                         var filesDictionary = new Dictionary<string, string>();
                         var missingFiles = new List<string>();
-                        foreach (var (originalPath, newName) in fileMapping)
+                        foreach (var (filePath, entryName) in renamedFilesMapping)
                         {
-                            if (File.Exists(originalPath))
+                            if (File.Exists(filePath))
                             {
-                                filesDictionary[originalPath] = newName;
+                                filesDictionary[filePath] = entryName;
                             }
                             else
                             {
-                                missingFiles.Add($"'{originalPath}' (expected entry name: '{newName}')");
+                                missingFiles.Add($"'{filePath}' (expected entry name: '{entryName}')");
                             }
                         }
 
@@ -1521,11 +1540,11 @@ public partial class ValidatePage : IDisposable
                     await Task.Run(() =>
                     {
                         using var zip = ZipFile.Open(archivePath, ZipArchiveMode.Create);
-                        foreach (var (originalPath, newName) in fileMapping)
+                        foreach (var (filePath, entryName) in renamedFilesMapping)
                         {
-                            if (File.Exists(originalPath))
+                            if (File.Exists(filePath))
                             {
-                                zip.CreateEntryFromFile(originalPath, newName);
+                                zip.CreateEntryFromFile(filePath, entryName);
                             }
                         }
                     });
