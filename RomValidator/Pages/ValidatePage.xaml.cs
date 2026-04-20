@@ -35,6 +35,7 @@ public partial class ValidatePage : IDisposable
     private int _unknownCount;
     private int _renamedCount;
     private int _deletedCount;
+    private int _duplicateCount;
     private readonly Stopwatch _operationTimer = new();
 
     public ValidatePage(MainWindow mainWindow)
@@ -416,22 +417,15 @@ public partial class ValidatePage : IDisposable
                     catch (Exception ex) when (ex.Message.Contains("already exists", StringComparison.OrdinalIgnoreCase))
                     {
                         // Destination file already exists. Since we already verified the hash matches,
-                        // the existing file is presumably the correct one. Treat this as a success
-                        // rather than a failure - the file is already correctly named and present.
-                        LogMessage($"[SUCCESS] {fileName} - {matchedHash}: {GetHashValueByType(hashMatchedRom, matchedHash)} (duplicate of existing {displayName})");
+                        // the existing file is presumably the correct one. The source file is a duplicate.
+                        LogMessage($"[DUPLICATE] {fileName} - {matchedHash}: {GetHashValueByType(hashMatchedRom, matchedHash)} (destination {displayName} already exists)");
 
-                        // The source file should still be processed according to move/delete settings
-                        // since it's a duplicate that we couldn't rename
-                        if (moveFailed)
-                        {
-                            await MoveFileAsync(filePath, Path.Combine(failPath, fileName));
-                        }
-                        else if (deleteFailed)
-                        {
-                            await DeleteFileAsync(filePath, fileName);
-                        }
+                        // Move duplicate to dedicated _duplicate folder
+                        var duplicatePath = Path.Combine(Path.GetDirectoryName(filePath) ?? throw new InvalidOperationException(), "_duplicate");
+                        Directory.CreateDirectory(duplicatePath);
+                        await MoveFileAsync(filePath, Path.Combine(duplicatePath, fileName));
 
-                        Interlocked.Increment(ref _successCount);
+                        Interlocked.Increment(ref _duplicateCount);
                         return;
                     }
                     catch (Exception ex)
@@ -562,11 +556,19 @@ public partial class ValidatePage : IDisposable
                 foreach (var expectedRom in expectedRoms)
                 {
                     var sizeMatch = gameFile.FileSize == expectedRom.Size;
-                    var sha256Match = !string.IsNullOrEmpty(gameFile.Sha256) && (string.IsNullOrEmpty(expectedRom.Sha256) || gameFile.Sha256.Equals(expectedRom.Sha256, StringComparison.OrdinalIgnoreCase));
-                    var sha1Match = !string.IsNullOrEmpty(gameFile.Sha1) && (string.IsNullOrEmpty(expectedRom.Sha1) || gameFile.Sha1.Equals(expectedRom.Sha1, StringComparison.OrdinalIgnoreCase));
-                    var md5Match = !string.IsNullOrEmpty(gameFile.Md5) && (string.IsNullOrEmpty(expectedRom.Md5) || gameFile.Md5.Equals(expectedRom.Md5, StringComparison.OrdinalIgnoreCase));
-                    var crcMatch = !string.IsNullOrEmpty(gameFile.Crc32) && (string.IsNullOrEmpty(expectedRom.Crc) || gameFile.Crc32.Equals(expectedRom.Crc, StringComparison.OrdinalIgnoreCase));
 
+                    // Strict No-Intro validation: ALL hashes present in the DAT must match
+                    // Check each hash type - if DAT has it, file must match it
+                    var sha256Match = string.IsNullOrEmpty(expectedRom.Sha256) ||
+                                      (!string.IsNullOrEmpty(gameFile.Sha256) && gameFile.Sha256.Equals(expectedRom.Sha256, StringComparison.OrdinalIgnoreCase));
+                    var sha1Match = string.IsNullOrEmpty(expectedRom.Sha1) ||
+                                    (!string.IsNullOrEmpty(gameFile.Sha1) && gameFile.Sha1.Equals(expectedRom.Sha1, StringComparison.OrdinalIgnoreCase));
+                    var md5Match = string.IsNullOrEmpty(expectedRom.Md5) ||
+                                   (!string.IsNullOrEmpty(gameFile.Md5) && gameFile.Md5.Equals(expectedRom.Md5, StringComparison.OrdinalIgnoreCase));
+                    var crcMatch = string.IsNullOrEmpty(expectedRom.Crc) ||
+                                   (!string.IsNullOrEmpty(gameFile.Crc32) && gameFile.Crc32.Equals(expectedRom.Crc, StringComparison.OrdinalIgnoreCase));
+
+                    // All present hashes must match (strict No-Intro compliance)
                     if (sizeMatch && sha256Match && sha1Match && md5Match && crcMatch)
                     {
                         var details = new List<string>();
@@ -1316,6 +1318,7 @@ public partial class ValidatePage : IDisposable
         _unknownCount = 0;
         _renamedCount = 0;
         _deletedCount = 0;
+        _duplicateCount = 0;
         _operationTimer.Reset();
         UpdateStatsDisplay();
         UpdateProcessingTimeDisplay();
@@ -1333,6 +1336,7 @@ public partial class ValidatePage : IDisposable
             UnknownValue.Text = _unknownCount.ToString(CultureInfo.InvariantCulture);
             RenamedValue.Text = _renamedCount.ToString(CultureInfo.InvariantCulture);
             DeletedValue.Text = _deletedCount.ToString(CultureInfo.InvariantCulture);
+            DuplicateValue.Text = _duplicateCount.ToString(CultureInfo.InvariantCulture);
         });
     }
 
@@ -1388,10 +1392,11 @@ public partial class ValidatePage : IDisposable
         LogMessage($"Unknown: {_unknownCount}");
         LogMessage($"Renamed: {_renamedCount}");
         LogMessage($"Deleted: {_deletedCount}");
+        LogMessage($"Duplicates: {_duplicateCount}");
         LogMessage($@"Total time: {_operationTimer.Elapsed:hh\:mm\:ss}");
         _mainWindow.UpdateStatusBarMessage("Validation complete.");
 
-        var summaryText = $"Validation complete.\n\nSuccessful: {_successCount}\nFailed: {_failCount}\nUnknown: {_unknownCount}\nRenamed: {_renamedCount}\nDeleted: {_deletedCount}";
+        var summaryText = $"Validation complete.\n\nSuccessful: {_successCount}\nFailed: {_failCount}\nUnknown: {_unknownCount}\nRenamed: {_renamedCount}\nDeleted: {_deletedCount}\nDuplicates: {_duplicateCount}";
         MessageBox.Show(_mainWindow, summaryText, "Validation Complete", MessageBoxButton.OK, MessageBoxImage.Information);
     }
 
