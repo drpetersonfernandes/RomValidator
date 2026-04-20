@@ -3,14 +3,19 @@ using System.Windows;
 
 namespace RomValidator;
 
+public class DuplicateGroup
+{
+    public string Hash { get; set; } = string.Empty;
+    public string Filenames { get; set; } = string.Empty;
+
+    public override string ToString()
+    {
+        return $"{Hash}: {Filenames}";
+    }
+}
+
 public partial class DuplicateFilesWindow
 {
-    public class DuplicateGroup
-    {
-        public string Hash { get; set; } = string.Empty;
-        public string Filenames { get; set; } = string.Empty;
-    }
-
     public DuplicateFilesWindow()
     {
         InitializeComponent();
