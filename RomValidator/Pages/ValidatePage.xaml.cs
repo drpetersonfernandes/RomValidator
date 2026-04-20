@@ -413,15 +413,32 @@ public partial class ValidatePage : IDisposable
                         hashesAlreadyVerified = true; // Hashes were just verified by FindRomByHashAsync (Issue 7 fix)
                         verifiedMatchDetails = $"{matchedHash}: {GetHashValueByType(hashMatchedRom, matchedHash)}";
                     }
+                    catch (Exception ex) when (ex.Message.Contains("already exists", StringComparison.OrdinalIgnoreCase))
+                    {
+                        // Destination file already exists. Since we already verified the hash matches,
+                        // the existing file is presumably the correct one. Treat this as a success
+                        // rather than a failure - the file is already correctly named and present.
+                        LogMessage($"[SUCCESS] {fileName} - {matchedHash}: {GetHashValueByType(hashMatchedRom, matchedHash)} (duplicate of existing {displayName})");
+
+                        // The source file should still be processed according to move/delete settings
+                        // since it's a duplicate that we couldn't rename
+                        if (moveFailed)
+                        {
+                            await MoveFileAsync(filePath, Path.Combine(failPath, fileName));
+                        }
+                        else if (deleteFailed)
+                        {
+                            await DeleteFileAsync(filePath, fileName);
+                        }
+
+                        Interlocked.Increment(ref _successCount);
+                        return;
+                    }
                     catch (Exception ex)
                     {
                         Interlocked.Increment(ref _failCount);
                         LogMessage($"[FAILED] {fileName} - Hash matched {hashMatchedRom.Name} but rename failed: {ex.Message}");
-                        // Don't send bug report for "destination already exists" - it's a user/data issue, not a code bug
-                        if (!ex.Message.Contains("already exists", StringComparison.OrdinalIgnoreCase))
-                        {
-                            _ = _mainWindow.BugReportService.SendBugReportAsync($"Error renaming file '{fileName}' to '{hashMatchedRom.Name}'", ex);
-                        }
+                        _ = _mainWindow.BugReportService.SendBugReportAsync($"Error renaming file '{fileName}' to '{hashMatchedRom.Name}'", ex);
 
                         if (moveFailed)
                         {
@@ -790,6 +807,35 @@ public partial class ValidatePage : IDisposable
             _romDatabase = allRoms
                 .GroupBy(static r => r.Name, StringComparer.OrdinalIgnoreCase)
                 .ToDictionary(static g => g.Key, static g => g.ToList());
+
+            // Check for filename collisions in the DAT (same filename, different hashes)
+            var datCollisions = _romDatabase
+                .Where(static kvp => kvp.Value.Select(static r => r.Sha256).Distinct(StringComparer.OrdinalIgnoreCase).Count() > 1)
+                .ToList();
+
+            if (datCollisions.Count > 0)
+            {
+                var collisionMessage = new StringBuilder();
+                collisionMessage.AppendLine("WARNING: This DAT file contains filename collisions!");
+                collisionMessage.AppendLine("The following ROM filenames appear multiple times with different hashes:");
+                collisionMessage.AppendLine();
+                foreach (var (romName, roms) in datCollisions)
+                {
+                    collisionMessage.AppendLine(CultureInfo.InvariantCulture, $"  '{romName}' ({roms.Count} entries):");
+                    foreach (var rom in roms)
+                    {
+                        collisionMessage.AppendLine(CultureInfo.InvariantCulture, $"    - Size: {rom.Size}, SHA256: {rom.Sha256}");
+                    }
+
+                    collisionMessage.AppendLine();
+                }
+
+                collisionMessage.AppendLine("Validation will attempt to match by hash, but results may be unexpected.");
+
+                LogMessage($"WARNING: DAT file has {datCollisions.Count} filename collision(s)!");
+                MessageBox.Show(_mainWindow, collisionMessage.ToString(), "DAT File Contains Filename Collisions",
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
 
             // Build hash-based lookup dictionaries
             _romDatabaseBySha1 = allRoms

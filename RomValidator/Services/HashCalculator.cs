@@ -121,7 +121,11 @@ public static partial class HashCalculator
                         bugReportService).ConfigureAwait(false);
 
                     if (gameFile != null)
+                    {
+                        // Track the original archive filename for proper DAT generation
+                        gameFile.ArchiveFileName = fileInfo.Name;
                         gameFiles.Add(gameFile);
+                    }
                 }
 
                 return gameFiles;

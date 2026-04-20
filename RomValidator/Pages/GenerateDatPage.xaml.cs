@@ -341,6 +341,38 @@ public partial class GenerateDatPage : IDisposable
                     filesToExport = new List<GameFile>(_processedFilesList);
                 }
 
+                // Detect filename collisions: same filename but different hashes
+                var collisions = filesToExport
+                    .Where(static file => file.ErrorMessage == null)
+                    .GroupBy(static file => file.FileName, StringComparer.OrdinalIgnoreCase)
+                    .Where(static group => group.Select(static f => f.Sha256).Distinct(StringComparer.OrdinalIgnoreCase).Count() > 1)
+                    .ToList();
+
+                if (collisions.Count > 0)
+                {
+                    var collisionMessage = new StringBuilder();
+                    collisionMessage.AppendLine("WARNING: Filename collisions detected!");
+                    collisionMessage.AppendLine("The following filenames have multiple different ROMs (different hashes):");
+                    collisionMessage.AppendLine();
+                    foreach (var collision in collisions)
+                    {
+                        collisionMessage.AppendLine(CultureInfo.InvariantCulture, $"  '{collision.Key}':");
+                        foreach (var file in collision)
+                        {
+                            collisionMessage.AppendLine(CultureInfo.InvariantCulture, $"    - From: {file.ArchiveFileName ?? "(loose file)"}");
+                            collisionMessage.AppendLine(CultureInfo.InvariantCulture, $"      SHA256: {file.Sha256}");
+                        }
+
+                        collisionMessage.AppendLine();
+                    }
+
+                    collisionMessage.AppendLine("These files will overwrite each other in the DAT. Consider renaming them.");
+
+                    _mainWindow.UpdateStatusBarMessage($"Warning: {collisions.Count} filename collision(s) detected!");
+                    MessageBox.Show(_mainWindow, collisionMessage.ToString(), "Filename Collisions Detected",
+                        MessageBoxButton.OK, MessageBoxImage.Warning);
+                }
+
                 // Group files by GameName to create proper No-Intro DAT format
                 dataFile.Games.AddRange(filesToExport
                     .Where(static file => file.ErrorMessage == null)

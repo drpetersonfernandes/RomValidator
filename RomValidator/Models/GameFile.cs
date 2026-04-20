@@ -28,4 +28,10 @@ public class GameFile
 
     /// <summary>Gets or sets the error message if hashing failed.</summary>
     public string? ErrorMessage { get; set; }
+
+    /// <summary>
+    /// Gets or sets the original archive file name if this file was extracted from an archive.
+    /// This is used to properly track the container filename vs the internal ROM filename.
+    /// </summary>
+    public string? ArchiveFileName { get; set; }
 }
