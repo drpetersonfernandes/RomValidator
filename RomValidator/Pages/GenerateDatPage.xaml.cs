@@ -203,13 +203,17 @@ public partial class GenerateDatPage : IDisposable
         StopButton.IsEnabled = false;
     }
 
-    private Task HashFilesAsync(string folderPath, IProgress<GameFile> progress, CancellationToken cancellationToken)
+    private async Task HashFilesAsync(string folderPath, IProgress<GameFile> progress, CancellationToken cancellationToken)
     {
         var totalRomCount = 0;
         _discoveredFilesCount = 0;
         _archiveExpansionCount = 0;
         var lastUiUpdate = DateTime.UtcNow;
         const int uiUpdateIntervalMs = 100; // Throttle UI updates to every 100ms (Issue 5 fix)
+
+        // Track duplicates during processing
+        var hashToFilenames = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+        var duplicateGroups = 0;
 
         // Use EnumerationOptions to ignore inaccessible folders and files (Issue 4 fix)
         var enumerationOptions = new EnumerationOptions
@@ -223,68 +227,113 @@ public partial class GenerateDatPage : IDisposable
         // The actual Maximum will be set atomically in the main loop (Issue 2 & 3 fix)
         _ = Task.Run(() => CountFilesInBackground(folderPath, enumerationOptions, ref _discoveredFilesCount, cancellationToken, _mainWindow.BugReportService), cancellationToken);
 
-        // Run the entire file processing loop on a background thread to keep UI responsive
-        return Task.Run(async () =>
+        // Stream the files using EnumerationOptions to skip inaccessible items (Issue 4 fix)
+        var fileEnumerable = Directory.EnumerateFiles(folderPath, "*", enumerationOptions);
+
+        // Sequential processing
+        foreach (var filePath in fileEnumerable)
         {
-            // Stream the files using EnumerationOptions to skip inaccessible items (Issue 4 fix)
-            var fileEnumerable = Directory.EnumerateFiles(folderPath, "*", enumerationOptions);
+            if (cancellationToken.IsCancellationRequested) break;
 
-            // Sequential processing
-            foreach (var filePath in fileEnumerable)
+            var gameFiles = await HashCalculator.CalculateHashesAsync(filePath, cancellationToken, _mainWindow.BugReportService);
+            var romsFromFile = gameFiles.Count;
+
+            // Read the discovered count from the background task (do NOT increment here —
+            // CountFilesInBackground already handles that)
+            var currentDiscovered = _discoveredFilesCount;
+
+            // Track how many extra items come from archives (files inside archives minus the archive file itself)
+            if (romsFromFile > 1)
             {
-                if (cancellationToken.IsCancellationRequested) break;
-
-                var gameFiles = await HashCalculator.CalculateHashesAsync(filePath, cancellationToken, _mainWindow.BugReportService);
-                var romsFromFile = gameFiles.Count;
-
-                // Read the discovered count from the background task (do NOT increment here —
-                // CountFilesInBackground already handles that)
-                var currentDiscovered = _discoveredFilesCount;
-
-                // Track how many extra items come from archives (files inside archives minus the archive file itself)
-                if (romsFromFile > 1)
-                {
-                    Interlocked.Add(ref _archiveExpansionCount, romsFromFile - 1);
-                }
-
-                var currentExpansion = _archiveExpansionCount; // Read is atomic for int
-
-                // Throttle UI updates to prevent flooding the UI thread (Issue 5 fix)
-                // Only dispatch to UI thread every 100ms to avoid queuing thousands of operations
-                var now = DateTime.UtcNow;
-                if ((now - lastUiUpdate).TotalMilliseconds >= uiUpdateIntervalMs)
-                {
-                    lastUiUpdate = now;
-                    var newMaximum = currentDiscovered + currentExpansion;
-                    await Dispatcher.InvokeAsync(() =>
-                    {
-                        HashProgressBar.Maximum = newMaximum;
-                    });
-                }
-
-                foreach (var gameFile in gameFiles)
-                {
-                    if (gameFile.ErrorMessage != null)
-                    {
-                        // Log error to bug report service or UI
-                        if (gameFile.ErrorMessage != "File is locked or access denied after retries")
-                        {
-                            _ = _mainWindow.BugReportService.SendBugReportAsync($"Error hashing file {filePath}: {gameFile.ErrorMessage}");
-                        }
-                    }
-
-                    lock (_operationLock)
-                    {
-                        _processedFilesList.Add(gameFile);
-                    }
-
-                    progress.Report(gameFile);
-                    Interlocked.Increment(ref totalRomCount);
-                }
+                Interlocked.Add(ref _archiveExpansionCount, romsFromFile - 1);
             }
 
-            _processedFileCount = totalRomCount;
-        }, cancellationToken);
+            var currentExpansion = _archiveExpansionCount; // Read is atomic for int
+
+            // Throttle UI updates to prevent flooding the UI thread (Issue 5 fix)
+            // Only dispatch to UI thread every 100ms to avoid queuing thousands of operations
+            var now = DateTime.UtcNow;
+            if ((now - lastUiUpdate).TotalMilliseconds >= uiUpdateIntervalMs)
+            {
+                lastUiUpdate = now;
+                var newMaximum = currentDiscovered + currentExpansion;
+                await Dispatcher.InvokeAsync(() =>
+                {
+                    HashProgressBar.Maximum = newMaximum;
+                });
+            }
+
+            foreach (var gameFile in gameFiles)
+            {
+                if (gameFile.ErrorMessage != null)
+                {
+                    // Log error to bug report service or UI
+                    if (gameFile.ErrorMessage != "File is locked or access denied after retries")
+                    {
+                        _ = _mainWindow.BugReportService.SendBugReportAsync($"Error hashing file {filePath}: {gameFile.ErrorMessage}");
+                    }
+                }
+                else if (!string.IsNullOrEmpty(gameFile.Sha256))
+                {
+                        // Check for duplicates (same hash, different filename)
+                        lock (hashToFilenames)
+                        {
+                            if (!hashToFilenames.TryGetValue(gameFile.Sha256, out var filenames))
+                            {
+                                filenames = new List<string>();
+                                hashToFilenames[gameFile.Sha256] = filenames;
+                            }
+
+                            // Only add if not already in list (case-insensitive)
+                            if (!filenames.Any(f => string.Equals(f, gameFile.FileName, StringComparison.OrdinalIgnoreCase)))
+                            {
+                                filenames.Add(gameFile.FileName);
+
+                                // If we have more than one filename for this hash, log a warning
+                                if (filenames.Count == 2) // First time we detect a duplicate for this hash
+                                {
+                                    duplicateGroups++;
+                                }
+
+                                if (filenames.Count > 1)
+                                {
+                                    LoggerService.LogWarning("DAT Generation",
+                                        $"Duplicate ROM detected: Hash {gameFile.Sha256} has multiple filenames: {string.Join(", ", filenames)}");
+                                }
+                            }
+                        }
+                }
+
+                lock (_operationLock)
+                {
+                    _processedFilesList.Add(gameFile);
+                }
+
+                progress.Report(gameFile);
+                Interlocked.Increment(ref totalRomCount);
+            }
+        }
+
+        _processedFileCount = totalRomCount;
+
+        // Show duplicate warning after hashing completes
+        if (duplicateGroups > 0)
+        {
+            await Dispatcher.InvokeAsync(() =>
+            {
+                // Filter to only include hashes with multiple filenames
+                var duplicateHashToFilenames = hashToFilenames
+                    .Where(static kvp => kvp.Value.Count > 1)
+                    .ToDictionary(static kvp => kvp.Key, static kvp => kvp.Value);
+
+                var duplicateWindow = new DuplicateFilesWindow
+                {
+                    Owner = _mainWindow
+                };
+                duplicateWindow.SetDuplicateData(duplicateGroups, duplicateHashToFilenames, "Duplicate ROMs Detected");
+                duplicateWindow.ShowDialog();
+            });
+        }
     }
 
     private static string SanitizeFileName(string name)
@@ -342,19 +391,19 @@ public partial class GenerateDatPage : IDisposable
                 }
 
                 // Detect filename collisions: same filename but different hashes
-                var collisions = filesToExport
+                var filenameCollisions = filesToExport
                     .Where(static file => file.ErrorMessage == null)
                     .GroupBy(static file => file.FileName, StringComparer.OrdinalIgnoreCase)
                     .Where(static group => group.Select(static f => f.Sha256).Distinct(StringComparer.OrdinalIgnoreCase).Count() > 1)
                     .ToList();
 
-                if (collisions.Count > 0)
+                if (filenameCollisions.Count > 0)
                 {
                     var collisionMessage = new StringBuilder();
                     collisionMessage.AppendLine("WARNING: Filename collisions detected!");
-                    collisionMessage.AppendLine("The following filenames have multiple different ROMs (different hashes):");
+                    collisionMessage.AppendLine("The following ROM filenames have multiple different ROMs (different hashes):");
                     collisionMessage.AppendLine();
-                    foreach (var collision in collisions)
+                    foreach (var collision in filenameCollisions)
                     {
                         collisionMessage.AppendLine(CultureInfo.InvariantCulture, $"  '{collision.Key}':");
                         foreach (var file in collision)
@@ -368,10 +417,47 @@ public partial class GenerateDatPage : IDisposable
 
                     collisionMessage.AppendLine("These files will overwrite each other in the DAT. Consider renaming them.");
 
-                    _mainWindow.UpdateStatusBarMessage($"Warning: {collisions.Count} filename collision(s) detected!");
+                    _mainWindow.UpdateStatusBarMessage($"Warning: {filenameCollisions.Count} filename collision(s) detected!");
                     MessageBox.Show(_mainWindow, collisionMessage.ToString(), "Filename Collisions Detected",
                         MessageBoxButton.OK, MessageBoxImage.Warning);
                 }
+
+                // Detect duplicate ROMs: same hash but different filenames (same ROM data stored under different names)
+                var validFiles = filesToExport.Where(static file => file.ErrorMessage == null && !string.IsNullOrEmpty(file.Sha256)).ToList();
+                var groupedByHash = validFiles.GroupBy(static file => file.Sha256, StringComparer.OrdinalIgnoreCase).ToList();
+                var hashDuplicates = groupedByHash
+                    .Where(static group => group.Select(static f => f.FileName).Distinct(StringComparer.OrdinalIgnoreCase).Count() > 1)
+                    .ToList();
+
+                if (hashDuplicates.Count > 0)
+                {
+                    // Convert to dictionary format for the modal window
+                    var duplicateHashToFilenames = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+                    foreach (var duplicate in hashDuplicates)
+                    {
+                        var filenames = duplicate.Select(static f => f.FileName).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+                        duplicateHashToFilenames[duplicate.Key] = filenames;
+                    }
+
+                    var duplicateWindow = new DuplicateFilesWindow
+                    {
+                        Owner = _mainWindow,
+                        Title = "Duplicate ROMs Detected (Export)"
+                    };
+                    duplicateWindow.SetDuplicateData(hashDuplicates.Count, duplicateHashToFilenames, "Duplicate ROMs Detected (Export)");
+                    duplicateWindow.ShowDialog();
+
+                    _mainWindow.UpdateStatusBarMessage($"Warning: {hashDuplicates.Count} duplicate ROM(s) detected!");
+                }
+                else
+                {
+                    // Show info that duplicates were checked but none found
+                    _mainWindow.UpdateStatusBarMessage("No duplicate ROMs detected.");
+                }
+
+                // Show final summary about duplicates in the input folder
+                 // Note: Duplicate warnings are now shown in modal windows above
+                 // Filename collisions show MessageBox, duplicate ROMs show modal window
 
                 // Group files by GameName to create proper No-Intro DAT format
                 dataFile.Games.AddRange(filesToExport
