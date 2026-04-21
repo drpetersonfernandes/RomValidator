@@ -6,12 +6,22 @@ using RomValidator.Models;
 
 namespace RomValidator.Services;
 
+/// <summary>
+/// Service for checking GitHub releases to determine if a newer version of the application is available.
+/// Provides version comparison and update notification functionality.
+/// </summary>
 public class GitHubVersionChecker : IDisposable
 {
     private readonly HttpClient _httpClient;
     private readonly string _apiBaseUrl;
     private readonly BugReportService? _bugReportService;
 
+    /// <summary>
+    /// Initializes a new instance of the GitHubVersionChecker class.
+    /// </summary>
+    /// <param name="repoOwner">The GitHub repository owner (username or organization).</param>
+    /// <param name="repoName">The name of the GitHub repository.</param>
+    /// <param name="bugReportService">Optional bug report service for error tracking.</param>
     public GitHubVersionChecker(string repoOwner, string repoName, BugReportService? bugReportService = null)
     {
         _apiBaseUrl = $"https://api.github.com/repos/{repoOwner}/{repoName}/releases/latest";
@@ -23,6 +33,14 @@ public class GitHubVersionChecker : IDisposable
         _httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github.v3+json"));
     }
 
+    /// <summary>
+    /// Checks GitHub for a newer version of the application.
+    /// </summary>
+    /// <returns>A tuple containing: 
+    /// - IsNewVersionAvailable: True if a newer version is available
+    /// - ReleaseUrl: The URL to the latest release page
+    /// - LatestVersionTag: The version tag of the latest release
+    /// </returns>
     public async Task<(bool IsNewVersionAvailable, string? ReleaseUrl, string? LatestVersionTag)> CheckForNewVersionAsync()
     {
         try
@@ -82,9 +100,12 @@ public class GitHubVersionChecker : IDisposable
         return Assembly.GetExecutingAssembly().GetName().Version;
     }
 
+    /// <summary>
+    /// Disposes of the HTTP client used by the service.
+    /// </summary>
     public void Dispose()
     {
-        _httpClient.Dispose();
+        _httpClient?.Dispose();
         GC.SuppressFinalize(this);
     }
 }

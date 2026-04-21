@@ -8,25 +8,27 @@ using RomValidator.Models;
 
 namespace RomValidator.Services;
 
+/// <summary>
+/// Provides static methods for calculating hash values (CRC32, MD5, SHA1, SHA256) for files and archives.
+/// Supports both regular files and archive formats (ZIP, 7Z, RAR) with automatic extraction.
+/// </summary>
 public static partial class HashCalculator
 {
     // Archive file extensions supported - shared regex pattern
     private static readonly Regex SArchiveExtensionRegex = MyRegex();
     private static bool _sevenZipInitialized;
     private static readonly object InitLock = new();
+    private const int BufferSize = 65536; // 64KB buffer for file operations
+    private const int InitialRetryDelayMs = 100; // Initial delay for retry attempts in milliseconds
 
     /// <summary>
-    /// Initializes SharpSevenZip by setting the library path.
+    /// Initializes the SevenZip library for archive extraction operations.
+    /// This method detects the system architecture and sets the appropriate native library path.
     /// This is called from App.xaml.cs at startup, but this method ensures
     /// it's initialized before any archive operations if needed.
     /// </summary>
     public static void InitializeSevenZip()
     {
-        lock (InitLock)
-        {
-            if (_sevenZipInitialized) return;
-        }
-
         lock (InitLock)
         {
             if (_sevenZipInitialized) return;
@@ -56,6 +58,14 @@ public static partial class HashCalculator
         }
     }
 
+    /// <summary>
+    /// Calculates hash values (CRC32, MD5, SHA1, SHA256) for a file or archive.
+    /// Supports both regular files and archive formats (ZIP, 7Z, RAR).
+    /// </summary>
+    /// <param name="filePath">The path to the file or archive to process.</param>
+    /// <param name="cancellationToken">Cancellation token to stop the operation.</param>
+    /// <param name="bugReportService">Optional bug report service for error tracking.</param>
+    /// <returns>A list of <see cref="GameFile"/> objects containing hash results for each file.</returns>
     public static async Task<List<GameFile>> CalculateHashesAsync(string filePath, CancellationToken cancellationToken, BugReportService? bugReportService = null)
     {
         InitializeSevenZip();
@@ -94,8 +104,8 @@ public static partial class HashCalculator
                     }
                     catch (ExtractionFailedException entryEx)
                     {
-                        // Individual entry is corrupted - log warning but continue with other files
-                        // Don't send bug report as this is a user file issue
+                        // Individual entry is corrupted - send bug report for tracking but continue with other files
+                        _ = bugReportService?.SendBugReportAsync($"Archive entry extraction failed for '{entry.FileName}' in archive '{fileInfo.Name}'", entryEx);
                         LoggerService.LogWarning("HashCalculator", $"Archive entry extraction failed for '{entry.FileName}' in archive '{fileInfo.Name}': {entryEx.Message}");
                         gameFiles.Add(new GameFile
                         {
@@ -112,7 +122,8 @@ public static partial class HashCalculator
                     }
                     catch (SharpSevenZipException entryEx)
                     {
-                        // Internal error extracting individual entry - log warning but continue
+                        // Internal error extracting individual entry - send bug report for tracking but continue
+                        _ = bugReportService?.SendBugReportAsync($"Internal error extracting entry '{entry.FileName}' from archive '{fileInfo.Name}'", entryEx);
                         LoggerService.LogWarning("HashCalculator", $"Internal error extracting entry '{entry.FileName}' from archive '{fileInfo.Name}': {entryEx.Message}");
                         gameFiles.Add(new GameFile
                         {
@@ -153,7 +164,8 @@ public static partial class HashCalculator
             }
             catch (SharpSevenZipArchiveException archiveEx)
             {
-                // Invalid or unrecognized archive format - user file issue, don't send bug report
+                // Invalid or unrecognized archive format - send bug report for tracking
+                _ = bugReportService?.SendBugReportAsync($"Invalid or unrecognized archive format for file '{fileInfo.Name}'", archiveEx);
                 LoggerService.LogWarning("HashCalculator", $"Invalid or unrecognized archive format for file '{fileInfo.Name}': {archiveEx.Message}");
                 return
                 [
@@ -172,7 +184,8 @@ public static partial class HashCalculator
             }
             catch (ExtractionFailedException archiveEx)
             {
-                // Archive is corrupted or has data errors - user file issue, don't send bug report
+                // Archive is corrupted or has data errors - send bug report for tracking
+                _ = bugReportService?.SendBugReportAsync($"Archive extraction failed for file '{fileInfo.Name}'", archiveEx);
                 LoggerService.LogWarning("HashCalculator", $"Archive extraction failed for file '{fileInfo.Name}': {archiveEx.Message}");
                 return
                 [
@@ -191,7 +204,8 @@ public static partial class HashCalculator
             }
             catch (SharpSevenZipException sevenZipEx)
             {
-                // Internal SharpSevenZip error during extraction - user file issue, don't send bug report
+                // Internal SharpSevenZip error during extraction - send bug report for tracking
+                _ = bugReportService?.SendBugReportAsync($"SharpSevenZip internal error processing archive '{fileInfo.Name}'", sevenZipEx);
                 LoggerService.LogWarning("HashCalculator", $"SharpSevenZip internal error processing archive '{fileInfo.Name}': {sevenZipEx.Message}");
                 return
                 [
@@ -262,7 +276,7 @@ public static partial class HashCalculator
     {
         try
         {
-            await using var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, 65536, true);
+            await using var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, BufferSize, true);
             return await ProcessStreamAsync(
                 fileStream,
                 fileInfo.Name,
@@ -272,7 +286,7 @@ public static partial class HashCalculator
         }
         catch (OperationCanceledException)
         {
-            throw; // Re-throw to allow proper cancellation handling upstream
+            throw;
         }
         catch (Exception ex)
         {
@@ -320,7 +334,7 @@ public static partial class HashCalculator
         };
 
         const int maxRetries = 3;
-        var retryDelay = 100; // Initial delay in milliseconds
+        var retryDelay = InitialRetryDelayMs;
 
         for (var attempt = 0; attempt < maxRetries; attempt++)
         {
@@ -335,7 +349,7 @@ public static partial class HashCalculator
                 // Use array instead of Span to allow usage across await boundaries
                 HashAlgorithm[] algorithms = [crc32, md5, sha1, sha256];
 
-                var buffer = new byte[65536];
+                var buffer = new byte[BufferSize];
                 int bytesRead;
                 while ((bytesRead = await stream.ReadAsync(buffer, cancellationToken).ConfigureAwait(false)) > 0)
                 {
@@ -360,7 +374,7 @@ public static partial class HashCalculator
             }
             catch (OperationCanceledException)
             {
-                throw; // Re-throw cancellation so it propagates to the UI
+                throw;
             }
             catch (IOException ex) when (IsAccessDeniedError(ex))
             {
@@ -410,7 +424,7 @@ public static partial class HashCalculator
     // Local function for efficient hex conversion
     private static string ToHexLower(byte[]? hash)
     {
-        return Convert.ToHexStringLower(hash ?? []);
+        return hash == null ? string.Empty : Convert.ToHexStringLower(hash);
     }
 
     private static bool IsAccessDeniedError(IOException ex)

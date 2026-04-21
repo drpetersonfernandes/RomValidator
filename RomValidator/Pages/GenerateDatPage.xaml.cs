@@ -36,6 +36,10 @@ public partial class GenerateDatPage : IDisposable
     private int _discoveredFilesCount;
     private int _archiveExpansionCount;
 
+    /// <summary>
+    /// Initializes a new instance of the GenerateDatPage class.
+    /// </summary>
+    /// <param name="mainWindow">The main window instance for status updates.</param>
     public GenerateDatPage(MainWindow mainWindow)
     {
         _mainWindow = mainWindow;
@@ -268,7 +272,7 @@ public partial class GenerateDatPage : IDisposable
                 if (gameFile.ErrorMessage != null)
                 {
                     // Log error to bug report service or UI
-                    if (gameFile.ErrorMessage != "File is locked or access denied after retries")
+                    if (!string.Equals(gameFile.ErrorMessage, "File is locked or access denied after retries", StringComparison.Ordinal))
                     {
                         _ = _mainWindow.BugReportService.SendBugReportAsync($"Error hashing file {filePath}: {gameFile.ErrorMessage}");
                     }
@@ -521,6 +525,9 @@ public partial class GenerateDatPage : IDisposable
         ResetPage();
     }
 
+    /// <summary>
+    /// Resets the page to its initial state, clearing all data and stopping ongoing operations.
+    /// </summary>
     public void ResetPage()
     {
         lock (_ctsLock)
@@ -580,6 +587,10 @@ public partial class GenerateDatPage : IDisposable
         }
     }
 
+    /// <summary>
+    /// Disposes of resources used by the GenerateDatPage.
+    /// Stops timers and cancels ongoing operations.
+    /// </summary>
     public void Dispose()
     {
         // Stop and dispose timer properly

@@ -8,8 +8,13 @@ namespace RomValidator;
 
 public partial class AboutWindow
 {
+    /// <summary>Gets the bug report service for error tracking.</summary>
     public BugReportService BugReportService { get; }
 
+    /// <summary>
+    /// Initializes a new instance of the AboutWindow class.
+    /// </summary>
+    /// <param name="bugReportService">The bug report service for error tracking.</param>
     public AboutWindow(BugReportService bugReportService)
     {
         BugReportService = bugReportService;

@@ -16,6 +16,10 @@ public partial class App
     private ApplicationStatsService? _applicationStatsService;
     private static CancellationTokenSource? _globalCancellationTokenSource;
 
+    /// <summary>
+    /// Initializes a new instance of the App class.
+    /// Sets up global cancellation tokens, services, and exception handling.
+    /// </summary>
     public App()
     {
         // Initialize global cancellation token source

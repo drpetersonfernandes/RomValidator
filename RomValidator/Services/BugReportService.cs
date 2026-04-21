@@ -21,6 +21,12 @@ public class BugReportService : IDisposable
     private readonly string _applicationName;
     private const int MaxMessageLength = 30000;
 
+    /// <summary>
+    /// Initializes a new instance of the BugReportService class.
+    /// </summary>
+    /// <param name="apiUrl">The URL of the bug report API endpoint.</param>
+    /// <param name="apiKey">The API key for authentication.</param>
+    /// <param name="applicationName">The name of the application for bug reporting.</param>
     public BugReportService(string apiUrl, string apiKey, string applicationName)
     {
         _apiUrl = apiUrl;
@@ -56,14 +62,14 @@ public class BugReportService : IDisposable
 
             // Create payload matching the API's BugReportRequest structure
             // The API expects exactly these 6 fields - all environment details must be in the message field
-            var payload = new
+            var payload = new BugReportPayload
             {
-                message = reportMessage,  // Contains all formatted environment and error details
-                applicationName = _applicationName,
-                version = GetApplicationVersion(),
-                userInfo = additionalInfo,
-                environment = context,
-                stackTrace = exception?.StackTrace
+                Message = reportMessage,  // Contains all formatted environment and error details
+                ApplicationName = _applicationName,
+                Version = GetApplicationVersion(),
+                UserInfo = additionalInfo,
+                Environment = context,
+                StackTrace = exception?.StackTrace
             };
 
             // Send the request using HttpRequestMessage for thread safety
@@ -77,7 +83,7 @@ public class BugReportService : IDisposable
             {
                 // The API returns a simple JSON with message and id fields
                 var responseContent = await response.Content.ReadAsStringAsync(cancellationToken);
-                return responseContent.Contains("\"message\"") || responseContent.Contains("\"id\"");
+                return responseContent.Contains("\"message\"", StringComparison.Ordinal) || responseContent.Contains("\"id\"", StringComparison.Ordinal);
             }
 
             // Silently fail - don't log to avoid recursive bug reports
@@ -272,6 +278,9 @@ public class BugReportService : IDisposable
         }
     }
 
+    /// <summary>
+    /// Disposes of the HTTP client used by the service.
+    /// </summary>
     public void Dispose()
     {
         // Dispose the HttpClient to release resources

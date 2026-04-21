@@ -14,13 +14,20 @@ public partial class MainWindow : IDisposable
     private static readonly Brush SInactiveBrush = Brushes.Transparent;
 
     // Services
+    /// <summary>Gets the bug report service for error tracking.</summary>
     public BugReportService BugReportService { get; }
+    
+    /// <summary>Gets the GitHub version checker for update notifications.</summary>
     public GitHubVersionChecker VersionChecker { get; }
 
     // Pages
     private readonly ValidatePage _validatePage;
     private readonly GenerateDatPage _generateDatPage;
 
+    /// <summary>
+    /// Initializes a new instance of the MainWindow class.
+    /// Sets up services, exception handling, and application pages.
+    /// </summary>
     public MainWindow()
     {
         InitializeComponent();
@@ -67,12 +74,42 @@ public partial class MainWindow : IDisposable
         }
     }
 
+    /// <summary>
+    /// Updates the status bar message asynchronously from any thread.
+    /// </summary>
+    /// <param name="message">The message to display in the status bar.</param>
+    /// <param name="cancellationToken">Cancellation token to stop the operation.</param>
+    public async Task UpdateStatusBarMessageAsync(string message, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            await Application.Current.Dispatcher.InvokeAsync(() =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                StatusBarMessageTextBlock.Text = message;
+            });
+        }
+        catch (OperationCanceledException)
+        {
+            // Operation was cancelled, ignore
+        }
+        catch (Exception ex)
+        {
+            // Log the exception but don't crash the application
+            System.Diagnostics.Debug.WriteLine($"Error updating status bar: {ex.Message}");
+            _ = BugReportService.SendBugReportAsync("Error updating status bar", ex);
+        }
+    }
+
+    /// <summary>
+    /// Updates the status bar message synchronously from any thread.
+    /// </summary>
+    /// <param name="message">The message to display in the status bar.</param>
     public void UpdateStatusBarMessage(string message)
     {
-        Application.Current.Dispatcher.InvokeAsync(() =>
-        {
-            StatusBarMessageTextBlock.Text = message;
-        });
+        // Keep the synchronous version for backward compatibility
+        // but implement it using the async version with a default cancellation token
+        _ = UpdateStatusBarMessageAsync(message);
     }
 
     private void ValidateRoms_Click(object sender, RoutedEventArgs e)
@@ -110,6 +147,10 @@ public partial class MainWindow : IDisposable
         Dispose();
     }
 
+    /// <summary>
+    /// Disposes of resources used by the MainWindow.
+    /// Cancels all ongoing operations and disposes of pages and services.
+    /// </summary>
     public void Dispose()
     {
         // Cancel all ongoing operations first

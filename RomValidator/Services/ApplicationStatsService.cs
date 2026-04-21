@@ -4,6 +4,10 @@ using System.Reflection;
 
 namespace RomValidator.Services;
 
+/// <summary>
+/// Service for recording application usage statistics to a remote API.
+/// Tracks application launches and usage for analytics purposes.
+/// </summary>
 public class ApplicationStatsService(string baseUrl, string apiKey, string applicationId) : IDisposable
 {
     private readonly HttpClient _httpClient = new();
@@ -12,6 +16,11 @@ public class ApplicationStatsService(string baseUrl, string apiKey, string appli
     private readonly string _applicationId = applicationId;
     private bool _hasRecordedUsage;
 
+    /// <summary>
+    /// Records application usage statistics to the remote API.
+    /// This method is called once per application launch to track usage.
+    /// </summary>
+    /// <returns>True if the usage was recorded successfully, false otherwise.</returns>
     public async Task<bool> RecordUsageAsync()
     {
         if (_hasRecordedUsage)
@@ -60,6 +69,9 @@ public class ApplicationStatsService(string baseUrl, string apiKey, string appli
         }
     }
 
+    /// <summary>
+    /// Disposes of the HTTP client used by the service.
+    /// </summary>
     public void Dispose()
     {
         _httpClient.Dispose();

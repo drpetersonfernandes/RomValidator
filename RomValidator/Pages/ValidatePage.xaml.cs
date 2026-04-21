@@ -38,6 +38,10 @@ public partial class ValidatePage : IDisposable
     private int _duplicateCount;
     private readonly Stopwatch _operationTimer = new();
 
+    /// <summary>
+    /// Initializes a new instance of the ValidatePage class.
+    /// </summary>
+    /// <param name="mainWindow">The main window instance for status updates.</param>
     public ValidatePage(MainWindow mainWindow)
     {
         _mainWindow = mainWindow;
@@ -507,7 +511,7 @@ public partial class ValidatePage : IDisposable
             LogMessage($"[FAILED] {fileName} - {matchDetails}");
 
             // If it was a critical error (like extraction failure), it will appear in matchDetails
-            if (!string.IsNullOrEmpty(matchDetails) && (matchDetails.Contains("Archive extraction failed") || matchDetails.Contains("Error")))
+            if (!string.IsNullOrEmpty(matchDetails) && (matchDetails.Contains("Archive extraction failed", StringComparison.Ordinal) || matchDetails.Contains("Error", StringComparison.Ordinal)))
             {
                 // Optional: Highlight critical errors
                 _mainWindow.UpdateStatusBarMessage($"Error processing {fileName}");
@@ -1412,6 +1416,10 @@ public partial class ValidatePage : IDisposable
         MessageBox.Show(_mainWindow, message, "Error", MessageBoxButton.OK, MessageBoxImage.Error);
     }
 
+    /// <summary>
+    /// Disposes of resources used by the ValidatePage.
+    /// Cancels ongoing operations and cleans up resources.
+    /// </summary>
     public void Dispose()
     {
         lock (_ctsLock)
