@@ -1539,20 +1539,8 @@ public partial class ValidatePage : IDisposable
                 }
             }
 
-            // Delete the original archive
-            try
-            {
-                File.Delete(archivePath);
-            }
-            catch (Exception deleteEx)
-            {
-                var errorMsg = $"Failed to delete original archive '{archiveFileName}' before repackaging";
-                LoggerService.LogError("FixArchiveInternal", errorMsg);
-                _ = _mainWindow.BugReportService.SendBugReportAsync(errorMsg, deleteEx);
-                throw new InvalidOperationException($"Cannot delete original archive: {deleteEx.Message}", deleteEx);
-            }
-
             // Repackage the archive using SharpSevenZip
+            var tempArchivePath = outputArchivePath + ".tmp";
             try
             {
                 await Task.Run(() =>
@@ -1564,18 +1552,21 @@ public partial class ValidatePage : IDisposable
                         CompressionMethod = is7ZFile ? CompressionMethod.Lzma2 : CompressionMethod.Default
                     };
 
+                    // SharpSevenZip.CompressFileDictionary expects:
+                    //   Key   = archive entry name
+                    //   Value = file path on disk
                     var filesDictionary = new Dictionary<string, string>();
                     foreach (var (filePath, entryName) in renamedFilesMapping)
                     {
                         if (File.Exists(filePath))
                         {
-                            filesDictionary[filePath] = entryName;
+                            filesDictionary[entryName] = filePath;
                         }
                     }
 
                     if (filesDictionary.Count > 0)
                     {
-                        compressor.CompressFileDictionary(filesDictionary, outputArchivePath);
+                        compressor.CompressFileDictionary(filesDictionary, tempArchivePath);
                     }
                 });
             }
@@ -1586,6 +1577,32 @@ public partial class ValidatePage : IDisposable
                 LoggerService.LogError("FixArchiveInternal", errorMsg);
                 _ = _mainWindow.BugReportService.SendBugReportAsync(errorMsg, compressEx);
                 throw new InvalidOperationException($"Archive compression failed: {compressEx.Message}", compressEx);
+            }
+
+            // Delete the original archive only after successful compression
+            try
+            {
+                File.Delete(archivePath);
+            }
+            catch (Exception deleteEx)
+            {
+                var errorMsg = $"Failed to delete original archive '{archiveFileName}' after repackaging";
+                LoggerService.LogError("FixArchiveInternal", errorMsg);
+                _ = _mainWindow.BugReportService.SendBugReportAsync(errorMsg, deleteEx);
+                throw new InvalidOperationException($"Cannot delete original archive: {deleteEx.Message}", deleteEx);
+            }
+
+            // Replace original with newly created archive
+            try
+            {
+                File.Move(tempArchivePath, outputArchivePath);
+            }
+            catch (Exception moveEx)
+            {
+                var errorMsg = $"Failed to move repackaged archive '{archiveFileName}' to final location";
+                LoggerService.LogError("FixArchiveInternal", errorMsg);
+                _ = _mainWindow.BugReportService.SendBugReportAsync(errorMsg, moveEx);
+                throw new InvalidOperationException($"Cannot finalize archive: {moveEx.Message}", moveEx);
             }
 
             Interlocked.Increment(ref _renamedCount);
@@ -1757,23 +1774,11 @@ public partial class ValidatePage : IDisposable
                 renamedFilesMapping.Add((newPath, newName));
             }
 
-            // Delete the original archive
-            try
-            {
-                File.Delete(archivePath);
-            }
-            catch (Exception deleteEx)
-            {
-                var errorMsg = $"Failed to delete original archive '{archiveFileName}' before repackaging";
-                LoggerService.LogError("RenameInsideArchive", errorMsg);
-                _ = _mainWindow.BugReportService.SendBugReportAsync(errorMsg, deleteEx);
-                throw new InvalidOperationException($"Cannot delete original archive: {deleteEx.Message}", deleteEx);
-            }
-
             // Create new archive using SharpSevenZip compressor
             // For 7Z files: keep as 7Z
             // For RAR files: convert to ZIP (cannot create RAR)
             // For ZIP files: keep as ZIP
+            var tempArchivePath = outputArchivePath + ".tmp";
             try
             {
                 await Task.Run(() =>
@@ -1785,15 +1790,16 @@ public partial class ValidatePage : IDisposable
                         CompressionMethod = is7ZFile ? CompressionMethod.Lzma2 : CompressionMethod.Default
                     };
 
-                    // Create a temporary dictionary mapping file paths to archive entry names
-                    // Only include files that actually exist (SharpSevenZip requires all files to exist)
+                    // SharpSevenZip.CompressFileDictionary expects:
+                    //   Key   = archive entry name
+                    //   Value = file path on disk
                     var filesDictionary = new Dictionary<string, string>();
                     var missingFiles = new List<string>();
                     foreach (var (filePath, entryName) in renamedFilesMapping)
                     {
                         if (File.Exists(filePath))
                         {
-                            filesDictionary[filePath] = entryName;
+                            filesDictionary[entryName] = filePath;
                         }
                         else
                         {
@@ -1813,7 +1819,7 @@ public partial class ValidatePage : IDisposable
                         throw new InvalidOperationException("No files available to create archive. All extracted files are missing from temp directory.");
                     }
 
-                    compressor.CompressFileDictionary(filesDictionary, outputArchivePath);
+                    compressor.CompressFileDictionary(filesDictionary, tempArchivePath);
                 });
             }
             catch (Exception compressEx)
@@ -1823,6 +1829,32 @@ public partial class ValidatePage : IDisposable
                 LoggerService.LogError("RenameInsideArchive", errorMsg);
                 _ = _mainWindow.BugReportService.SendBugReportAsync(errorMsg, compressEx);
                 throw new InvalidOperationException($"Archive compression failed: {compressEx.Message}", compressEx);
+            }
+
+            // Delete the original archive only after successful compression
+            try
+            {
+                File.Delete(archivePath);
+            }
+            catch (Exception deleteEx)
+            {
+                var errorMsg = $"Failed to delete original archive '{archiveFileName}' after repackaging";
+                LoggerService.LogError("RenameInsideArchive", errorMsg);
+                _ = _mainWindow.BugReportService.SendBugReportAsync(errorMsg, deleteEx);
+                throw new InvalidOperationException($"Cannot delete original archive: {deleteEx.Message}", deleteEx);
+            }
+
+            // Replace original with newly created archive
+            try
+            {
+                File.Move(tempArchivePath, outputArchivePath);
+            }
+            catch (Exception moveEx)
+            {
+                var errorMsg = $"Failed to move repackaged archive '{archiveFileName}' to final location";
+                LoggerService.LogError("RenameInsideArchive", errorMsg);
+                _ = _mainWindow.BugReportService.SendBugReportAsync(errorMsg, moveEx);
+                throw new InvalidOperationException($"Cannot finalize archive: {moveEx.Message}", moveEx);
             }
         }
         finally
