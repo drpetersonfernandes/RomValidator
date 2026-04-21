@@ -94,15 +94,32 @@ public static partial class HashCalculator
                     }
                     catch (ExtractionFailedException entryEx)
                     {
-                        // Individual entry is corrupted - log it but continue with other files
-                        // Send bug report for tracking during development
-                        _ = bugReportService?.SendBugReportAsync($"Archive entry extraction failed for '{entry.FileName}' in archive", entryEx);
+                        // Individual entry is corrupted - log warning but continue with other files
+                        // Don't send bug report as this is a user file issue
+                        LoggerService.LogWarning("HashCalculator", $"Archive entry extraction failed for '{entry.FileName}' in archive '{fileInfo.Name}': {entryEx.Message}");
                         gameFiles.Add(new GameFile
                         {
                             FileName = entry.FileName,
                             GameName = Path.GetFileNameWithoutExtension(entry.FileName),
                             FileSize = (long)entry.Size,
-                            ErrorMessage = "File is corrupted within archive",
+                            ErrorMessage = "This file is corrupted or damaged within the archive",
+                            Crc32 = "ERROR",
+                            Md5 = "ERROR",
+                            Sha1 = "ERROR",
+                            Sha256 = "ERROR"
+                        });
+                        continue;
+                    }
+                    catch (SharpSevenZipException entryEx)
+                    {
+                        // Internal error extracting individual entry - log warning but continue
+                        LoggerService.LogWarning("HashCalculator", $"Internal error extracting entry '{entry.FileName}' from archive '{fileInfo.Name}': {entryEx.Message}");
+                        gameFiles.Add(new GameFile
+                        {
+                            FileName = entry.FileName,
+                            GameName = Path.GetFileNameWithoutExtension(entry.FileName),
+                            FileSize = (long)entry.Size,
+                            ErrorMessage = "An error occurred while extracting this file from the archive. It may be corrupted or use an unsupported format.",
                             Crc32 = "ERROR",
                             Md5 = "ERROR",
                             Sha1 = "ERROR",
@@ -134,11 +151,10 @@ public static partial class HashCalculator
             {
                 throw;
             }
-            catch (ExtractionFailedException archiveEx)
+            catch (SharpSevenZipArchiveException archiveEx)
             {
-                // Archive is corrupted or has data errors
-                // Send bug report for tracking during development
-                _ = bugReportService?.SendBugReportAsync($"Archive extraction failed for file '{fileInfo.Name}'", archiveEx);
+                // Invalid or unrecognized archive format - user file issue, don't send bug report
+                LoggerService.LogWarning("HashCalculator", $"Invalid or unrecognized archive format for file '{fileInfo.Name}': {archiveEx.Message}");
                 return
                 [
                     new GameFile
@@ -146,7 +162,45 @@ public static partial class HashCalculator
                         FileName = fileInfo.Name,
                         GameName = Path.GetFileNameWithoutExtension(fileInfo.Name),
                         FileSize = fileInfo.Length,
-                        ErrorMessage = "Archive is corrupted or has data errors",
+                        ErrorMessage = "The archive file appears to be corrupted, incomplete, or in an unsupported format. The file may be damaged or not a valid archive.",
+                        Crc32 = "ERROR",
+                        Md5 = "ERROR",
+                        Sha1 = "ERROR",
+                        Sha256 = "ERROR"
+                    }
+                ];
+            }
+            catch (ExtractionFailedException archiveEx)
+            {
+                // Archive is corrupted or has data errors - user file issue, don't send bug report
+                LoggerService.LogWarning("HashCalculator", $"Archive extraction failed for file '{fileInfo.Name}': {archiveEx.Message}");
+                return
+                [
+                    new GameFile
+                    {
+                        FileName = fileInfo.Name,
+                        GameName = Path.GetFileNameWithoutExtension(fileInfo.Name),
+                        FileSize = fileInfo.Length,
+                        ErrorMessage = "The archive is corrupted or has data errors. The file may be incomplete or damaged.",
+                        Crc32 = "ERROR",
+                        Md5 = "ERROR",
+                        Sha1 = "ERROR",
+                        Sha256 = "ERROR"
+                    }
+                ];
+            }
+            catch (SharpSevenZipException sevenZipEx)
+            {
+                // Internal SharpSevenZip error during extraction - user file issue, don't send bug report
+                LoggerService.LogWarning("HashCalculator", $"SharpSevenZip internal error processing archive '{fileInfo.Name}': {sevenZipEx.Message}");
+                return
+                [
+                    new GameFile
+                    {
+                        FileName = fileInfo.Name,
+                        GameName = Path.GetFileNameWithoutExtension(fileInfo.Name),
+                        FileSize = fileInfo.Length,
+                        ErrorMessage = "An internal error occurred while reading the archive. The file may be corrupted, partially downloaded, or use an unsupported compression method.",
                         Crc32 = "ERROR",
                         Md5 = "ERROR",
                         Sha1 = "ERROR",
@@ -156,7 +210,9 @@ public static partial class HashCalculator
             }
             catch (Exception ex)
             {
-                _ = bugReportService?.SendBugReportAsync($"Archive extraction failed for file '{fileInfo.Name}'", ex);
+                // Unexpected error - send bug report for tracking
+                _ = bugReportService?.SendBugReportAsync($"Unexpected archive extraction error for file '{fileInfo.Name}'", ex);
+                LoggerService.LogException("HashCalculator", ex, $"Unexpected error processing archive '{fileInfo.Name}'");
                 // Return an error object for the archive itself so the UI knows extraction failed.
                 // We do NOT hash the container anymore.
                 return
@@ -166,7 +222,7 @@ public static partial class HashCalculator
                         FileName = fileInfo.Name,
                         GameName = Path.GetFileNameWithoutExtension(fileInfo.Name),
                         FileSize = fileInfo.Length,
-                        ErrorMessage = $"Archive extraction failed: {ex.Message}",
+                        ErrorMessage = $"An unexpected error occurred while processing the archive: {ex.Message}",
                         Crc32 = "ERROR",
                         Md5 = "ERROR",
                         Sha1 = "ERROR",
@@ -364,6 +420,6 @@ public static partial class HashCalculator
                ex.Message.Contains("being used by another process", StringComparison.OrdinalIgnoreCase);
     }
 
-    [GeneratedRegex(@"\.(zip|7z|rar|gz|tar|bz2|xz|lzma|cab|iso|img|vhd|wim)$", RegexOptions.IgnoreCase, "en-US")]
+    [GeneratedRegex(@"\.(zip|7z|rar)$", RegexOptions.IgnoreCase, "en-US")]
     private static partial Regex MyRegex();
 }

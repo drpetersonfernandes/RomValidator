@@ -7,11 +7,6 @@ public class DuplicateGroup
 {
     public string Hash { get; set; } = string.Empty;
     public string Filenames { get; set; } = string.Empty;
-
-    public override string ToString()
-    {
-        return $"{Hash}: {Filenames}";
-    }
 }
 
 public partial class DuplicateFilesWindow
@@ -21,14 +16,12 @@ public partial class DuplicateFilesWindow
         InitializeComponent();
     }
 
-    public void SetDuplicateData(int totalDuplicates, Dictionary<string, List<string>> hashToFilenames, string? customTitle = null)
+    public void SetDuplicateData(Dictionary<string, List<string>> hashToFilenames, string? customTitle = null)
     {
         if (!string.IsNullOrEmpty(customTitle))
         {
             Title = customTitle;
         }
-
-        DuplicateCountText.Text = $"{totalDuplicates} duplicate group(s) found";
 
         var duplicateGroups = new ObservableCollection<DuplicateGroup>();
         foreach (var kvp in hashToFilenames)
@@ -43,6 +36,7 @@ public partial class DuplicateFilesWindow
             }
         }
 
+        DuplicateCountText.Text = $"{duplicateGroups.Count} duplicate group(s) found";
         DuplicateListView.ItemsSource = duplicateGroups;
     }
 

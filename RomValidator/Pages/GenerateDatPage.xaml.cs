@@ -330,7 +330,7 @@ public partial class GenerateDatPage : IDisposable
                 {
                     Owner = _mainWindow
                 };
-                duplicateWindow.SetDuplicateData(duplicateGroups, duplicateHashToFilenames, "Duplicate ROMs Detected");
+                duplicateWindow.SetDuplicateData(duplicateHashToFilenames, "Duplicate ROMs Detected");
                 duplicateWindow.ShowDialog();
             });
         }
@@ -444,7 +444,7 @@ public partial class GenerateDatPage : IDisposable
                         Owner = _mainWindow,
                         Title = "Duplicate ROMs Detected (Export)"
                     };
-                    duplicateWindow.SetDuplicateData(hashDuplicates.Count, duplicateHashToFilenames, "Duplicate ROMs Detected (Export)");
+                    duplicateWindow.SetDuplicateData(duplicateHashToFilenames, "Duplicate ROMs Detected (Export)");
                     duplicateWindow.ShowDialog();
 
                     _mainWindow.UpdateStatusBarMessage($"Warning: {hashDuplicates.Count} duplicate ROM(s) detected!");
