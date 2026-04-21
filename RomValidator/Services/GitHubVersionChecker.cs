@@ -36,7 +36,7 @@ public class GitHubVersionChecker : IDisposable
     /// <summary>
     /// Checks GitHub for a newer version of the application.
     /// </summary>
-    /// <returns>A tuple containing: 
+    /// <returns>A tuple containing:
     /// - IsNewVersionAvailable: True if a newer version is available
     /// - ReleaseUrl: The URL to the latest release page
     /// - LatestVersionTag: The version tag of the latest release
@@ -105,7 +105,7 @@ public class GitHubVersionChecker : IDisposable
     /// </summary>
     public void Dispose()
     {
-        _httpClient?.Dispose();
+        _httpClient.Dispose();
         GC.SuppressFinalize(this);
     }
 }

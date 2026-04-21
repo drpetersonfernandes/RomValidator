@@ -57,6 +57,7 @@ public class Crc32Algorithm : HashAlgorithm
         for (var count = cbSize; count > 0; count--)
         {
             if (ibStart >= array.Length) break;
+
             _currentCrc = (_currentCrc >> 8) ^ ChecksumTable[array[ibStart] ^ (_currentCrc & 0xFF)];
             ibStart++;
         }

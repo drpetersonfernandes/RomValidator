@@ -151,7 +151,7 @@ public static class LoggerService
         {
             _isSendingBugReport = true;
             var cancellationToken = App.GetGlobalCancellationToken();
-            
+
             _ = Task.Run(async () =>
             {
                 try

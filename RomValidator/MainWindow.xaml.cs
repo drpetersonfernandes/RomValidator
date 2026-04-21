@@ -16,7 +16,7 @@ public partial class MainWindow : IDisposable
     // Services
     /// <summary>Gets the bug report service for error tracking.</summary>
     public BugReportService BugReportService { get; }
-    
+
     /// <summary>Gets the GitHub version checker for update notifications.</summary>
     public GitHubVersionChecker VersionChecker { get; }
 
@@ -157,9 +157,9 @@ public partial class MainWindow : IDisposable
         try
         {
             App.CancelAllOperations();
-            
+
             // Give tasks a brief moment to respond to cancellation
-            System.Threading.Thread.Sleep(50);
+            Thread.Sleep(50);
         }
         catch (Exception ex)
         {
@@ -186,8 +186,6 @@ public partial class MainWindow : IDisposable
             System.Diagnostics.Debug.WriteLine($"VersionChecker dispose error: {ex.Message}");
             _ = BugReportService.SendBugReportAsync("Error disposing VersionChecker", ex);
         }
-
-
 
         try
         {

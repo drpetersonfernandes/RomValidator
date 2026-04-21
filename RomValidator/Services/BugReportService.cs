@@ -41,9 +41,9 @@ public class BugReportService : IDisposable
     /// <param name="exception">The exception that occurred (optional)</param>
     /// <param name="additionalInfo">Additional information about the error (optional)</param>
     /// <returns>True if the report was sent successfully, false otherwise</returns>
-    public async Task<bool> SendBugReportAsync(string context, Exception? exception = null, string? additionalInfo = null)
+    public Task<bool> SendBugReportAsync(string context, Exception? exception = null, string? additionalInfo = null)
     {
-        return await SendBugReportAsync(context, exception, additionalInfo, CancellationToken.None);
+        return SendBugReportAsync(context, exception, additionalInfo, CancellationToken.None);
     }
 
     /// <summary>
@@ -64,7 +64,7 @@ public class BugReportService : IDisposable
             // The API expects exactly these 6 fields - all environment details must be in the message field
             var payload = new BugReportPayload
             {
-                Message = reportMessage,  // Contains all formatted environment and error details
+                Message = reportMessage, // Contains all formatted environment and error details
                 ApplicationName = _applicationName,
                 Version = GetApplicationVersion(),
                 UserInfo = additionalInfo,
@@ -97,10 +97,6 @@ public class BugReportService : IDisposable
             return false;
         }
     }
-
-
-
-
 
     /// <summary>
     /// Builds a comprehensive bug report message with all required sections.
