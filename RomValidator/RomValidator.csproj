@@ -15,7 +15,7 @@
         <IsPackable>false</IsPackable>
         <NeutralLanguage>en</NeutralLanguage>
         <RuntimeIdentifiers>win-x64;win-arm64</RuntimeIdentifiers>
-        <GenerateDocumentationFile>true</GenerateDocumentationFile>
+        <GenerateDocumentationFile>false</GenerateDocumentationFile>
         <DocumentationFile>bin\$(Configuration)\$(TargetFramework)\RomValidator.xml</DocumentationFile>
         <NoWarn>$(NoWarn);1591</NoWarn>
     </PropertyGroup>
@@ -32,6 +32,12 @@
         <None Remove="images\exit.png" />
         <None Remove="images\logo.png" />
         <Resource Include="images\logo.png" />
+        <None Update="7z_arm64.dll">
+          <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+        </None>
+        <None Update="7z_x64.dll">
+          <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+        </None>
 
     </ItemGroup>
 
