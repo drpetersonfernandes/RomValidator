@@ -128,6 +128,16 @@ public partial class GenerateDatPage : IDisposable
                 }
 
                 _mainWindow.UpdateStatusBarMessage($"Hashing complete. {_processedFileCount} files processed.");
+
+                // Automatically trigger save dialog after hash calculation
+                lock (_operationLock)
+                {
+                    if (_processedFilesList.Count > 0)
+                    {
+                        // Use Dispatcher to ensure UI thread execution
+                        Dispatcher.InvokeAsync(() => ExportDatButton_ClickAsync(this, new RoutedEventArgs()));
+                    }
+                }
             }
             else
             {
@@ -426,42 +436,8 @@ public partial class GenerateDatPage : IDisposable
                         MessageBoxButton.OK, MessageBoxImage.Warning);
                 }
 
-                // Detect duplicate ROMs: same hash but different filenames (same ROM data stored under different names)
-                var validFiles = filesToExport.Where(static file => file.ErrorMessage == null && !string.IsNullOrEmpty(file.Sha256)).ToList();
-                var groupedByHash = validFiles.GroupBy(static file => file.Sha256, StringComparer.OrdinalIgnoreCase).ToList();
-                var hashDuplicates = groupedByHash
-                    .Where(static group => group.Select(static f => f.FileName).Distinct(StringComparer.OrdinalIgnoreCase).Count() > 1)
-                    .ToList();
-
-                if (hashDuplicates.Count > 0)
-                {
-                    // Convert to dictionary format for the modal window
-                    var duplicateHashToFilenames = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
-                    foreach (var duplicate in hashDuplicates)
-                    {
-                        var filenames = duplicate.Select(static f => f.FileName).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
-                        duplicateHashToFilenames[duplicate.Key] = filenames;
-                    }
-
-                    var duplicateWindow = new DuplicateFilesWindow
-                    {
-                        Owner = _mainWindow,
-                        Title = "Duplicate ROMs Detected (Export)"
-                    };
-                    duplicateWindow.SetDuplicateData(duplicateHashToFilenames, "Duplicate ROMs Detected (Export)");
-                    duplicateWindow.ShowDialog();
-
-                    _mainWindow.UpdateStatusBarMessage($"Warning: {hashDuplicates.Count} duplicate ROM(s) detected!");
-                }
-                else
-                {
-                    // Show info that duplicates were checked but none found
-                    _mainWindow.UpdateStatusBarMessage("No duplicate ROMs detected.");
-                }
-
-                // Show final summary about duplicates in the input folder
-                 // Note: Duplicate warnings are now shown in modal windows above
-                 // Filename collisions show MessageBox, duplicate ROMs show modal window
+                // Note: Duplicate ROM notifications are already shown after hash calculation completes
+                // (see HashFilesAsync method lines 323-341), so we don't show them again here
 
                 // Group files by GameName to create proper No-Intro DAT format
                 dataFile.Games.AddRange(filesToExport
