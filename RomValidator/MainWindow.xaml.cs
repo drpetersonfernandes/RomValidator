@@ -16,7 +16,6 @@ public partial class MainWindow : IDisposable
     // Services
     public BugReportService BugReportService { get; }
     public GitHubVersionChecker VersionChecker { get; }
-    private readonly ApplicationStatsService _applicationStatsService;
 
     // Pages
     private readonly ValidatePage _validatePage;
@@ -34,21 +33,8 @@ public partial class MainWindow : IDisposable
 
         // Initialize global exception handling
         LoggerService.SetBugReportService(BugReportService);
-        ExceptionHandler.SetBugReportService(BugReportService);
 
         VersionChecker = new GitHubVersionChecker("drpetersonfernandes", "RomValidator", BugReportService);
-
-        // Initialize Application Stats Service
-        const string statsBaseUrl = "https://www.purelogiccode.com/ApplicationStats";
-        const string statsApplicationId = "rom-validator";
-        _applicationStatsService = new ApplicationStatsService(statsBaseUrl, apiKey, statsApplicationId);
-        _ = _applicationStatsService.RecordUsageAsync().ContinueWith(static t =>
-        {
-            if (t.IsFaulted)
-            {
-                LoggerService.LogError("Startup", $"Stats recording failed: {t.Exception?.InnerException?.Message}");
-            }
-        }, TaskContinuationOptions.OnlyOnFaulted);
 
         // Initialize Pages
         _validatePage = new ValidatePage(this);
@@ -120,11 +106,25 @@ public partial class MainWindow : IDisposable
 
     private void Window_Closing(object sender, CancelEventArgs e)
     {
+        // Don't cancel the closing event, just ensure proper cleanup
         Dispose();
     }
 
     public void Dispose()
     {
+        // Cancel all ongoing operations first
+        try
+        {
+            App.CancelAllOperations();
+            
+            // Give tasks a brief moment to respond to cancellation
+            System.Threading.Thread.Sleep(50);
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Error during shutdown: {ex.Message}");
+        }
+
         // Dispose services individually with error handling to prevent cascade failures
         try
         {
@@ -146,15 +146,7 @@ public partial class MainWindow : IDisposable
             _ = BugReportService.SendBugReportAsync("Error disposing VersionChecker", ex);
         }
 
-        try
-        {
-            _applicationStatsService.Dispose();
-        }
-        catch (Exception ex)
-        {
-            System.Diagnostics.Debug.WriteLine($"ApplicationStatsService dispose error: {ex.Message}");
-            _ = BugReportService.SendBugReportAsync("Error disposing ApplicationStatsService", ex);
-        }
+
 
         try
         {

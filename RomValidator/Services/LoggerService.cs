@@ -150,18 +150,24 @@ public static class LoggerService
         if (_bugReportService != null && !_isSendingBugReport)
         {
             _isSendingBugReport = true;
+            var cancellationToken = App.GetGlobalCancellationToken();
+            
             _ = Task.Run(async () =>
             {
                 try
                 {
                     if (exception != null)
                     {
-                        await _bugReportService.SendBugReportAsync(context, exception, message);
+                        await _bugReportService.SendBugReportAsync(context, exception, message, cancellationToken);
                     }
                     else
                     {
-                        await _bugReportService.SendBugReportAsync(context, null, message);
+                        await _bugReportService.SendBugReportAsync(context, null, message, cancellationToken);
                     }
+                }
+                catch (OperationCanceledException)
+                {
+                    // Application is shutting down, ignore cancellation
                 }
                 catch (Exception ex)
                 {
@@ -172,7 +178,7 @@ public static class LoggerService
                 {
                     _isSendingBugReport = false;
                 }
-            });
+            }, cancellationToken);
         }
     }
 }

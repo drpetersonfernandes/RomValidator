@@ -48,6 +48,12 @@
         <SolidColorBrush x:Key="WarningGoldenrodTextBrush" Color="#DAA520" />
         <SolidColorBrush x:Key="InfoBlueTextBrush" Color="#0000FF" />
 
+        <!-- Duplicate Window Colors -->
+        <SolidColorBrush x:Key="DuplicateWarningBackgroundBrush" Color="#FFF3E0" />
+        <SolidColorBrush x:Key="DuplicateWarningBorderBrush" Color="#FFCC80" />
+        <SolidColorBrush x:Key="DuplicateWarningTextBrush" Color="#E65100" />
+        <SolidColorBrush x:Key="DuplicateWindowCloseButtonBackgroundBrush" Color="#FF2196F3" />
+
         <!-- ============================================ -->
         <!-- BUTTON STYLES                                -->
         <!-- ============================================ -->
@@ -57,7 +63,7 @@
             <Setter Property="Padding" Value="12,8" />
             <Setter Property="Margin" Value="5" />
             <Setter Property="Background" Value="{StaticResource AccentBlueBrush}" />
-            <Setter Property="Foreground" Value="White" />
+            <Setter Property="Foreground" Value="{StaticResource WhiteBrush}" />
             <Setter Property="FontSize" Value="14" />
             <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="BorderThickness" Value="0" />
@@ -91,7 +97,7 @@
             <Setter Property="Margin" Value="5" />
             <Setter Property="FontSize" Value="13" />
             <Setter Property="BorderThickness" Value="0" />
-            <Setter Property="Foreground" Value="White" />
+            <Setter Property="Foreground" Value="{StaticResource WhiteBrush}" />
             <Setter Property="Background" Value="{StaticResource AccentBlueBrush}" />
             <Setter Property="Template">
                 <Setter.Value>
@@ -319,6 +325,44 @@
             <Setter Property="VerticalAlignment" Value="Stretch" />
             <Setter Property="Background" Value="{StaticResource StatusBarGrayBrush}" />
             <Setter Property="ShowsPreview" Value="True" />
+        </Style>
+
+        <!-- ============================================ -->
+        <!-- DUPLICATE WINDOW STYLES                      -->
+        <!-- ============================================ -->
+        
+        <!-- Duplicate Window Header TextBlock Style -->
+        <Style x:Key="DuplicateWindowHeaderTextBlockStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="16" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Margin" Value="0,0,0,10" />
+        </Style>
+        
+        <!-- Duplicate Window Label TextBlock Style -->
+        <Style x:Key="DuplicateWindowLabelTextBlockStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        
+        <!-- Duplicate Window Close Button Style -->
+        <Style x:Key="DuplicateWindowCloseButtonStyle" TargetType="Button">
+            <Setter Property="Padding" Value="15,5" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Background" Value="{StaticResource DuplicateWindowCloseButtonBackgroundBrush}" />
+            <Setter Property="Foreground" Value="{StaticResource WhiteBrush}" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" CornerRadius="3">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
     </Application.Resources>
 </Application>

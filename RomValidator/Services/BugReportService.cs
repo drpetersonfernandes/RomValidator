@@ -37,20 +37,33 @@ public class BugReportService : IDisposable
     /// <returns>True if the report was sent successfully, false otherwise</returns>
     public async Task<bool> SendBugReportAsync(string context, Exception? exception = null, string? additionalInfo = null)
     {
+        return await SendBugReportAsync(context, exception, additionalInfo, CancellationToken.None);
+    }
+
+    /// <summary>
+    /// Sends a bug report to the API with comprehensive environment and error details.
+    /// </summary>
+    /// <param name="context">Context or location where the error occurred</param>
+    /// <param name="exception">The exception that occurred (optional)</param>
+    /// <param name="additionalInfo">Additional information about the error (optional)</param>
+    /// <param name="cancellationToken">Cancellation token for the operation</param>
+    /// <returns>True if the report was sent successfully, false otherwise</returns>
+    public async Task<bool> SendBugReportAsync(string context, Exception? exception, string? additionalInfo, CancellationToken cancellationToken)
+    {
         try
         {
             var reportMessage = BuildBugReportMessage(context, exception, additionalInfo);
-            var environmentDetails = BuildEnvironmentDetails();
-            var errorDetails = BuildErrorDetails(context, additionalInfo);
-            var exceptionDetails = exception != null ? BuildExceptionDetailsObject(exception) : null;
 
-            var payload = new BugReportPayload
+            // Create payload matching the API's BugReportRequest structure
+            // The API expects exactly these 6 fields - all environment details must be in the message field
+            var payload = new
             {
-                Message = reportMessage,
-                ApplicationName = _applicationName,
-                EnvironmentDetails = environmentDetails,
-                ErrorDetails = errorDetails,
-                ExceptionDetails = exceptionDetails
+                message = reportMessage,  // Contains all formatted environment and error details
+                applicationName = _applicationName,
+                version = GetApplicationVersion(),
+                userInfo = additionalInfo,
+                environment = context,
+                stackTrace = exception?.StackTrace
             };
 
             // Send the request using HttpRequestMessage for thread safety
@@ -58,13 +71,13 @@ public class BugReportService : IDisposable
             request.Headers.Add("X-API-KEY", _apiKey);
             request.Content = JsonContent.Create(payload);
 
-            var response = await _httpClient.SendAsync(request);
+            var response = await _httpClient.SendAsync(request, cancellationToken);
 
             if (response.IsSuccessStatusCode)
             {
-                var apiResponse = await response.Content.ReadFromJsonAsync<BugReportApiResponse>();
-                // Check if the API explicitly reported success (succeeded == 1)
-                return apiResponse?.Data?.Succeeded == 1;
+                // The API returns a simple JSON with message and id fields
+                var responseContent = await response.Content.ReadAsStringAsync(cancellationToken);
+                return responseContent.Contains("\"message\"") || responseContent.Contains("\"id\"");
             }
 
             // Silently fail - don't log to avoid recursive bug reports
@@ -79,62 +92,9 @@ public class BugReportService : IDisposable
         }
     }
 
-    /// <summary>
-    /// Builds structured environment details object.
-    /// </summary>
-    private EnvironmentDetails BuildEnvironmentDetails()
-    {
-        return new EnvironmentDetails
-        {
-            Date = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture),
-            ApplicationName = _applicationName,
-            ApplicationVersion = GetApplicationVersion(),
-            OsVersion = Environment.OSVersion.VersionString,
-            Architecture = RuntimeInformation.ProcessArchitecture.ToString(),
-            Bitness = Environment.Is64BitProcess ? "64-bit" : "32-bit",
-            WindowsVersion = GetWindowsVersion(),
-            ProcessorCount = Environment.ProcessorCount,
-            BaseDirectory = AppDomain.CurrentDomain.BaseDirectory,
-            TempPath = Path.GetTempPath()
-        };
-    }
 
-    /// <summary>
-    /// Builds structured error details object.
-    /// </summary>
-    private static ErrorDetails BuildErrorDetails(string context, string? additionalInfo)
-    {
-        return new ErrorDetails
-        {
-            Context = context,
-            Message = context,
-            AdditionalInfo = additionalInfo
-        };
-    }
 
-    /// <summary>
-    /// Builds structured exception details object including inner exceptions.
-    /// </summary>
-    private static ExceptionDetails BuildExceptionDetailsObject(Exception exception)
-    {
-        var details = new ExceptionDetails
-        {
-            Type = exception.GetType().FullName,
-            Message = exception.Message,
-            Source = exception.Source,
-            StackTrace = exception.StackTrace,
-            HResult = exception.HResult != 0 ? exception.HResult : null,
-            TargetSite = exception.TargetSite?.ToString()
-        };
 
-        // Handle inner exception
-        if (exception.InnerException != null)
-        {
-            details.InnerException = BuildExceptionDetailsObject(exception.InnerException);
-        }
-
-        return details;
-    }
 
     /// <summary>
     /// Builds a comprehensive bug report message with all required sections.
@@ -159,7 +119,7 @@ public class BugReportService : IDisposable
 
         // === Error Details Section ===
         sb.AppendLine("=== Error Details ===");
-        sb.AppendLine(CultureInfo.InvariantCulture, $"Context: {context}");
+        sb.AppendLine(CultureInfo.InvariantCulture, $"Error message: {context}");
         if (!string.IsNullOrEmpty(additionalInfo))
         {
             sb.AppendLine(CultureInfo.InvariantCulture, $"Additional Info: {additionalInfo}");

@@ -36,7 +36,7 @@
                     </Grid.ColumnDefinitions>
                     <Label Grid.Column="0" Content="DAT File:" VerticalAlignment="Center" FontWeight="SemiBold"/>
                     <TextBox x:Name="DatFileTextBox" Grid.Column="1" Margin="5,0,5,0" Style="{StaticResource CustomTextBoxStyle}" IsReadOnly="True" ToolTip="Path to the selected DAT file"/>
-                    <Button x:Name="BrowseDatFileButton" Grid.Column="2" Content="Browse..." Click="BrowseDatFileButton_Click" Style="{StaticResource ActionButtonStyle}" ToolTip="Select the DAT file for validation"/>
+                     <Button x:Name="BrowseDatFileButton" Grid.Column="2" Content="Browse..." Click="BrowseDatFileButton_ClickAsync" Style="{StaticResource ActionButtonStyle}" ToolTip="Select the DAT file for validation"/>
                 </Grid>
 
                 <StackPanel Margin="0,15,0,0" Orientation="Vertical">
@@ -47,7 +47,7 @@
                 </StackPanel>
 
                 <StackPanel Margin="0,15,0,0" Orientation="Horizontal" HorizontalAlignment="Center">
-                    <Button x:Name="StartValidationButton" Content="Start Validation" Click="StartValidationButton_Click" Style="{StaticResource StartButtonStyle}" ToolTip="Begin validating ROMs against the DAT file"/>
+                     <Button x:Name="StartValidationButton" Content="Start Validation" Click="StartValidationButton_ClickAsync" Style="{StaticResource StartButtonStyle}" ToolTip="Begin validating ROMs against the DAT file"/>
                     <Button x:Name="DownloadDatFilesButton" Content="Download Dat Files" Click="DownloadDatFilesButton_Click" Style="{StaticResource DownloadButtonStyle}" ToolTip="Open browser to download DAT files"/>
                 </StackPanel>
 

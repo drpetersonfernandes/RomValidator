@@ -65,7 +65,7 @@ public partial class GenerateDatPage : IDisposable
         _mainWindow.UpdateStatusBarMessage($"Folder selected: {folderDialog.FolderName}");
     }
 
-    private async void StartButton_Click(object sender, RoutedEventArgs e)
+    private async void StartButton_ClickAsync(object sender, RoutedEventArgs e)
     {
         CancellationTokenSource? operationCts = null; // Capture variable for this operation
 
@@ -341,7 +341,7 @@ public partial class GenerateDatPage : IDisposable
         return InvalidFileNameCharsRegex.Replace(name, "_");
     }
 
-    private async void ExportDatButton_Click(object sender, RoutedEventArgs e)
+    private async void ExportDatButton_ClickAsync(object sender, RoutedEventArgs e)
     {
         try
         {

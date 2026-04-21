@@ -13,11 +13,19 @@ namespace RomValidator;
 public partial class App
 {
     private BugReportService? _bugReportService;
+    private ApplicationStatsService? _applicationStatsService;
+    private static CancellationTokenSource? _globalCancellationTokenSource;
 
     public App()
     {
+        // Initialize global cancellation token source
+        _globalCancellationTokenSource = new CancellationTokenSource();
+
         // Initialize bug report service first so we can report any initialization issues
         InitializeBugReportService();
+
+        // Initialize application stats service
+        InitializeApplicationStatsService();
 
         // Initialize SharpSevenZip library path
         InitializeSevenZipLibrary();
@@ -128,6 +136,25 @@ public partial class App
     }
 
     /// <summary>
+    /// Initializes the application stats service to track application usage.
+    /// </summary>
+    private void InitializeApplicationStatsService()
+    {
+        try
+        {
+            const string statsBaseUrl = "https://www.purelogiccode.com/ApplicationStats";
+            const string apiKey = "hjh7yu6t56tyr540o9u8767676r5674534453235264c75b6t7ggghgg76trf564e";
+            const string statsApplicationId = "rom-validator";
+            _applicationStatsService = new ApplicationStatsService(statsBaseUrl, apiKey, statsApplicationId);
+        }
+        catch (Exception ex)
+        {
+            // If we can't create the stats service, log to debug output
+            System.Diagnostics.Debug.WriteLine($"Failed to initialize ApplicationStatsService: {ex.Message}");
+        }
+    }
+
+    /// <summary>
     /// Sets up global exception handlers for both UI and non-UI thread exceptions.
     /// </summary>
     private void SetupGlobalExceptionHandling()
@@ -140,6 +167,31 @@ public partial class App
 
         // Handle unobserved task exceptions
         TaskScheduler.UnobservedTaskException += OnUnobservedTaskException;
+    }
+
+    /// <summary>
+    /// Records application usage statistics on startup.
+    /// </summary>
+    private void RecordApplicationUsage()
+    {
+        try
+        {
+            if (_applicationStatsService != null)
+            {
+                // Record usage asynchronously without blocking startup
+                _ = _applicationStatsService.RecordUsageAsync().ContinueWith(static t =>
+                {
+                    if (t.IsFaulted)
+                    {
+                        LoggerService.LogError("Startup", $"Stats recording failed: {t.Exception?.InnerException?.Message}");
+                    }
+                }, TaskContinuationOptions.OnlyOnFaulted);
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Failed to record application usage: {ex.Message}");
+        }
     }
 
     /// <summary>
@@ -267,6 +319,23 @@ public partial class App
     }
 
     /// <summary>
+    /// Gets the global ApplicationStatsService instance for use throughout the application.
+    /// </summary>
+    public ApplicationStatsService? GetApplicationStatsService()
+    {
+        return _applicationStatsService;
+    }
+
+    /// <summary>
+    /// Override OnStartup to record application usage.
+    /// </summary>
+    protected override void OnStartup(StartupEventArgs e)
+    {
+        base.OnStartup(e);
+        RecordApplicationUsage();
+    }
+
+    /// <summary>
     /// Override OnExit to clean up the BugReportService.
     /// </summary>
     protected override void OnExit(ExitEventArgs e)
@@ -281,6 +350,42 @@ public partial class App
             System.Diagnostics.Debug.WriteLine($"Error disposing BugReportService: {ex.Message}");
         }
 
+        try
+        {
+            _applicationStatsService?.Dispose();
+            _applicationStatsService = null;
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Error disposing ApplicationStatsService: {ex.Message}");
+        }
+
+        try
+        {
+            _globalCancellationTokenSource?.Dispose();
+            _globalCancellationTokenSource = null;
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Error disposing global cancellation token source: {ex.Message}");
+        }
+
         base.OnExit(e);
+    }
+
+    /// <summary>
+    /// Gets the global cancellation token for application shutdown.
+    /// </summary>
+    public static CancellationToken GetGlobalCancellationToken()
+    {
+        return _globalCancellationTokenSource?.Token ?? CancellationToken.None;
+    }
+
+    /// <summary>
+    /// Cancels all ongoing operations and initiates application shutdown.
+    /// </summary>
+    public static void CancelAllOperations()
+    {
+        _globalCancellationTokenSource?.Cancel();
     }
 }

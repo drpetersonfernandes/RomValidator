@@ -1,90 +1,127 @@
 # ROM Validator
 
-[![.NET 10.0](https://img.shields.io/badge/.NET-10.0-blue.svg)](https://dotnet.microsoft.com/download/dotnet/10.0)
-[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE.txt)
-[![Platform: Windows](https://img.shields.io/badge/Platform-Windows-lightgrey.svg)](#requirements)
+A Windows desktop application for validating ROM files against DAT files and generating new No-Intro compliant DAT files from your collection.
 
-**ROM Validator** is a high-performance Windows desktop utility designed for ROM collection management and digital preservation. It provides a streamlined workflow for validating local ROM files against industry-standard No-Intro DAT specifications and generating new, compliant DAT files from existing collections.
+## Features
 
-![ROM Validator Screenshot](screenshot.png)
-![ROM Validator Screenshot](screenshot2.png)
+- **ROM Validation**: Validate your ROM collection against No-Intro DAT files
+- **DAT File Generation**: Generate new No-Intro compliant DAT files from your ROM collection
+- **Duplicate Detection**: Identify duplicate ROM files in your collection
+- **Multiple Hash Support**: Supports CRC32, MD5, SHA-1, and SHA-256 hash verification
+- **Archive Support**: Can read ROMs from 7z archives using SharpSevenZip
+- **Bug Reporting**: Built-in bug reporting system for error tracking
+- **Version Checking**: Automatic GitHub version checking for updates
+- **Usage Statistics**: Anonymous usage statistics tracking
 
-## 🚀 Key Features
+## Requirements
 
-### 🔍 Advanced Validation
--   **Multi-Hash Verification**: Validates file integrity using CRC32, MD5, SHA1, and SHA256 checksums.
--   **No-Intro Integration**: Native support for No-Intro XML DAT formats (currently the only supported format).
--   **Archive Support**: Deep-scans within compressed archives (ZIP, 7z, RAR, etc.) without manual extraction, powered by SevenZipSharp.
--   **Smart File Renaming**: Automatically renames files when hash matches but filename differs, ensuring your collection matches the DAT exactly. Supports renaming files inside ZIP and 7z archives.
+- **.NET 8.0** or higher
+- **Windows 10/11** (WPF application)
+- **7z native libraries** (included via SharpSevenZip package)
 
-### 📂 Collection Management
--   **Automated Organization**: Automatically sorts files into `_success` or `_fail` directories based on validation results.
--   **Flexible File Handling**: Optional permanent deletion of failed/unknown files with safety confirmations.
--   **DAT Generation**: Create No-Intro compliant DAT files from any folder, complete with custom metadata (Author, Version, Description).
--   **DAT Format Validation**: Automatic detection of incompatible file formats (ZIP, HTML, ClrMamePro, MAME) with clear error messages. Note: This version exclusively supports No-Intro XML DATs.
--   **7z Archive Creation**: Repackage renamed ROM files into new 7z archives with LZMA2 compression.
--   **Real-time Logging**: Detailed, timestamped logs for every operation, including specific reasons for validation failures.
+## Installation
 
-### 💻 User Experience
--   **Modern WPF Interface**: A clean, responsive UI with progress monitoring, statistical breakdowns, and centralized styling.
--   **Async Architecture**: Non-blocking I/O operations for improved responsiveness during large scans.
--   **Update Notifications**: Integrated GitHub version checking with automatic notifications when new releases are available.
--   **Automatic Bug Reporting**: Enhanced service with structured error reporting, exception context capture, and intelligent noise reduction for faster issue resolution.
--   **Centralized Exception Handling**: New `ExceptionHandler` service ensures consistent error handling across the application.
+### From Source
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/drpetersonfernandes/RomValidator.git
+   ```
+2. Open the solution in Visual Studio 2022 or later:
+   ```
+   CSharp_RomValidator.sln
+   ```
+3. Build the solution (Ctrl+Shift+B)
+4. Run the application (F5)
 
----
+### Pre-built Releases
+Check the [GitHub Releases](https://github.com/drpetersonfernandes/RomValidator/releases) page for pre-built binaries.
 
-## 🛠 Requirements
-
--   **Operating System**: Windows 10 (version 1809) or later / Windows 11.
--   **Runtime**: [.NET 10.0 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0).
--   **Architecture**: x64 or ARM64.
-
----
-
-## 📥 Installation
-
-1.  Navigate to the [Releases](https://github.com/drpetersonfernandes/RomValidator/releases) page.
-2.  Download the latest `RomValidator.zip`.
-3.  Extract the contents to a permanent folder.
-4.  Launch `RomValidator.exe`.
-
----
-
-## 📖 Usage Guide
+## Usage
 
 ### Validating ROMs
-1.  **Select Source**: Choose the folder containing your ROM files.
-2.  **Load DAT**: Select a compatible No-Intro XML DAT file.
-3.  **Configure Options**:
-    -   Toggle "Move successful items" to organize valid ROMs into a `_success` folder.
-    -   Toggle "Move failed/unknown items" to organize invalid ROMs into a `_fail` folder.
-    -   Enable "Automatically rename files" to match DAT entries when hashes match but filenames differ.
-    -   ⚠️ **Caution**: The "Permanently delete failed files" option cannot be undone.
-4.  **Execute**: Click **Start Validation**. The application will categorize files as ✅ **Success**, ❌ **Failed**, or ❓ **Unknown**.
+1. Launch the application
+2. Navigate to the "Validate" tab
+3. Load a DAT file (No-Intro format)
+4. Select your ROM directory or archive
+5. Click "Validate" to start the validation process
+6. View results showing which ROMs are valid, missing, or have incorrect hashes
 
-### Generating DATs
-1.  Switch to the **Generate DAT** tab.
-2.  **Select Folder**: Choose the directory containing the files you wish to catalog.
-3.  **Metadata**: Enter the Name, Description, and Author for the DAT header.
-4.  **Process**: Click **Start Hashing**.
-5.  **Export**: Once complete, click **Export DAT** to save the XML file.
+### Generating DAT Files
+1. Navigate to the "Generate DAT" tab
+2. Select your ROM directory
+3. Configure output settings (name, description, version)
+4. Click "Generate" to create a new DAT file
+5. Save the generated DAT file for use with other ROM management tools
 
----
+## Project Structure
 
-## 🤝 Support & Contribution
+```
+CSharp_RomValidator/
+├── RomValidator/                    # Main WPF application
+│   ├── Models/                     # Data models
+│   │   ├── NoIntro/               # No-Intro DAT file models
+│   │   ├── BugReport*.cs          # Bug reporting models
+│   │   └── GameFile.cs            # Game file model
+│   ├── Services/                  # Business logic services
+│   │   ├── HashCalculator.cs      # Hash calculation service
+│   │   ├── ExceptionHandler.cs    # Global exception handling
+│   │   ├── BugReportService.cs    # Bug reporting service
+│   │   └── GitHubVersionChecker.cs # Version checking
+│   ├── Pages/                     # Application pages
+│   │   ├── ValidatePage.xaml      # ROM validation UI
+│   │   └── GenerateDatPage.xaml   # DAT generation UI
+│   ├── MainWindow.xaml            # Main application window
+│   └── AboutWindow.xaml           # About dialog
+└── CSharp_RomValidator.sln        # Visual Studio solution
+```
 
-If you find this tool helpful for your preservation projects, please consider:
+## Development
 
--   **Starring the project** on GitHub to increase visibility.
--   **Reporting Bugs**: Use the built-in reporting tool or open a GitHub Issue.
--   **Donations**: Support continued development at [purelogiccode.com/donate](https://www.purelogiccode.com/donate).
+### Building
+```bash
+dotnet build
+```
 
----
+### Running Tests
+```bash
+dotnet test
+```
 
-## 📜 License
+### Dependencies
+- **SharpSevenZip** (2.0.36): For 7z archive support
+- **WPF**: Windows Presentation Foundation for UI
 
-This project is licensed under the **GNU General Public License v3.0**. See the [LICENSE.txt](LICENSE.txt) file for full details.
+### Code Style
+- C# 14 language features
+- Nullable reference types enabled
+- Implicit usings enabled
+- Async/await pattern for I/O operations
 
-Developed by **Pure Logic Code**  
-[www.purelogiccode.com](http://www.purelogiccode.com)
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add or update tests as needed
+5. Submit a pull request
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Support
+
+- **Website**: [http://www.purelogiccode.com](http://www.purelogiccode.com)
+- **GitHub Issues**: [Report bugs or request features](https://github.com/drpetersonfernandes/RomValidator/issues)
+- **Bug Reports**: Built-in bug reporting system in the application
+
+## Version History
+
+- **v2.5.0**: Current version (see AssemblyVersion in csproj)
+- Check GitHub Releases for detailed changelog
+
+## Acknowledgments
+
+- No-Intro for the DAT file format specification
+- SharpSevenZip for archive support
+- All contributors and testers

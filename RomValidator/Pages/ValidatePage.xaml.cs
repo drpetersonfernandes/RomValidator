@@ -126,7 +126,7 @@ public partial class ValidatePage : IDisposable
         }
     }
 
-    private async void StartValidationButton_Click(object sender, RoutedEventArgs e)
+    private async void StartValidationButton_ClickAsync(object sender, RoutedEventArgs e)
     {
         CancellationTokenSource? operationCts = null; // Capture variable for this operation
         try
@@ -1220,7 +1220,7 @@ public partial class ValidatePage : IDisposable
         _mainWindow.UpdateStatusBarMessage($"ROMs folder selected: {Path.GetFileName(dialog.FolderName)}");
     }
 
-    private async void BrowseDatFileButton_Click(object sender, RoutedEventArgs e)
+    private async void BrowseDatFileButton_ClickAsync(object sender, RoutedEventArgs e)
     {
         try
         {

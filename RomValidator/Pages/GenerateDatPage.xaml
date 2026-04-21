@@ -1,4 +1,4 @@
-﻿<Page x:Class="RomValidator.Pages.GenerateDatPage"
+<Page x:Class="RomValidator.Pages.GenerateDatPage"
       xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
       xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -71,10 +71,10 @@
         </Grid>
 
         <UniformGrid Grid.Row="5" Columns="4" HorizontalAlignment="Left">
-            <Button Name="StartButton" Content="Start Hashing" Style="{StaticResource StartButtonStyle}" Click="StartButton_Click" IsEnabled="False" ToolTip="Begin hashing files in the selected folder" />
+            <Button Name="StartButton" Content="Start Hashing" Style="{StaticResource StartButtonStyle}" Click="StartButton_ClickAsync" IsEnabled="False" ToolTip="Begin hashing files in the selected folder" />
             <Button Name="StopButton" Content="Stop" Style="{StaticResource CancelButtonStyle}" Click="StopButton_Click" IsEnabled="False" ToolTip="Cancel the hashing operation" />
             <Button Content="Reset" Style="{StaticResource DownloadButtonStyle}" Click="ResetButton_Click" ToolTip="Clear all data and start over" />
-            <Button Name="ExportDatButton" Content="Export DAT" Style="{StaticResource ActionButtonStyle}" Background="{StaticResource InfoPurpleBrush}" Click="ExportDatButton_Click" IsEnabled="False" ToolTip="Export the results to a DAT file" />
+            <Button Name="ExportDatButton" Content="Export DAT" Style="{StaticResource ActionButtonStyle}" Background="{StaticResource InfoPurpleBrush}" Click="ExportDatButton_ClickAsync" IsEnabled="False" ToolTip="Export the results to a DAT file" />
         </UniformGrid>
     </Grid>
 </Page>
