@@ -21,6 +21,12 @@
     </PropertyGroup>
 
     <ItemGroup>
+        <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
+            <_Parameter1>RomValidator.Tests</_Parameter1>
+        </AssemblyAttribute>
+    </ItemGroup>
+
+    <ItemGroup>
         <None Remove="icon.ico" />
         <None Remove="images\about.png" />
         <None Remove="images\exit.png" />

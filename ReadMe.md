@@ -15,7 +15,7 @@ A Windows desktop application for validating ROM files against DAT files and gen
 
 ## Requirements
 
-- **.NET 8.0** or higher
+- **.NET 10.0** or higher
 - **Windows 10/11** (WPF application)
 - **7z native libraries** (included via SharpSevenZip package)
 
@@ -59,19 +59,27 @@ Check the [GitHub Releases](https://github.com/drpetersonfernandes/RomValidator/
 CSharp_RomValidator/
 ├── RomValidator/                    # Main WPF application
 │   ├── Models/                     # Data models
-│   │   ├── NoIntro/               # No-Intro DAT file models
-│   │   ├── BugReport*.cs          # Bug reporting models
-│   │   └── GameFile.cs            # Game file model
+│   │   ├── NoIntro/               # No-Intro DAT file models (Datafile, Game, Rom, Header)
+│   │   ├── BugReportPayload.cs    # Bug reporting model
+│   │   ├── GitHubRelease.cs       # GitHub release model
+│   │   ├── GitHubAsset.cs         # GitHub release asset model
+│   │   └── GameFile.cs            # Game file model with hash values
 │   ├── Services/                  # Business logic services
-│   │   ├── HashCalculator.cs      # Hash calculation service
-│   │   ├── ExceptionHandler.cs    # Global exception handling
+│   │   ├── HashCalculator.cs      # Hash calculation service (CRC32, MD5, SHA1, SHA256)
+│   │   ├── Crc32Algorithm.cs      # CRC32 hash algorithm implementation
+│   │   ├── LoggerService.cs       # Logging and error tracking
 │   │   ├── BugReportService.cs    # Bug reporting service
-│   │   └── GitHubVersionChecker.cs # Version checking
+│   │   ├── GitHubVersionChecker.cs # Version checking
+│   │   ├── ApplicationStatsService.cs # Usage statistics tracking
+│   │   └── TempDirectoryHelper.cs # Temporary directory management
 │   ├── Pages/                     # Application pages
 │   │   ├── ValidatePage.xaml      # ROM validation UI
 │   │   └── GenerateDatPage.xaml   # DAT generation UI
 │   ├── MainWindow.xaml            # Main application window
-│   └── AboutWindow.xaml           # About dialog
+│   ├── AboutWindow.xaml           # About dialog
+│   ├── DuplicateFilesWindow.xaml  # Duplicate files dialog
+│   └── App.xaml.cs                # Application entry point with global exception handling
+├── RomValidator.Tests/            # Unit tests (xUnit)
 └── CSharp_RomValidator.sln        # Visual Studio solution
 ```
 
@@ -90,6 +98,9 @@ dotnet test
 ### Dependencies
 - **SharpSevenZip** (2.0.36): For 7z archive support
 - **WPF**: Windows Presentation Foundation for UI
+- **xUnit** (2.9.3): Unit testing framework
+- **Microsoft.NET.Test.Sdk** (18.4.0): Test SDK
+- **coverlet.collector** (10.0.0): Test coverage
 
 ### Code Style
 - C# 14 language features
@@ -117,7 +128,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## Version History
 
-- **v2.5.0**: Current version (see AssemblyVersion in csproj)
+- **v2.6.0**: Current version (see AssemblyVersion in csproj)
 - Check GitHub Releases for detailed changelog
 
 ## Acknowledgments
