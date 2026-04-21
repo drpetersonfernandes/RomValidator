@@ -54,15 +54,15 @@ public static class LoggerService
 
         // Build detailed log entry
         var sb = new StringBuilder();
-        sb.AppendLine($"[{timestamp}] EXCEPTION [{fullContext}]:");
-        sb.AppendLine($"    Type: {exception.GetType().FullName}");
-        sb.AppendLine($"    Message: {exception.Message}");
-        sb.AppendLine($"    Source: {exception.Source ?? "N/A"}");
-        sb.AppendLine($"    StackTrace: {exception.StackTrace ?? "N/A"}");
+        sb.AppendLine(CultureInfo.InvariantCulture, $"[{timestamp}] EXCEPTION [{fullContext}]:");
+        sb.AppendLine(CultureInfo.InvariantCulture, $"    Type: {exception.GetType().FullName}");
+        sb.AppendLine(CultureInfo.InvariantCulture, $"    Message: {exception.Message}");
+        sb.AppendLine(CultureInfo.InvariantCulture, $"    Source: {exception.Source ?? "N/A"}");
+        sb.AppendLine(CultureInfo.InvariantCulture, $"    StackTrace: {exception.StackTrace ?? "N/A"}");
 
         if (exception.InnerException != null)
         {
-            sb.AppendLine($"    Inner Exception: {exception.InnerException.GetType().Name} - {exception.InnerException.Message}");
+            sb.AppendLine(CultureInfo.InvariantCulture, $"    Inner Exception: {exception.InnerException.GetType().Name} - {exception.InnerException.Message}");
         }
 
         var logEntry = sb.ToString();
