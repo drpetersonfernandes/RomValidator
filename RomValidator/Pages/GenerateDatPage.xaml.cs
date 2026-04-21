@@ -223,7 +223,7 @@ public partial class GenerateDatPage : IDisposable
         var enumerationOptions = new EnumerationOptions
         {
             IgnoreInaccessible = true,
-            RecurseSubdirectories = true,
+            RecurseSubdirectories = false, // Changed to false for top directory only
             AttributesToSkip = FileAttributes.Hidden | FileAttributes.System // Optional: skip hidden/system files for performance
         };
 

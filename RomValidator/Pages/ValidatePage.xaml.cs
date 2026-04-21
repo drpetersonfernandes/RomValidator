@@ -276,7 +276,7 @@ public partial class ValidatePage : IDisposable
         await LogMessageAsync($"Delete failed/unknown files: {deleteFailed}" + (deleteFailed ? " (⚠️ PERMANENT - files will be deleted!)" : ""));
         await LogMessageAsync($"Rename files on hash match: {renameMatched}");
 
-        var filesToScan = await Task.Run(() => Directory.GetFiles(romsFolderPath), token);
+        var filesToScan = await Task.Run(() => Directory.GetFiles(romsFolderPath, "*", SearchOption.TopDirectoryOnly), token);
         _totalFilesToProcess = filesToScan.Length;
         await Application.Current.Dispatcher.InvokeAsync(() => ProgressBar.Maximum = _totalFilesToProcess);
         UpdateStatsDisplay();
