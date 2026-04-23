@@ -27,6 +27,7 @@ public partial class ValidatePage : IDisposable
     private DateTime _loadedDatFileTimestamp;
     private CancellationTokenSource? _cts;
     private readonly object _ctsLock = new();
+    private bool _diskSpaceExhausted;
 
     // Statistics
     private int _totalFilesToProcess;
@@ -190,6 +191,7 @@ public partial class ValidatePage : IDisposable
                 operationCts = _cts; // Capture the instance for this operation
             }
 
+            _diskSpaceExhausted = false;
             ResetOperationStats();
             SetControlsState(false);
             _operationTimer.Restart();
@@ -264,53 +266,68 @@ public partial class ValidatePage : IDisposable
 
     private async Task PerformValidationAsync(string romsFolderPath, bool moveSuccess, bool moveFailed, bool deleteFailed, bool renameMatched, CancellationToken token)
     {
-        token.ThrowIfCancellationRequested();
-
-        var successPath = Path.Combine(romsFolderPath, "_success");
-        var failPath = Path.Combine(romsFolderPath, "_fail");
-        if (moveSuccess) Directory.CreateDirectory(successPath);
-        if (moveFailed) Directory.CreateDirectory(failPath);
-
-        await LogMessageAsync($"Move successful files: {moveSuccess}" + (moveSuccess ? $" (to {successPath})" : ""));
-        await LogMessageAsync($"Move failed/unknown files: {moveFailed}" + (moveFailed ? $" (to {failPath})" : ""));
-        await LogMessageAsync($"Delete failed/unknown files: {deleteFailed}" + (deleteFailed ? " (⚠️ PERMANENT - files will be deleted!)" : ""));
-        await LogMessageAsync($"Rename files on hash match: {renameMatched}");
-
-        var filesToScan = await Task.Run(() => Directory.GetFiles(romsFolderPath, "*", SearchOption.TopDirectoryOnly), token);
-        _totalFilesToProcess = filesToScan.Length;
-        await Application.Current.Dispatcher.InvokeAsync(() => ProgressBar.Maximum = _totalFilesToProcess);
-        UpdateStatsDisplay();
-        await LogMessageAsync($"Found {_totalFilesToProcess} files to validate.");
-        _mainWindow.UpdateStatusBarMessage($"Found {_totalFilesToProcess} files. Starting validation...");
-
-        if (_totalFilesToProcess == 0)
+        try
         {
-            _mainWindow.UpdateStatusBarMessage("No files found to validate.");
-            return;
-        }
+            token.ThrowIfCancellationRequested();
 
-        var filesActuallyProcessedCount = 0;
+            var successPath = Path.Combine(romsFolderPath, "_success");
+            var failPath = Path.Combine(romsFolderPath, "_fail");
+            if (moveSuccess) Directory.CreateDirectory(successPath);
+            if (moveFailed) Directory.CreateDirectory(failPath);
 
-        // Sequential Processing is intentional to prevent race conditions on file moves.
-        // Parallel processing could cause conflicts when multiple threads attempt to move
-        // files to the same _success/_fail directories simultaneously.
-        foreach (var filePath in filesToScan)
-        {
-            // Check cancellation at the start of each file
-            if (token.IsCancellationRequested) break;
+            await LogMessageAsync($"Move successful files: {moveSuccess}" + (moveSuccess ? $" (to {successPath})" : ""));
+            await LogMessageAsync($"Move failed/unknown files: {moveFailed}" + (moveFailed ? $" (to {failPath})" : ""));
+            await LogMessageAsync($"Delete failed/unknown files: {deleteFailed}" + (deleteFailed ? " (⚠️ PERMANENT - files will be deleted!)" : ""));
+            await LogMessageAsync($"Rename files on hash match: {renameMatched}");
 
-            await ProcessFileAsync(filePath, successPath, failPath, moveSuccess, moveFailed, deleteFailed, renameMatched, token);
-
-            var processedSoFar = Interlocked.Increment(ref filesActuallyProcessedCount);
-            UpdateProgressDisplay(processedSoFar, _totalFilesToProcess, Path.GetFileName(filePath));
+            var filesToScan = await Task.Run(() => Directory.GetFiles(romsFolderPath, "*", SearchOption.TopDirectoryOnly), token);
+            _totalFilesToProcess = filesToScan.Length;
+            await Application.Current.Dispatcher.InvokeAsync(() => ProgressBar.Maximum = _totalFilesToProcess);
             UpdateStatsDisplay();
-            UpdateProcessingTimeDisplay();
+            await LogMessageAsync($"Found {_totalFilesToProcess} files to validate.");
+            _mainWindow.UpdateStatusBarMessage($"Found {_totalFilesToProcess} files. Starting validation...");
 
-            // Force UI to refresh after each file for real-time log display
-            await FlushUiUpdatesAsync();
+            if (_totalFilesToProcess == 0)
+            {
+                _mainWindow.UpdateStatusBarMessage("No files found to validate.");
+                return;
+            }
+
+            var filesActuallyProcessedCount = 0;
+
+            // Sequential Processing is intentional to prevent race conditions on file moves.
+            // Parallel processing could cause conflicts when multiple threads attempt to move
+            // files to the same _success/_fail directories simultaneously.
+            foreach (var filePath in filesToScan)
+            {
+                // Check cancellation at the start of each file
+                if (token.IsCancellationRequested) break;
+
+                if (_diskSpaceExhausted)
+                {
+                    LogMessage("[WARNING] Validation queue stopped due to insufficient disk space on all available drives.");
+                    _mainWindow.UpdateStatusBarMessage("Validation stopped: insufficient disk space.");
+                    break;
+                }
+
+                await ProcessFileAsync(filePath, successPath, failPath, moveSuccess, moveFailed, deleteFailed, renameMatched, token);
+
+                var processedSoFar = Interlocked.Increment(ref filesActuallyProcessedCount);
+                UpdateProgressDisplay(processedSoFar, _totalFilesToProcess, Path.GetFileName(filePath));
+                UpdateStatsDisplay();
+                UpdateProcessingTimeDisplay();
+
+                // Force UI to refresh after each file for real-time log display
+                await FlushUiUpdatesAsync();
+            }
+
+            _mainWindow.UpdateStatusBarMessage("Validation complete.");
         }
-
-        _mainWindow.UpdateStatusBarMessage("Validation complete.");
+        finally
+        {
+            // Ensure any leftover temp directories are cleaned up after the queue finishes
+            TempDirectoryHelper.CleanupAllTrackedDirectories();
+        }
     }
 
     private async Task ProcessFileAsync(string filePath, string successPath, string failPath, bool moveSuccess, bool moveFailed, bool deleteFailed, bool renameMatched, CancellationToken token)
@@ -403,7 +420,10 @@ public partial class ValidatePage : IDisposable
                                 // Log the error but don't fail the entire rename operation
                                 // The file was already renamed successfully, only the internal archive rename failed
                                 LogMessage($"[WARNING] {fileName} -> {displayName} renamed, but failed to rename content inside archive: {archiveEx.Message}");
-                                _ = _mainWindow.BugReportService.SendBugReportAsync($"Error renaming file inside archive '{newFilePath}' to '{hashMatchedRom.Name}'", archiveEx);
+                                if (IsDiskFullError(archiveEx))
+                                {
+                                    _ = _mainWindow.BugReportService.SendBugReportAsync($"Error renaming file inside archive '{newFilePath}' to '{hashMatchedRom.Name}'", archiveEx);
+                                }
                             }
                         }
 
@@ -1165,10 +1185,67 @@ public partial class ValidatePage : IDisposable
         return newDestPath;
     }
 
-    private static bool IsDiskFullError(IOException ex)
+    private static bool IsDiskFullError(Exception ex)
     {
         const int errorDiskFull = unchecked((int)0x80070070);
-        return ex.HResult == errorDiskFull;
+        if (ex.HResult == errorDiskFull) return true;
+        var msg = ex.Message;
+        return msg.Contains("not enough space", StringComparison.OrdinalIgnoreCase) ||
+               msg.Contains("disk full", StringComparison.OrdinalIgnoreCase) ||
+               msg.Contains("ERROR_DISK_FULL", StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// Prepares a temporary directory with sufficient disk space for archive processing.
+    /// Tries the default temp path first, then falls back to other drives.
+    /// Sets <see cref="_diskSpaceExhausted"/> and sends a bug report if no drive has enough space.
+    /// </summary>
+    /// <param name="archivePath">Path to the archive being processed.</param>
+    /// <param name="archiveFileName">Filename of the archive for logging.</param>
+    /// <returns>The path to a temporary directory, or null if no suitable location was found.</returns>
+    private string? PrepareArchiveTempDirectory(string archivePath, string archiveFileName)
+    {
+        try
+        {
+            HashCalculator.InitializeSevenZip();
+        }
+        catch (Exception initEx)
+        {
+            var warning = $"[WARNING] Failed to initialize SevenZipSharp for archive '{archiveFileName}'. Skipping archive processing.";
+            LogMessage(warning);
+            _ = _mainWindow.BugReportService.SendBugReportAsync(warning, initEx);
+            return null;
+        }
+
+        long requiredSpace;
+        try
+        {
+            var uncompressedSize = TempDirectoryHelper.GetArchiveUncompressedSize(archivePath);
+            var archiveSize = new FileInfo(archivePath).Length;
+            requiredSpace = uncompressedSize * 2 + archiveSize * 2;
+        }
+        catch
+        {
+            requiredSpace = 1024L * 1024 * 1024; // 1GB fallback if size cannot be determined
+        }
+
+        var tempDir = TempDirectoryHelper.FindTempDirectoryWithSpace(requiredSpace, archivePath, out var warningMessage);
+        if (tempDir == null)
+        {
+            _diskSpaceExhausted = true;
+            LogMessage(warningMessage ?? $"[WARNING] Insufficient disk space on all drives for archive '{archiveFileName}'.");
+            _ = _mainWindow.BugReportService.SendBugReportAsync(
+                $"Disk space exhausted on all drives while processing archive '{archiveFileName}' (required: {TempDirectoryHelper.FormatBytes(requiredSpace)})",
+                new InvalidOperationException("No available drive with sufficient space for archive processing."));
+            return null;
+        }
+
+        if (!string.IsNullOrEmpty(warningMessage))
+        {
+            LogMessage(warningMessage);
+        }
+
+        return tempDir;
     }
 
     private async Task DeleteFileAsync(string filePath, string fileName)
@@ -1442,7 +1519,12 @@ public partial class ValidatePage : IDisposable
     /// </summary>
     private async Task FixArchiveInternalFilenamesAsync(string archivePath, List<Rom> expectedRoms, string archiveFileName)
     {
-        var tempDir = TempDirectoryHelper.CreateTempDirectory("romvalidator_fix");
+        var tempDir = PrepareArchiveTempDirectory(archivePath, archiveFileName);
+        if (tempDir == null)
+        {
+            return; // Disk space exhausted or initialization failed - skip this archive
+        }
+
         var is7ZFile = archivePath.EndsWith(".7z", StringComparison.OrdinalIgnoreCase);
         var isRarFile = archivePath.EndsWith(".rar", StringComparison.OrdinalIgnoreCase);
         // RAR files cannot be created, so they will be repacked as ZIP
@@ -1450,19 +1532,6 @@ public partial class ValidatePage : IDisposable
 
         try
         {
-            // Initialize SevenZipSharp
-            try
-            {
-                await Task.Run(static () => HashCalculator.InitializeSevenZip());
-            }
-            catch (Exception initEx)
-            {
-                var errorMsg = $"Failed to initialize SevenZipSharp for archive '{archiveFileName}'";
-                LoggerService.LogError("FixArchiveInternal", errorMsg);
-                _ = _mainWindow.BugReportService.SendBugReportAsync(errorMsg, initEx);
-                return; // Don't fail the entire operation, just skip internal rename
-            }
-
             // Extract archive contents using SevenZipSharp
             List<string> extractedFiles;
             try
@@ -1477,8 +1546,16 @@ public partial class ValidatePage : IDisposable
             catch (Exception extractEx)
             {
                 var errorMsg = $"Failed to extract archive '{archiveFileName}' for internal filename check";
-                LoggerService.LogError("FixArchiveInternal", errorMsg);
-                _ = _mainWindow.BugReportService.SendBugReportAsync(errorMsg, extractEx);
+                if (IsDiskFullError(extractEx))
+                {
+                    LoggerService.LogError("FixArchiveInternal", errorMsg + " - DISK FULL");
+                    _ = _mainWindow.BugReportService.SendBugReportAsync(errorMsg, extractEx);
+                }
+                else
+                {
+                    LoggerService.LogWarning("FixArchiveInternal", errorMsg + $": {extractEx.Message}");
+                    LogMessage($"[WARNING] Archive '{archiveFileName}' appears to be corrupt or damaged. Skipping internal filename check.");
+                }
                 return; // Don't fail the entire operation
             }
 
@@ -1682,28 +1759,20 @@ public partial class ValidatePage : IDisposable
     /// </summary>
     private async Task RenameFileInsideArchiveAsync(string archivePath, string targetFileName)
     {
-        var tempDir = TempDirectoryHelper.CreateTempDirectory("romvalidator_rename");
+        var archiveFileName = Path.GetFileName(archivePath);
+        var tempDir = PrepareArchiveTempDirectory(archivePath, archiveFileName);
+        if (tempDir == null)
+        {
+            throw new InvalidOperationException("Cannot rename file inside archive: insufficient disk space or initialization failed.");
+        }
+
         var is7ZFile = archivePath.EndsWith(".7z", StringComparison.OrdinalIgnoreCase);
         var isRarFile = archivePath.EndsWith(".rar", StringComparison.OrdinalIgnoreCase);
         // RAR files cannot be created, so they will be repacked as ZIP
         var outputArchivePath = isRarFile ? Path.ChangeExtension(archivePath, ".zip") : archivePath;
-        var archiveFileName = Path.GetFileName(archivePath);
 
         try
         {
-            // Initialize SevenZipSharp
-            try
-            {
-                await Task.Run(static () => HashCalculator.InitializeSevenZip());
-            }
-            catch (Exception initEx)
-            {
-                var errorMsg = $"Failed to initialize SevenZipSharp for archive '{archiveFileName}'";
-                LoggerService.LogError("RenameInsideArchive", errorMsg);
-                _ = _mainWindow.BugReportService.SendBugReportAsync(errorMsg, initEx);
-                throw new InvalidOperationException($"SevenZipSharp initialization failed: {initEx.Message}", initEx);
-            }
-
             // Extract archive contents using SevenZipSharp
             try
             {
@@ -1716,8 +1785,16 @@ public partial class ValidatePage : IDisposable
             catch (Exception extractEx)
             {
                 var errorMsg = $"Failed to extract archive '{archiveFileName}' for internal file rename";
-                LoggerService.LogError("RenameInsideArchive", errorMsg);
-                _ = _mainWindow.BugReportService.SendBugReportAsync(errorMsg, extractEx);
+                if (IsDiskFullError(extractEx))
+                {
+                    LoggerService.LogError("RenameInsideArchive", errorMsg + " - DISK FULL");
+                    _ = _mainWindow.BugReportService.SendBugReportAsync(errorMsg, extractEx);
+                }
+                else
+                {
+                    LoggerService.LogWarning("RenameInsideArchive", errorMsg + $": {extractEx.Message}");
+                    LogMessage($"[WARNING] Archive '{archiveFileName}' appears to be corrupt or damaged. Skipping internal file rename.");
+                }
                 throw new InvalidOperationException($"Archive extraction failed: {extractEx.Message}", extractEx);
             }
 
@@ -1726,8 +1803,7 @@ public partial class ValidatePage : IDisposable
             if (extractedFiles.Length == 0)
             {
                 var errorMsg = $"Archive '{archiveFileName}' is empty or extraction failed - no files found in temp directory";
-                LoggerService.LogError("RenameInsideArchive", errorMsg);
-                _ = _mainWindow.BugReportService.SendBugReportAsync(errorMsg);
+                LoggerService.LogWarning("RenameInsideArchive", errorMsg);
                 throw new InvalidOperationException("Archive is empty or extraction failed.");
             }
 

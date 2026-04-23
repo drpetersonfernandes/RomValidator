@@ -20,6 +20,19 @@ public static partial class HashCalculator
     private static readonly object InitLock = new();
     private const int BufferSize = 65536; // 64KB buffer for file operations
     private const int InitialRetryDelayMs = 100; // Initial delay for retry attempts in milliseconds
+    private const int ErrorDiskFull = unchecked((int)0x80070070);
+
+    /// <summary>
+    /// Checks if an exception indicates a disk-full error.
+    /// </summary>
+    private static bool IsDiskFullError(Exception ex)
+    {
+        if (ex.HResult == ErrorDiskFull) return true;
+        var msg = ex.Message;
+        return msg.Contains("not enough space", StringComparison.OrdinalIgnoreCase) ||
+               msg.Contains("disk full", StringComparison.OrdinalIgnoreCase) ||
+               msg.Contains("ERROR_DISK_FULL", StringComparison.OrdinalIgnoreCase);
+    }
 
     /// <summary>
     /// Initializes the SevenZip library for archive extraction operations.
@@ -102,42 +115,48 @@ public static partial class HashCalculator
                     {
                         await extractor.ExtractFileAsync(entry.Index, entryStream);
                     }
-                    catch (ExtractionFailedException entryEx)
-                    {
-                        // Individual entry is corrupted - send bug report for tracking but continue with other files
-                        _ = bugReportService?.SendBugReportAsync($"Archive entry extraction failed for '{entry.FileName}' in archive '{fileInfo.Name}'", entryEx);
-                        LoggerService.LogWarning("HashCalculator", $"Archive entry extraction failed for '{entry.FileName}' in archive '{fileInfo.Name}': {entryEx.Message}");
-                        gameFiles.Add(new GameFile
-                        {
-                            FileName = entry.FileName,
-                            GameName = Path.GetFileNameWithoutExtension(entry.FileName),
-                            FileSize = (long)entry.Size,
-                            ErrorMessage = "This file is corrupted or damaged within the archive",
-                            Crc32 = "ERROR",
-                            Md5 = "ERROR",
-                            Sha1 = "ERROR",
-                            Sha256 = "ERROR"
-                        });
-                        continue;
-                    }
-                    catch (SharpSevenZipException entryEx)
-                    {
-                        // Internal error extracting individual entry - send bug report for tracking but continue
-                        _ = bugReportService?.SendBugReportAsync($"Internal error extracting entry '{entry.FileName}' from archive '{fileInfo.Name}'", entryEx);
-                        LoggerService.LogWarning("HashCalculator", $"Internal error extracting entry '{entry.FileName}' from archive '{fileInfo.Name}': {entryEx.Message}");
-                        gameFiles.Add(new GameFile
-                        {
-                            FileName = entry.FileName,
-                            GameName = Path.GetFileNameWithoutExtension(entry.FileName),
-                            FileSize = (long)entry.Size,
-                            ErrorMessage = "An error occurred while extracting this file from the archive. It may be corrupted or use an unsupported format.",
-                            Crc32 = "ERROR",
-                            Md5 = "ERROR",
-                            Sha1 = "ERROR",
-                            Sha256 = "ERROR"
-                        });
-                        continue;
-                    }
+            catch (ExtractionFailedException entryEx)
+            {
+                // Individual entry is corrupted - log warning but do not send bug report for corrupt files
+                if (IsDiskFullError(entryEx))
+                {
+                    _ = bugReportService?.SendBugReportAsync($"Archive entry extraction failed for '{entry.FileName}' in archive '{fileInfo.Name}' - DISK FULL", entryEx);
+                }
+                LoggerService.LogWarning("HashCalculator", $"Archive entry extraction failed for '{entry.FileName}' in archive '{fileInfo.Name}': {entryEx.Message}");
+                gameFiles.Add(new GameFile
+                {
+                    FileName = entry.FileName,
+                    GameName = Path.GetFileNameWithoutExtension(entry.FileName),
+                    FileSize = (long)entry.Size,
+                    ErrorMessage = "This file is corrupted or damaged within the archive",
+                    Crc32 = "ERROR",
+                    Md5 = "ERROR",
+                    Sha1 = "ERROR",
+                    Sha256 = "ERROR"
+                });
+                continue;
+            }
+            catch (SharpSevenZipException entryEx)
+            {
+                // Internal error extracting individual entry - log warning but do not send bug report for corrupt files
+                if (IsDiskFullError(entryEx))
+                {
+                    _ = bugReportService?.SendBugReportAsync($"Internal error extracting entry '{entry.FileName}' from archive '{fileInfo.Name}' - DISK FULL", entryEx);
+                }
+                LoggerService.LogWarning("HashCalculator", $"Internal error extracting entry '{entry.FileName}' from archive '{fileInfo.Name}': {entryEx.Message}");
+                gameFiles.Add(new GameFile
+                {
+                    FileName = entry.FileName,
+                    GameName = Path.GetFileNameWithoutExtension(entry.FileName),
+                    FileSize = (long)entry.Size,
+                    ErrorMessage = "An error occurred while extracting this file from the archive. It may be corrupted or use an unsupported format.",
+                    Crc32 = "ERROR",
+                    Md5 = "ERROR",
+                    Sha1 = "ERROR",
+                    Sha256 = "ERROR"
+                });
+                continue;
+            }
 
                     entryStream.Position = 0;
 
@@ -164,8 +183,11 @@ public static partial class HashCalculator
             }
             catch (SharpSevenZipArchiveException archiveEx)
             {
-                // Invalid or unrecognized archive format - send bug report for tracking
-                _ = bugReportService?.SendBugReportAsync($"Invalid or unrecognized archive format for file '{fileInfo.Name}'", archiveEx);
+                // Invalid or unrecognized archive format - do not send bug report for corrupt files
+                if (IsDiskFullError(archiveEx))
+                {
+                    _ = bugReportService?.SendBugReportAsync($"Invalid or unrecognized archive format for file '{fileInfo.Name}' - DISK FULL", archiveEx);
+                }
                 LoggerService.LogWarning("HashCalculator", $"Invalid or unrecognized archive format for file '{fileInfo.Name}': {archiveEx.Message}");
                 return
                 [
@@ -184,8 +206,11 @@ public static partial class HashCalculator
             }
             catch (ExtractionFailedException archiveEx)
             {
-                // Archive is corrupted or has data errors - send bug report for tracking
-                _ = bugReportService?.SendBugReportAsync($"Archive extraction failed for file '{fileInfo.Name}'", archiveEx);
+                // Archive is corrupted or has data errors - do not send bug report for corrupt files
+                if (IsDiskFullError(archiveEx))
+                {
+                    _ = bugReportService?.SendBugReportAsync($"Archive extraction failed for file '{fileInfo.Name}' - DISK FULL", archiveEx);
+                }
                 LoggerService.LogWarning("HashCalculator", $"Archive extraction failed for file '{fileInfo.Name}': {archiveEx.Message}");
                 return
                 [
@@ -204,8 +229,11 @@ public static partial class HashCalculator
             }
             catch (SharpSevenZipException sevenZipEx)
             {
-                // Internal SharpSevenZip error during extraction - send bug report for tracking
-                _ = bugReportService?.SendBugReportAsync($"SharpSevenZip internal error processing archive '{fileInfo.Name}'", sevenZipEx);
+                // Internal SharpSevenZip error during extraction - do not send bug report for corrupt files
+                if (IsDiskFullError(sevenZipEx))
+                {
+                    _ = bugReportService?.SendBugReportAsync($"SharpSevenZip internal error processing archive '{fileInfo.Name}' - DISK FULL", sevenZipEx);
+                }
                 LoggerService.LogWarning("HashCalculator", $"SharpSevenZip internal error processing archive '{fileInfo.Name}': {sevenZipEx.Message}");
                 return
                 [
@@ -224,8 +252,11 @@ public static partial class HashCalculator
             }
             catch (Exception ex)
             {
-                // Unexpected error - send bug report for tracking
-                _ = bugReportService?.SendBugReportAsync($"Unexpected archive extraction error for file '{fileInfo.Name}'", ex);
+                // Unexpected error - only send bug report for disk-full or truly unexpected errors
+                if (IsDiskFullError(ex))
+                {
+                    _ = bugReportService?.SendBugReportAsync($"Unexpected archive extraction error for file '{fileInfo.Name}' - DISK FULL", ex);
+                }
                 LoggerService.LogException("HashCalculator", ex, $"Unexpected error processing archive '{fileInfo.Name}'");
                 // Return an error object for the archive itself so the UI knows extraction failed.
                 // We do NOT hash the container anymore.
