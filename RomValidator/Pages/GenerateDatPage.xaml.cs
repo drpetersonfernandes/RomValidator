@@ -234,7 +234,7 @@ public partial class GenerateDatPage : IDisposable
         {
             IgnoreInaccessible = true,
             RecurseSubdirectories = false, // Changed to false for top directory only
-            AttributesToSkip = FileAttributes.Hidden | FileAttributes.System // Optional: skip hidden/system files for performance
+            AttributesToSkip = FileAttributes.Hidden | FileAttributes.System | FileAttributes.ReparsePoint // Skip cloud-only placeholders (e.g. OneDrive)
         };
 
         // Start a background task to count files so we can estimate progress bar Max

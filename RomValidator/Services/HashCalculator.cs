@@ -87,6 +87,24 @@ public static partial class HashCalculator
         var fileInfo = new FileInfo(filePath);
         var gameFiles = new List<GameFile>();
 
+        // Skip cloud-only placeholders (e.g. OneDrive files that are not fully available locally)
+        if (fileInfo.Attributes.HasFlag(FileAttributes.ReparsePoint))
+        {
+            LoggerService.LogWarning("HashCalculator", $"Skipping cloud-only placeholder file: '{fileInfo.Name}'");
+            gameFiles.Add(new GameFile
+            {
+                FileName = fileInfo.Name,
+                GameName = Path.GetFileNameWithoutExtension(fileInfo.Name),
+                FileSize = fileInfo.Length,
+                ErrorMessage = "This file is a cloud-only placeholder and is not fully available locally. Please ensure the file is downloaded to your device.",
+                Crc32 = "ERROR",
+                Md5 = "ERROR",
+                Sha1 = "ERROR",
+                Sha256 = "ERROR"
+            });
+            return gameFiles;
+        }
+
         // Check if file is an archive
         if (IsArchiveFile(fileInfo.Name))
         {

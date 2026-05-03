@@ -280,7 +280,13 @@ public partial class ValidatePage : IDisposable
             await LogMessageAsync($"Delete failed/unknown files: {deleteFailed}" + (deleteFailed ? " (⚠️ PERMANENT - files will be deleted!)" : ""));
             await LogMessageAsync($"Rename files on hash match: {renameMatched}");
 
-            var filesToScan = await Task.Run(() => Directory.GetFiles(romsFolderPath, "*", SearchOption.TopDirectoryOnly), token);
+            var enumerationOptions = new EnumerationOptions
+            {
+                IgnoreInaccessible = true,
+                RecurseSubdirectories = false,
+                AttributesToSkip = FileAttributes.Hidden | FileAttributes.System | FileAttributes.ReparsePoint
+            };
+            var filesToScan = await Task.Run(() => Directory.EnumerateFiles(romsFolderPath, "*", enumerationOptions).ToArray(), token);
             _totalFilesToProcess = filesToScan.Length;
             await Application.Current.Dispatcher.InvokeAsync(() => ProgressBar.Maximum = _totalFilesToProcess);
             UpdateStatsDisplay();
@@ -1085,6 +1091,9 @@ public partial class ValidatePage : IDisposable
         const int maxRetries = 10;
         const int delayMs = 200;
 
+        // Generate unique destination path to prevent overwriting existing files
+        destPath = GetUniqueDestPath(destPath);
+
         for (var attempt = 1; attempt <= maxRetries; attempt++)
         {
             try
@@ -1095,10 +1104,6 @@ public partial class ValidatePage : IDisposable
             catch (FileNotFoundException)
             {
                 throw new IOException($"Source file not found: {sourcePath}");
-            }
-            catch (IOException ex) when (ex.Message.Contains("already exists", StringComparison.OrdinalIgnoreCase))
-            {
-                throw new IOException($"Destination file already exists: {destPath}");
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
