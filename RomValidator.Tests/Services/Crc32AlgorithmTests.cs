@@ -2,7 +2,7 @@ using System.Text;
 using RomValidator.Services;
 using Xunit;
 
-namespace RomValidator.Tests;
+namespace RomValidator.Tests.Services;
 
 public class Crc32AlgorithmTests
 {
@@ -11,7 +11,7 @@ public class Crc32AlgorithmTests
     [InlineData("The quick brown fox jumps over the lazy dog", "414fa339")]
     [InlineData("123456789", "cbf43926")]
     [InlineData("Hello, World!", "ec4ac3d0")]
-    public void ComputeHash_ReturnsExpectedCrc32(string input, string expectedHex)
+    public void ComputeHashReturnsExpectedCrc32(string input, string expectedHex)
     {
         // Arrange
         using var crc32 = new Crc32Algorithm();
@@ -26,11 +26,11 @@ public class Crc32AlgorithmTests
     }
 
     [Fact]
-    public void Initialize_ResetsHashState()
+    public void InitializeResetsHashState()
     {
         // Arrange
         using var crc32 = new Crc32Algorithm();
-        var bytes = Encoding.UTF8.GetBytes("test data");
+        var bytes = "test data"u8.ToArray();
         crc32.ComputeHash(bytes);
 
         // Act
@@ -44,14 +44,14 @@ public class Crc32AlgorithmTests
     }
 
     [Fact]
-    public void HashSize_Is32Bits()
+    public void HashSizeIs32Bits()
     {
         using var crc32 = new Crc32Algorithm();
         Assert.Equal(32, crc32.HashSize);
     }
 
     [Fact]
-    public void ComputeHash_Returns4Bytes()
+    public void ComputeHashReturns4Bytes()
     {
         using var crc32 = new Crc32Algorithm();
         var hash = crc32.ComputeHash([]);

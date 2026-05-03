@@ -1189,6 +1189,7 @@ public partial class ValidatePage : IDisposable
     {
         const int errorDiskFull = unchecked((int)0x80070070);
         if (ex.HResult == errorDiskFull) return true;
+
         var msg = ex.Message;
         return msg.Contains("not enough space", StringComparison.OrdinalIgnoreCase) ||
                msg.Contains("disk full", StringComparison.OrdinalIgnoreCase) ||
@@ -1556,6 +1557,7 @@ public partial class ValidatePage : IDisposable
                     LoggerService.LogWarning("FixArchiveInternal", errorMsg + $": {extractEx.Message}");
                     LogMessage($"[WARNING] Archive '{archiveFileName}' appears to be corrupt or damaged. Skipping internal filename check.");
                 }
+
                 return; // Don't fail the entire operation
             }
 
@@ -1795,6 +1797,7 @@ public partial class ValidatePage : IDisposable
                     LoggerService.LogWarning("RenameInsideArchive", errorMsg + $": {extractEx.Message}");
                     LogMessage($"[WARNING] Archive '{archiveFileName}' appears to be corrupt or damaged. Skipping internal file rename.");
                 }
+
                 throw new InvalidOperationException($"Archive extraction failed: {extractEx.Message}", extractEx);
             }
 

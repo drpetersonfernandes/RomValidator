@@ -1,12 +1,12 @@
 using RomValidator.Models.NoIntro;
 using Xunit;
 
-namespace RomValidator.Tests;
+namespace RomValidator.Tests.Models;
 
 public class RomTests
 {
     [Fact]
-    public void Rom_DefaultValues_AreEmpty()
+    public void RomDefaultValuesAreEmpty()
     {
         // Arrange & Act
         var rom = new Rom();
@@ -29,7 +29,7 @@ public class RomTests
     [InlineData("-1", -1, "-1")] // Negative numbers parse successfully
     [InlineData("invalid", 0, "0")] // Invalid parses to 0, getter returns Size.ToString()
     [InlineData("", 0, "0")] // Empty parses to 0, getter returns Size.ToString()
-    public void SizeString_Parsing_WorksCorrectly(string sizeString, long expectedSize, string expectedSizeString)
+    public void SizeStringParsingWorksCorrectly(string sizeString, long expectedSize, string expectedSizeString)
     {
         // Arrange
         var rom = new Rom { SizeString = sizeString };
@@ -40,7 +40,7 @@ public class RomTests
     }
 
     [Fact]
-    public void Rom_Properties_CanBeSet()
+    public void RomPropertiesCanBeSet()
     {
         // Arrange
         var rom = new Rom

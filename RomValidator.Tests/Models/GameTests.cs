@@ -1,12 +1,12 @@
 using RomValidator.Models.NoIntro;
 using Xunit;
 
-namespace RomValidator.Tests;
+namespace RomValidator.Tests.Models;
 
 public class GameTests
 {
     [Fact]
-    public void Game_DefaultValues_AreEmpty()
+    public void GameDefaultValuesAreEmpty()
     {
         // Arrange & Act
         var game = new Game();
@@ -21,7 +21,7 @@ public class GameTests
     }
 
     [Fact]
-    public void Game_Properties_CanBeSet()
+    public void GamePropertiesCanBeSet()
     {
         // Arrange
         var game = new Game

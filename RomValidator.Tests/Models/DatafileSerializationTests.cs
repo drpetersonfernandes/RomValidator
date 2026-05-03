@@ -2,12 +2,12 @@ using System.Xml.Serialization;
 using RomValidator.Models.NoIntro;
 using Xunit;
 
-namespace RomValidator.Tests;
+namespace RomValidator.Tests.Models;
 
 public class DatafileSerializationTests
 {
     [Fact]
-    public void Datafile_SerializesAndDeserializesCorrectly()
+    public void DatafileSerializesAndDeserializesCorrectly()
     {
         // Arrange
         var original = new Datafile
@@ -75,7 +75,7 @@ public class DatafileSerializationTests
     }
 
     [Fact]
-    public void Datafile_DefaultSchemaLocation_IsSet()
+    public void DatafileDefaultSchemaLocationIsSet()
     {
         var datafile = new Datafile();
         Assert.Contains("no-intro.org", datafile.SchemaLocation);

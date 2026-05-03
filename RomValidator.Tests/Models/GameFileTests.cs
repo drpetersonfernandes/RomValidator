@@ -1,12 +1,12 @@
 using RomValidator.Models;
 using Xunit;
 
-namespace RomValidator.Tests;
+namespace RomValidator.Tests.Models;
 
 public class GameFileTests
 {
     [Fact]
-    public void GameFile_DefaultValues_AreEmpty()
+    public void GameFileDefaultValuesAreEmpty()
     {
         // Arrange & Act
         var gameFile = new GameFile();
@@ -24,7 +24,7 @@ public class GameFileTests
     }
 
     [Fact]
-    public void GameFile_Properties_CanBeSet()
+    public void GameFilePropertiesCanBeSet()
     {
         // Arrange
         var gameFile = new GameFile

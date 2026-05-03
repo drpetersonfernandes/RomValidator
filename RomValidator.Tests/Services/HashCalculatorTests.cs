@@ -1,7 +1,7 @@
 using RomValidator.Services;
 using Xunit;
 
-namespace RomValidator.Tests;
+namespace RomValidator.Tests.Services;
 
 public class HashCalculatorTests
 {
@@ -16,7 +16,7 @@ public class HashCalculatorTests
     [InlineData("game.smc", false)]
     [InlineData("archive.zip.txt", false)]
     [InlineData("game", false)]
-    public void IsArchiveFile_DetectsArchiveExtensions(string fileName, bool expected)
+    public void IsArchiveFileDetectsArchiveExtensions(string fileName, bool expected)
     {
         // Act
         var result = HashCalculator.IsArchiveFile(fileName);

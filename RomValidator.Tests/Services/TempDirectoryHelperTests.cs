@@ -1,12 +1,12 @@
 using RomValidator.Services;
 using Xunit;
 
-namespace RomValidator.Tests;
+namespace RomValidator.Tests.Services;
 
 public class TempDirectoryHelperTests
 {
     [Fact]
-    public void CreateTempDirectory_CreatesDirectory()
+    public void CreateTempDirectoryCreatesDirectory()
     {
         // Act
         var tempDir = TempDirectoryHelper.CreateTempDirectory("test");
@@ -28,7 +28,7 @@ public class TempDirectoryHelperTests
     }
 
     [Fact]
-    public void CreateTempDirectory_WithDefaultPrefix_CreatesDirectory()
+    public void CreateTempDirectoryWithDefaultPrefixCreatesDirectory()
     {
         // Act
         var tempDir = TempDirectoryHelper.CreateTempDirectory();
@@ -50,7 +50,7 @@ public class TempDirectoryHelperTests
     }
 
     [Fact]
-    public void CleanupTempDirectory_DeletesDirectory()
+    public void CleanupTempDirectoryDeletesDirectory()
     {
         // Arrange
         var tempDir = TempDirectoryHelper.CreateTempDirectory("cleanup_test");
@@ -64,7 +64,7 @@ public class TempDirectoryHelperTests
     }
 
     [Fact]
-    public void CleanupTempDirectory_NonExistentDirectory_DoesNotThrow()
+    public void CleanupTempDirectoryNonExistentDirectoryDoesNotThrow()
     {
         // Arrange
         var nonExistentDir = Path.Combine(Path.GetTempPath(), $"nonexistent_{Guid.NewGuid():N}");
@@ -74,7 +74,7 @@ public class TempDirectoryHelperTests
     }
 
     [Fact]
-    public void CreateTempDirectory_GeneratesUniquePaths()
+    public void CreateTempDirectoryGeneratesUniquePaths()
     {
         // Act
         var dir1 = TempDirectoryHelper.CreateTempDirectory("unique");
@@ -95,7 +95,7 @@ public class TempDirectoryHelperTests
     }
 
     [Fact]
-    public void GetAvailableFreeSpace_ValidPath_ReturnsPositiveValue()
+    public void GetAvailableFreeSpaceValidPathReturnsPositiveValue()
     {
         // Act
         var freeSpace = TempDirectoryHelper.GetAvailableFreeSpace(Path.GetTempPath());
@@ -106,10 +106,10 @@ public class TempDirectoryHelperTests
     }
 
     [Fact]
-    public void GetAvailableFreeSpace_InvalidPath_ReturnsNull()
+    public void GetAvailableFreeSpaceInvalidPathReturnsNull()
     {
         // Act
-        var freeSpace = TempDirectoryHelper.GetAvailableFreeSpace("\\\\invalid\\path\\that\\does\\not\\exist");
+        var freeSpace = TempDirectoryHelper.GetAvailableFreeSpace(@"\\invalid\path\that\does\not\exist");
 
         // Assert
         Assert.Null(freeSpace);
@@ -123,7 +123,7 @@ public class TempDirectoryHelperTests
     [InlineData(1048576, "1 MB")]
     [InlineData(1073741824, "1 GB")]
     [InlineData(1099511627776, "1 TB")]
-    public void FormatBytes_ReturnsExpectedFormat(long bytes, string expected)
+    public void FormatBytesReturnsExpectedFormat(long bytes, string expected)
     {
         // Act
         var result = TempDirectoryHelper.FormatBytes(bytes);
@@ -133,7 +133,7 @@ public class TempDirectoryHelperTests
     }
 
     [Fact]
-    public void FindTempDirectoryWithSpace_SufficientSpace_ReturnsDirectory()
+    public void FindTempDirectoryWithSpaceSufficientSpaceReturnsDirectory()
     {
         // Arrange - request a tiny amount of space that should always be available
         var contextPath = Path.GetTempPath();
@@ -158,7 +158,7 @@ public class TempDirectoryHelperTests
     }
 
     [Fact]
-    public void FindTempDirectoryWithSpace_InsufficientSpace_ReturnsNullWithWarning()
+    public void FindTempDirectoryWithSpaceInsufficientSpaceReturnsNullWithWarning()
     {
         // Arrange - request more space than any drive can possibly have (1 exabyte)
         var contextPath = Path.GetTempPath();
@@ -174,7 +174,7 @@ public class TempDirectoryHelperTests
     }
 
     [Fact]
-    public void CleanupAllTrackedDirectories_RemovesRemainingDirectories()
+    public void CleanupAllTrackedDirectoriesRemovesRemainingDirectories()
     {
         // Arrange - create directories but do not clean them up individually
         var dir1 = TempDirectoryHelper.CreateTempDirectory("tracked1");

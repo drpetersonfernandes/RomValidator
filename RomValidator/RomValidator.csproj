@@ -8,8 +8,8 @@
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <ApplicationIcon>icon\icon.ico</ApplicationIcon>
-        <AssemblyVersion>2.6.1</AssemblyVersion>
-        <FileVersion>2.6.1</FileVersion>
+        <AssemblyVersion>2.7.0</AssemblyVersion>
+        <FileVersion>2.7.0</FileVersion>
         <DebugType>embedded</DebugType>
         <DebugSymbols>true</DebugSymbols>
         <IsPackable>false</IsPackable>
@@ -18,6 +18,7 @@
         <GenerateDocumentationFile>false</GenerateDocumentationFile>
         <DocumentationFile>bin\$(Configuration)\$(TargetFramework)\RomValidator.xml</DocumentationFile>
         <NoWarn>$(NoWarn);1591</NoWarn>
+        <Company>PureLogicCode.com</Company>
     </PropertyGroup>
 
     <ItemGroup>
@@ -42,7 +43,7 @@
     </ItemGroup>
 
     <ItemGroup>
-      <PackageReference Include="SharpSevenZip" Version="2.0.36" />
+      <PackageReference Include="SharpSevenZip" Version="2.0.45" />
     </ItemGroup>
 
     <!-- Ensure 7z native libraries are copied to output directory with correct naming for each architecture -->

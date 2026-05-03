@@ -21,7 +21,11 @@ public static class TempDirectoryHelper
     {
         var tempDir = Path.Combine(Path.GetTempPath(), $"{prefix}_{Guid.NewGuid():N}");
         Directory.CreateDirectory(tempDir);
-        lock (TrackLock) { TrackedDirectories.Add(tempDir); }
+        lock (TrackLock)
+        {
+            TrackedDirectories.Add(tempDir);
+        }
+
         return tempDir;
     }
 
@@ -44,7 +48,10 @@ public static class TempDirectoryHelper
         }
         finally
         {
-            lock (TrackLock) { TrackedDirectories.Remove(tempDir); }
+            lock (TrackLock)
+            {
+                TrackedDirectories.Remove(tempDir);
+            }
         }
     }
 
@@ -54,7 +61,11 @@ public static class TempDirectoryHelper
     public static void CleanupAllTrackedDirectories()
     {
         List<string> toClean;
-        lock (TrackLock) { toClean = [..TrackedDirectories]; }
+        lock (TrackLock)
+        {
+            toClean = [..TrackedDirectories];
+        }
+
         foreach (var dir in toClean)
         {
             CleanupTempDirectory(dir);
@@ -72,8 +83,10 @@ public static class TempDirectoryHelper
         {
             var root = Path.GetPathRoot(path);
             if (string.IsNullOrEmpty(root)) return null;
+
             var drive = new DriveInfo(root);
             if (!drive.IsReady) return null;
+
             return drive.AvailableFreeSpace;
         }
         catch
@@ -98,9 +111,9 @@ public static class TempDirectoryHelper
         // 1. Try default temp path first
         var defaultTemp = Path.GetTempPath();
         var defaultSpace = GetAvailableFreeSpace(defaultTemp);
-        if (defaultSpace.HasValue && defaultSpace.Value >= requiredBytes)
+        if (defaultSpace >= requiredBytes)
         {
-            return CreateTempDirectory("romvalidator");
+            return CreateTempDirectory();
         }
 
         warning = $"[WARNING] Default temp drive ({Path.GetPathRoot(defaultTemp)}) has insufficient space ({FormatBytes(defaultSpace ?? 0)} available, {FormatBytes(requiredBytes)} required).";
@@ -111,16 +124,17 @@ public static class TempDirectoryHelper
             !string.Equals(contextDrive, Path.GetPathRoot(defaultTemp), StringComparison.OrdinalIgnoreCase))
         {
             var contextSpace = GetAvailableFreeSpace(contextDrive);
-            if (contextSpace.HasValue && contextSpace.Value >= requiredBytes)
+            if (contextSpace >= requiredBytes)
             {
                 var dir = CreateTempDirectoryInPath(contextDrive, "romvalidator");
                 return dir;
             }
+
             warning += $" Context drive ({contextDrive}) also has insufficient space ({FormatBytes(contextSpace ?? 0)} available).";
         }
 
         // 3. Try all other ready drives
-        foreach (var drive in DriveInfo.GetDrives().Where(d => d.IsReady))
+        foreach (var drive in DriveInfo.GetDrives().Where(static d => d.IsReady))
         {
             var driveRoot = drive.Name;
             if (string.Equals(driveRoot, Path.GetPathRoot(defaultTemp), StringComparison.OrdinalIgnoreCase)) continue;
@@ -149,8 +163,8 @@ public static class TempDirectoryHelper
             HashCalculator.InitializeSevenZip();
             using var extractor = new SharpSevenZipExtractor(archivePath);
             return extractor.ArchiveFileData
-                .Where(e => !e.IsDirectory)
-                .Sum(e => (long)e.Size);
+                .Where(static e => !e.IsDirectory)
+                .Sum(static e => (long)e.Size);
         }
         catch
         {
@@ -167,12 +181,13 @@ public static class TempDirectoryHelper
     {
         string[] sizes = ["B", "KB", "MB", "GB", "TB"];
         double len = bytes;
-        int order = 0;
+        var order = 0;
         while (len >= 1024 && order < sizes.Length - 1)
         {
             order++;
             len /= 1024;
         }
+
         return string.Create(CultureInfo.InvariantCulture, $"{len:0.##} {sizes[order]}");
     }
 
@@ -185,7 +200,11 @@ public static class TempDirectoryHelper
         Directory.CreateDirectory(altTemp);
         var tempDir = Path.Combine(altTemp, $"{prefix}_{Guid.NewGuid():N}");
         Directory.CreateDirectory(tempDir);
-        lock (TrackLock) { TrackedDirectories.Add(tempDir); }
+        lock (TrackLock)
+        {
+            TrackedDirectories.Add(tempDir);
+        }
+
         return tempDir;
     }
 }
