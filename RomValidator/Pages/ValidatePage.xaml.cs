@@ -1591,7 +1591,7 @@ public partial class ValidatePage : IDisposable
                         // Found a match - check if filename needs fixing
                         if (!string.Equals(sourceFileName, expectedRom.Name, StringComparison.OrdinalIgnoreCase))
                         {
-                            targetFileName = expectedRom.Name;
+                            targetFileName = Path.GetFileName(expectedRom.Name);
                             anyRenameNeeded = true;
                         }
 
@@ -1827,7 +1827,7 @@ public partial class ValidatePage : IDisposable
                 // Rename the first file to targetFileName
                 if (!targetFileRenamed)
                 {
-                    destFileName = targetFileName;
+                    destFileName = Path.GetFileName(targetFileName);
                     targetFileRenamed = true;
                 }
                 else

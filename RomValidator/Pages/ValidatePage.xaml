@@ -39,6 +39,12 @@
                      <Button x:Name="BrowseDatFileButton" Grid.Column="2" Content="Browse..." Click="BrowseDatFileButton_ClickAsync" Style="{StaticResource ActionButtonStyle}" ToolTip="Select the DAT file for validation"/>
                 </Grid>
 
+                <TextBlock Text="Only No-Intro XML DAT files are supported." 
+                           FontStyle="Italic" 
+                           Foreground="Gray" 
+                           FontSize="11" 
+                           Margin="155,0,0,5"/>
+
                 <StackPanel Margin="0,15,0,0" Orientation="Vertical">
                     <CheckBox x:Name="MoveSuccessCheckBox" Content="Move successful items to '_success' folder" IsChecked="True" VerticalAlignment="Center" Margin="5" ToolTip="If checked, valid ROMs will be moved to the '_success' subfolder"/>
                     <CheckBox x:Name="MoveFailedCheckBox" Content="Move failed/unknown items to '_fail' folder" IsChecked="True" Margin="5" VerticalAlignment="Center" ToolTip="If checked, invalid or unknown ROMs will be moved to the '_fail' subfolder"/>
