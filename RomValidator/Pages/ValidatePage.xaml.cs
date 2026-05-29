@@ -666,6 +666,21 @@ public partial class ValidatePage : IDisposable
         LogMessage($"Loading and parsing DAT file: {Path.GetFileName(datFilePath)}...");
         _mainWindow.UpdateStatusBarMessage($"Loading DAT: {Path.GetFileName(datFilePath)}...");
         ClearDatInfoDisplay();
+
+        var extension = Path.GetExtension(datFilePath).ToLowerInvariant();
+        if (extension != ".dat" && extension != ".xml")
+        {
+            var errorMsg = "Invalid file type.\n\n" +
+                           "ROM Validator requires a No-Intro XML DAT file with a .dat or .xml extension.\n\n" +
+                           $"The selected file '{Path.GetFileName(datFilePath)}' is not a recognized DAT file.\n\n" +
+                           "Please select a valid No-Intro XML DAT file.";
+            LogMessage($"Error: {errorMsg}");
+            ShowIncompatibleDatFileError(errorMsg);
+            ClearRomDatabase();
+            _mainWindow.UpdateStatusBarMessage("Invalid file type. Please select a .dat or .xml file.");
+            return false;
+        }
+
         string? datFilePreview = null;
 
         try
@@ -785,8 +800,9 @@ public partial class ValidatePage : IDisposable
             }
 
             // First validation pass - check for <datafile> root element
-            await using (var validationStream = new FileStream(datFilePath, FileMode.Open, FileAccess.Read, FileShare.Read, 65536, true))
+            try
             {
+                await using var validationStream = new FileStream(datFilePath, FileMode.Open, FileAccess.Read, FileShare.Read, 65536, true);
                 using var validationReader = XmlReader.Create(validationStream, new XmlReaderSettings { DtdProcessing = DtdProcessing.Ignore, XmlResolver = null });
 
                 if (!validationReader.ReadToFollowing("datafile"))
@@ -808,6 +824,19 @@ public partial class ValidatePage : IDisposable
                     _mainWindow.UpdateStatusBarMessage("DAT file format not supported.");
                     return false;
                 }
+            }
+            catch (XmlException)
+            {
+                const string errorMsg = "Incompatible DAT file format.\n\n" +
+                                        "This application only supports No-Intro XML DAT files.\n\n" +
+                                        "The selected file does not contain valid XML data or is a binary file.\n\n" +
+                                        "Please ensure you are using a No-Intro XML DAT file from https://no-intro.org/";
+                LogMessage($"Error: {errorMsg}");
+
+                ShowIncompatibleDatFileError(errorMsg);
+                ClearRomDatabase();
+                _mainWindow.UpdateStatusBarMessage("DAT file format not supported.");
+                return false;
             }
 
             // Create serializer with our updated models
