@@ -43,7 +43,7 @@
     </ItemGroup>
 
     <ItemGroup>
-      <PackageReference Include="SharpSevenZip" Version="2.0.47" />
+      <PackageReference Include="SharpSevenZip" Version="2.0.49" />
     </ItemGroup>
 
     <!-- Ensure 7z native libraries are copied to output directory with correct naming for each architecture -->

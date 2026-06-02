@@ -146,21 +146,21 @@ public partial class ValidatePage : IDisposable
             if (string.IsNullOrEmpty(romsFolderPath) || string.IsNullOrEmpty(datFilePath))
             {
                 ShowError("Please select both a ROMs folder and a DAT file.");
-                _mainWindow.UpdateStatusBarMessage("Error: Please select paths.");
+                if (operationCts != null) await _mainWindow.UpdateStatusBarMessageAsync("Error: Please select paths.", operationCts.Token);
                 return;
             }
 
             if (!Directory.Exists(romsFolderPath))
             {
                 ShowError($"The selected ROMs folder does not exist: {romsFolderPath}");
-                _mainWindow.UpdateStatusBarMessage("Error: ROMs folder not found.");
+                if (operationCts != null) await _mainWindow.UpdateStatusBarMessageAsync("Error: ROMs folder not found.", operationCts.Token);
                 return;
             }
 
             if (!File.Exists(datFilePath))
             {
                 ShowError($"The selected DAT file does not exist: {datFilePath}");
-                _mainWindow.UpdateStatusBarMessage("Error: DAT file not found.");
+                if (operationCts != null) await _mainWindow.UpdateStatusBarMessageAsync("Error: DAT file not found.", operationCts.Token);
                 return;
             }
 
@@ -178,7 +178,7 @@ public partial class ValidatePage : IDisposable
 
                 if (confirmationResult != MessageBoxResult.Yes)
                 {
-                    _mainWindow.UpdateStatusBarMessage("Validation cancelled - deletion not confirmed.");
+                    if (operationCts != null) await _mainWindow.UpdateStatusBarMessageAsync("Validation cancelled - deletion not confirmed.", operationCts.Token);
                     return;
                 }
             }
@@ -198,7 +198,7 @@ public partial class ValidatePage : IDisposable
 
             LogViewer.Clear();
             LogMessage("--- Starting Validation Process ---");
-            _mainWindow.UpdateStatusBarMessage("Validation started...");
+            await _mainWindow.UpdateStatusBarMessageAsync("Validation started...", operationCts.Token);
 
             // Use the captured CTS instance
             // Skip re-loading if the same DAT file was already loaded and hasn't changed (Issue 8 fix)
@@ -224,23 +224,23 @@ public partial class ValidatePage : IDisposable
             if (!datLoaded)
             {
                 ShowError("Failed to load or parse the DAT file. Please check the log for details.");
-                _mainWindow.UpdateStatusBarMessage("DAT file load failed.");
+                await _mainWindow.UpdateStatusBarMessageAsync("DAT file load failed.", operationCts.Token);
                 return;
             }
 
-            _mainWindow.UpdateStatusBarMessage("DAT file loaded. Starting ROM validation...");
+            await _mainWindow.UpdateStatusBarMessageAsync("DAT file loaded. Starting ROM validation...", operationCts.Token);
             await PerformValidationAsync(romsFolderPath, moveSuccess, moveFailed, deleteFailed, renameMatched, operationCts.Token);
         }
         catch (OperationCanceledException)
         {
             LogMessage("Validation operation was canceled by the user.");
-            _mainWindow.UpdateStatusBarMessage("Validation canceled.");
+            if (operationCts != null) await _mainWindow.UpdateStatusBarMessageAsync("Validation canceled.", operationCts.Token);
         }
         catch (Exception ex)
         {
             LogMessage($"An unexpected error occurred: {ex.Message}");
             ShowError($"An unexpected error occurred during validation: {ex.Message}");
-            _mainWindow.UpdateStatusBarMessage("Validation failed with an error.");
+            if (operationCts != null) await _mainWindow.UpdateStatusBarMessageAsync("Validation failed with an error.", operationCts.Token);
             _ = _mainWindow.BugReportService.SendBugReportAsync("Exception during PerformValidationAsync", ex);
         }
         finally
@@ -291,11 +291,11 @@ public partial class ValidatePage : IDisposable
             await Application.Current.Dispatcher.InvokeAsync(() => ProgressBar.Maximum = _totalFilesToProcess);
             UpdateStatsDisplay();
             await LogMessageAsync($"Found {_totalFilesToProcess} files to validate.");
-            _mainWindow.UpdateStatusBarMessage($"Found {_totalFilesToProcess} files. Starting validation...");
+            await _mainWindow.UpdateStatusBarMessageAsync($"Found {_totalFilesToProcess} files. Starting validation...", token);
 
             if (_totalFilesToProcess == 0)
             {
-                _mainWindow.UpdateStatusBarMessage("No files found to validate.");
+                await _mainWindow.UpdateStatusBarMessageAsync("No files found to validate.", token);
                 return;
             }
 
@@ -312,7 +312,7 @@ public partial class ValidatePage : IDisposable
                 if (_diskSpaceExhausted)
                 {
                     LogMessage("[WARNING] Validation queue stopped due to insufficient disk space on all available drives.");
-                    _mainWindow.UpdateStatusBarMessage("Validation stopped: insufficient disk space.");
+                    await _mainWindow.UpdateStatusBarMessageAsync("Validation stopped: insufficient disk space.", token);
                     break;
                 }
 
@@ -327,7 +327,7 @@ public partial class ValidatePage : IDisposable
                 await FlushUiUpdatesAsync();
             }
 
-            _mainWindow.UpdateStatusBarMessage("Validation complete.");
+            await _mainWindow.UpdateStatusBarMessageAsync("Validation complete.", token);
         }
         finally
         {
@@ -428,7 +428,7 @@ public partial class ValidatePage : IDisposable
                                 LogMessage($"[WARNING] {fileName} -> {displayName} renamed, but failed to rename content inside archive: {archiveEx.Message}");
                                 if (IsDiskFullError(archiveEx))
                                 {
-                                    _ = _mainWindow.BugReportService.SendBugReportAsync($"Error renaming file inside archive '{newFilePath}' to '{hashMatchedRom.Name}'", archiveEx);
+                                    _ = _mainWindow.BugReportService.SendBugReportAsync($"Error renaming file inside archive '{newFilePath}' to '{hashMatchedRom.Name}'", archiveEx, null, token);
                                 }
                             }
                         }
@@ -462,7 +462,7 @@ public partial class ValidatePage : IDisposable
                     {
                         Interlocked.Increment(ref _failCount);
                         LogMessage($"[FAILED] {fileName} - Hash matched {hashMatchedRom.Name} but rename failed: {ex.Message}");
-                        _ = _mainWindow.BugReportService.SendBugReportAsync($"Error renaming file '{fileName}' to '{hashMatchedRom.Name}'", ex);
+                        _ = _mainWindow.BugReportService.SendBugReportAsync($"Error renaming file '{fileName}' to '{hashMatchedRom.Name}'", ex, null, token);
 
                         if (moveFailed)
                         {
@@ -540,7 +540,7 @@ public partial class ValidatePage : IDisposable
             if (!string.IsNullOrEmpty(matchDetails) && (matchDetails.Contains("Archive extraction failed", StringComparison.Ordinal) || matchDetails.Contains("Error", StringComparison.Ordinal)))
             {
                 // Optional: Highlight critical errors
-                _mainWindow.UpdateStatusBarMessage($"Error processing {fileName}");
+                await _mainWindow.UpdateStatusBarMessageAsync($"Error processing {fileName}", token);
             }
 
             if (moveFailed)
@@ -656,7 +656,7 @@ public partial class ValidatePage : IDisposable
         catch (Exception ex)
         {
             // Only report actual application bugs
-            _ = _mainWindow.BugReportService.SendBugReportAsync($"Error checking hashes for file '{filePath}'", ex);
+            _ = _mainWindow.BugReportService.SendBugReportAsync($"Error checking hashes for file '{filePath}'", ex, null, token);
             return (false, $"Error during hash check: {ex.Message}");
         }
     }
@@ -1110,7 +1110,7 @@ public partial class ValidatePage : IDisposable
         catch (Exception ex)
         {
             LoggerService.LogError("Validation", $"Error finding ROM by hash for '{filePath}': {ex.Message}");
-            _ = _mainWindow.BugReportService.SendBugReportAsync($"Error finding ROM by hash for file '{filePath}'", ex);
+            _ = _mainWindow.BugReportService.SendBugReportAsync($"Error finding ROM by hash for file '{filePath}'", ex, null, token);
             return (null, string.Empty);
         }
     }
@@ -1643,7 +1643,15 @@ public partial class ValidatePage : IDisposable
                 if (newName != null)
                 {
                     var newPath = Path.Combine(Path.GetDirectoryName(originalPath) ?? throw new InvalidOperationException(), newName);
-                    File.Move(originalPath, newPath);
+                    if (File.Exists(newPath))
+                    {
+                        File.Delete(originalPath);
+                    }
+                    else
+                    {
+                        File.Move(originalPath, newPath);
+                    }
+
                     renamedFilesMapping.Add((newPath, newName));
                 }
                 else
@@ -1708,7 +1716,7 @@ public partial class ValidatePage : IDisposable
             // Replace original with newly created archive
             try
             {
-                File.Move(tempArchivePath, outputArchivePath);
+                File.Move(tempArchivePath, outputArchivePath, true);
             }
             catch (Exception moveEx)
             {
@@ -1877,7 +1885,14 @@ public partial class ValidatePage : IDisposable
                 // Only rename if the name is different
                 if (!string.Equals(Path.GetFileName(originalPath), newName, StringComparison.OrdinalIgnoreCase))
                 {
-                    File.Move(originalPath, newPath);
+                    if (File.Exists(newPath))
+                    {
+                        File.Delete(originalPath);
+                    }
+                    else
+                    {
+                        File.Move(originalPath, newPath);
+                    }
                 }
                 else
                 {
@@ -1960,7 +1975,7 @@ public partial class ValidatePage : IDisposable
             // Replace original with newly created archive
             try
             {
-                File.Move(tempArchivePath, outputArchivePath);
+                File.Move(tempArchivePath, outputArchivePath, true);
             }
             catch (Exception moveEx)
             {

@@ -109,7 +109,7 @@ public partial class GenerateDatPage : IDisposable
             StartButton.IsEnabled = false;
             StopButton.IsEnabled = true;
             ExportDatButton.IsEnabled = false;
-            _mainWindow.UpdateStatusBarMessage("Hashing in progress...");
+            await _mainWindow.UpdateStatusBarMessageAsync("Hashing in progress...", operationCts.Token);
 
             // Use the captured CTS instance
             await HashFilesAsync(FolderTextBox.Text, progress, operationCts.Token);
@@ -127,7 +127,7 @@ public partial class GenerateDatPage : IDisposable
                     ExportDatButton.IsEnabled = _processedFilesList.Count > 0;
                 }
 
-                _mainWindow.UpdateStatusBarMessage($"Hashing complete. {_processedFileCount} files processed.");
+                await _mainWindow.UpdateStatusBarMessageAsync($"Hashing complete. {_processedFileCount} files processed.", operationCts.Token);
 
                 // Automatically trigger save dialog after hash calculation
                 lock (_operationLock)
@@ -143,20 +143,20 @@ public partial class GenerateDatPage : IDisposable
             {
                 MessageBox.Show(_mainWindow, "Operation was cancelled", "Cancelled", MessageBoxButton.OK, MessageBoxImage.Information);
                 ExportDatButton.IsEnabled = false;
-                _mainWindow.UpdateStatusBarMessage("Hashing cancelled.");
+                await _mainWindow.UpdateStatusBarMessageAsync("Hashing cancelled.", operationCts.Token);
             }
         }
         catch (OperationCanceledException)
         {
             MessageBox.Show(_mainWindow, "Operation was cancelled", "Cancelled", MessageBoxButton.OK, MessageBoxImage.Information);
             ExportDatButton.IsEnabled = false;
-            _mainWindow.UpdateStatusBarMessage("Hashing cancelled.");
+            if (operationCts != null) await _mainWindow.UpdateStatusBarMessageAsync("Hashing cancelled.", operationCts.Token);
         }
         catch (Exception ex)
         {
             _ = _mainWindow.BugReportService.SendBugReportAsync($"Error during hashing operation for folder: {FolderTextBox.Text}", ex);
             MessageBox.Show(_mainWindow, $"An error occurred: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-            _mainWindow.UpdateStatusBarMessage("Error during hashing.");
+            if (operationCts != null) await _mainWindow.UpdateStatusBarMessageAsync("Error during hashing.", operationCts.Token);
         }
         finally
         {
@@ -284,7 +284,7 @@ public partial class GenerateDatPage : IDisposable
                     // Log error to bug report service or UI
                     if (!string.Equals(gameFile.ErrorMessage, "File is locked or access denied after retries", StringComparison.Ordinal))
                     {
-                        _ = _mainWindow.BugReportService.SendBugReportAsync($"Error hashing file {filePath}: {gameFile.ErrorMessage}");
+                        _ = _mainWindow.BugReportService.SendBugReportAsync($"Error hashing file {filePath}: {gameFile.ErrorMessage}", null, null, cancellationToken);
                     }
                 }
                 else if (!string.IsNullOrEmpty(gameFile.Sha256))
