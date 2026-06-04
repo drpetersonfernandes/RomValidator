@@ -22,6 +22,9 @@ public partial class App
     /// </summary>
     public App()
     {
+        // Check if running from a temp directory (e.g., extracted from a compressed archive)
+        CheckIfRunningFromTempDirectory();
+
         // Initialize global cancellation token source
         _globalCancellationTokenSource = new CancellationTokenSource();
 
@@ -36,6 +39,33 @@ public partial class App
 
         // Subscribe to global exception handlers
         SetupGlobalExceptionHandling();
+    }
+
+    /// <summary>
+    /// Checks if the application is running from a temporary directory or directly from a compressed archive.
+    /// If so, shows a message and exits to prevent issues with missing files.
+    /// </summary>
+    private static void CheckIfRunningFromTempDirectory()
+    {
+        var baseDirectory = AppDomain.CurrentDomain.BaseDirectory;
+        var tempPath = Path.GetTempPath();
+
+        var isRunningFromTemp = baseDirectory.StartsWith(tempPath, StringComparison.OrdinalIgnoreCase);
+        var isRunningFromZip = Path.GetFileName(baseDirectory.TrimEnd(Path.DirectorySeparatorChar))
+            .Contains(".zip", StringComparison.OrdinalIgnoreCase);
+
+        if (isRunningFromTemp || isRunningFromZip)
+        {
+            MessageBox.Show(
+                "ROM Validator cannot run from a temporary directory or directly from a compressed archive.\n\n" +
+                @"Please extract the application to a permanent folder (e.g., C:\Program Files\ROM Validator) " +
+                "and run it from there.",
+                "ROM Validator - Invalid Location",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+
+            Environment.Exit(1);
+        }
     }
 
     /// <summary>
