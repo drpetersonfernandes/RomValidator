@@ -69,7 +69,7 @@
             </Grid.ColumnDefinitions>
 
             <Border Grid.Column="0" Style="{StaticResource CardBorderStyle}" ToolTip="Validation logs and details">
-                <TextBox x:Name="LogViewer" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" IsReadOnly="True" FontFamily="Consolas" Background="{StaticResource WhiteBrush}"/>
+                <TextBox x:Name="LogViewer" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" IsReadOnly="True" FontFamily="Consolas, Courier New, Lucida Console" Background="{StaticResource WhiteBrush}"/>
             </Border>
 
             <GridSplitter Grid.Column="1" Style="{StaticResource StandardGridSplitterStyle}" />

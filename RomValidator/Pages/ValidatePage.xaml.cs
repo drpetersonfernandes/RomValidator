@@ -788,11 +788,6 @@ public partial class ValidatePage : IDisposable
                                "Please download a compatible XML format DAT file from https://no-intro.org/";
                 LogMessage($"Error: {errorMsg}");
 
-                // Send sample to developer
-                var detailedError = $"User attempted to load {formatType} format DAT file: {Path.GetFileName(datFilePath)}\n\n" +
-                                    $"File Preview:\n{datFilePreview}";
-                _ = _mainWindow.BugReportService.SendBugReportAsync(detailedError);
-
                 ShowIncompatibleDatFileError(errorMsg);
                 ClearRomDatabase(); // Clear stale data from previous valid DAT (Issue 10 fix)
                 _mainWindow.UpdateStatusBarMessage("DAT file format not supported.");
@@ -1645,12 +1640,10 @@ public partial class ValidatePage : IDisposable
                     var newPath = Path.Combine(Path.GetDirectoryName(originalPath) ?? throw new InvalidOperationException(), newName);
                     if (File.Exists(newPath))
                     {
-                        File.Delete(originalPath);
+                        File.Delete(newPath);
                     }
-                    else
-                    {
-                        File.Move(originalPath, newPath);
-                    }
+
+                    File.Move(originalPath, newPath);
 
                     renamedFilesMapping.Add((newPath, newName));
                 }
@@ -1887,12 +1880,10 @@ public partial class ValidatePage : IDisposable
                 {
                     if (File.Exists(newPath))
                     {
-                        File.Delete(originalPath);
+                        File.Delete(newPath);
                     }
-                    else
-                    {
-                        File.Move(originalPath, newPath);
-                    }
+
+                    File.Move(originalPath, newPath);
                 }
                 else
                 {
