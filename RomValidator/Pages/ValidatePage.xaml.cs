@@ -1173,9 +1173,23 @@ public partial class ValidatePage : IDisposable
             {
                 if (attempt == maxRetries)
                 {
-                    LogMessage($"   -> FAILED to move {Path.GetFileName(sourcePath)} after {maxRetries} attempts. Error: {ex.Message}");
-                    _mainWindow.UpdateStatusBarMessage($"Failed to move {Path.GetFileName(sourcePath)}.");
-                    _ = _mainWindow.BugReportService.SendBugReportAsync($"Error moving file from '{sourcePath}' to '{destPath}' after {maxRetries} attempts", ex);
+                    LogMessage($"   -> File locked after {maxRetries} attempts: {Path.GetFileName(sourcePath)}");
+                    _mainWindow.UpdateStatusBarMessage($"File is locked: {Path.GetFileName(sourcePath)}");
+
+                    var result = MessageBox.Show(_mainWindow,
+                        $"The file '{Path.GetFileName(sourcePath)}' is locked by another process.\n\n" +
+                        "Please close the application using this file, then click Retry.",
+                        "File In Use",
+                        MessageBoxButton.RetryCancel,
+                        MessageBoxImage.Warning);
+
+                    if (result == MessageBoxResult.Retry)
+                    {
+                        attempt = 0; // Reset retry counter
+                        continue;
+                    }
+
+                    LogMessage($"   -> User cancelled moving {Path.GetFileName(sourcePath)}");
                     return;
                 }
 
