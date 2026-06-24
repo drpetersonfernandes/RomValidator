@@ -16,7 +16,7 @@ public static class LoggerService
 
     private static readonly object LogFileLock = new();
     private static BugReportService? _bugReportService;
-    private static bool _isSendingBugReport;
+    private static volatile bool _isSendingBugReport;
 
     /// <summary>
     /// Sets the BugReportService for sending bug reports.

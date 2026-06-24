@@ -332,7 +332,7 @@ public partial class ValidatePage : IDisposable
         finally
         {
             // Ensure any leftover temp directories are cleaned up after the queue finishes
-            TempDirectoryHelper.CleanupAllTrackedDirectories();
+            await TempDirectoryHelper.CleanupAllTrackedDirectoriesAsync();
         }
     }
 
@@ -1739,7 +1739,7 @@ public partial class ValidatePage : IDisposable
         }
         finally
         {
-            TempDirectoryHelper.CleanupTempDirectory(tempDir);
+            await TempDirectoryHelper.CleanupTempDirectoryAsync(tempDir);
         }
     }
 
@@ -1993,7 +1993,7 @@ public partial class ValidatePage : IDisposable
         finally
         {
             // Cleanup temp directory with error logging
-            TempDirectoryHelper.CleanupTempDirectory(tempDir);
+            await TempDirectoryHelper.CleanupTempDirectoryAsync(tempDir);
         }
     }
 

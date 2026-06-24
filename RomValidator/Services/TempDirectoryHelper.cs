@@ -40,13 +40,13 @@ public static class TempDirectoryHelper
     /// and scheduled reboot cleanup as last resort. Logs errors instead of throwing.
     /// </summary>
     /// <param name="tempDir">Path to the temporary directory to delete.</param>
-    public static void CleanupTempDirectory(string tempDir)
+    public static async Task CleanupTempDirectoryAsync(string tempDir)
     {
         try
         {
             if (Directory.Exists(tempDir))
             {
-                DeleteDirectoryWithRetry(tempDir);
+                await DeleteDirectoryWithRetryAsync(tempDir);
             }
         }
         catch (Exception ex)
@@ -62,7 +62,7 @@ public static class TempDirectoryHelper
         }
     }
 
-    private static void DeleteDirectoryWithRetry(string path)
+    private static async Task DeleteDirectoryWithRetryAsync(string path)
     {
         var delayMs = 100;
         const int maxRetries = 5;
@@ -78,34 +78,44 @@ public static class TempDirectoryHelper
             {
                 if (attempt < maxRetries)
                 {
-                    Thread.Sleep(delayMs);
+                    await Task.Delay(delayMs);
                     delayMs *= 2;
                 }
             }
         }
 
-        FallbackCleanup(path);
+        await FallbackCleanupAsync(path);
     }
 
-    private static void FallbackCleanup(string path)
+    private static Task FallbackCleanupAsync(string path)
     {
         try
         {
-            TryDeleteFilesIndividually(path);
-        }
-        catch
-        {
-            // Continue with reboot scheduling even if individual deletes fail
-        }
+            try
+            {
+                TryDeleteFilesIndividually(path);
+            }
+            catch
+            {
+                // Continue with reboot scheduling even if individual deletes fail
+            }
 
-        try
-        {
-            Directory.Delete(path, true);
+            try
+            {
+                Directory.Delete(path, true);
+                return Task.CompletedTask;
+            }
+            catch
+            {
+                // Still locked — schedule removal on next reboot
+                ScheduleDeleteOnReboot(path);
+            }
+
+            return Task.CompletedTask;
         }
-        catch
+        catch (Exception exception)
         {
-            // Still locked — schedule removal on next reboot
-            ScheduleDeleteOnReboot(path);
+            return Task.FromException(exception);
         }
     }
 
@@ -140,7 +150,7 @@ public static class TempDirectoryHelper
     /// <summary>
     /// Cleans up all tracked temporary directories that have not yet been removed.
     /// </summary>
-    public static void CleanupAllTrackedDirectories()
+    public static async Task CleanupAllTrackedDirectoriesAsync()
     {
         List<string> toClean;
         lock (TrackLock)
@@ -150,7 +160,7 @@ public static class TempDirectoryHelper
 
         foreach (var dir in toClean)
         {
-            CleanupTempDirectory(dir);
+            await CleanupTempDirectoryAsync(dir);
         }
     }
 

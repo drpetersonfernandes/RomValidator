@@ -32,13 +32,11 @@ public partial class MainWindow : IDisposable
     {
         InitializeComponent();
 
-        // Initialize Services
-        const string apiUrl = "https://www.purelogiccode.com/bugreport/api/send-bug-report";
-        const string apiKey = "hjh7yu6t56tyr540o9u8767676r5674534453235264c75b6t7ggghgg76trf564e";
-        const string applicationName = "ROM Validator";
-        BugReportService = new BugReportService(apiUrl, apiKey, applicationName);
+        // Reuse the BugReportService from App to avoid duplicate HttpClient instances
+        BugReportService = ((App)Application.Current).GetBugReportService()
+            ?? throw new InvalidOperationException("BugReportService must be initialized before MainWindow.");
 
-        // Initialize global exception handling
+        // Connect the bug report service to the logger for automated error reporting
         LoggerService.SetBugReportService(BugReportService);
 
         VersionChecker = new GitHubVersionChecker("drpetersonfernandes", "RomValidator", BugReportService);
@@ -157,8 +155,6 @@ public partial class MainWindow : IDisposable
         try
         {
             App.CancelAllOperations();
-
-            // Give tasks a brief moment to respond to cancellation
             Thread.Sleep(50);
         }
         catch (Exception ex)
@@ -166,27 +162,7 @@ public partial class MainWindow : IDisposable
             System.Diagnostics.Debug.WriteLine($"Error during shutdown: {ex.Message}");
         }
 
-        // Dispose services individually with error handling to prevent cascade failures
-        try
-        {
-            BugReportService.Dispose();
-        }
-        catch (Exception ex)
-        {
-            System.Diagnostics.Debug.WriteLine($"BugReportService dispose error: {ex.Message}");
-            _ = BugReportService.SendBugReportAsync("Error disposing BugReportService", ex);
-        }
-
-        try
-        {
-            VersionChecker.Dispose();
-        }
-        catch (Exception ex)
-        {
-            System.Diagnostics.Debug.WriteLine($"VersionChecker dispose error: {ex.Message}");
-            _ = BugReportService.SendBugReportAsync("Error disposing VersionChecker", ex);
-        }
-
+        // Dispose pages while BugReportService is still alive for error reporting
         try
         {
             _validatePage.Dispose();
@@ -205,6 +181,26 @@ public partial class MainWindow : IDisposable
         {
             System.Diagnostics.Debug.WriteLine($"GenerateDatPage dispose error: {ex.Message}");
             _ = BugReportService.SendBugReportAsync("Error disposing GenerateDatPage", ex);
+        }
+
+        try
+        {
+            VersionChecker.Dispose();
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"VersionChecker dispose error: {ex.Message}");
+            _ = BugReportService.SendBugReportAsync("Error disposing VersionChecker", ex);
+        }
+
+        // Dispose BugReportService last, after all error reporting is complete
+        try
+        {
+            BugReportService.Dispose();
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"BugReportService dispose error: {ex.Message}");
         }
 
         GC.SuppressFinalize(this);

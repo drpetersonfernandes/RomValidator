@@ -21,6 +21,7 @@ public static partial class HashCalculator
     private const int BufferSize = 65536; // 64KB buffer for file operations
     private const int InitialRetryDelayMs = 100; // Initial delay for retry attempts in milliseconds
     private const int ErrorDiskFull = unchecked((int)0x80070070);
+    private const long MemoryStreamThreshold = 256L * 1024 * 1024; // 256 MB — above this, use temp file
 
     /// <summary>
     /// Checks if an exception indicates a disk-full error.
@@ -127,8 +128,19 @@ public static partial class HashCalculator
                     using var sha1 = SHA1.Create();
                     using var sha256 = SHA256.Create();
 
-                    // Extract to memory stream and hash
-                    await using var entryStream = new MemoryStream();
+                    // Use temp file for large entries (>256 MB) to avoid OutOfMemoryException
+                    var useTempFile = (long)entry.Size > MemoryStreamThreshold;
+                    Stream entryStream;
+                    if (useTempFile)
+                    {
+                        var tempPath = Path.GetTempFileName();
+                        entryStream = new FileStream(tempPath, FileMode.Create, FileAccess.ReadWrite,
+                            FileShare.Read, BufferSize, FileOptions.DeleteOnClose | FileOptions.Asynchronous);
+                    }
+                    else
+                    {
+                        entryStream = new MemoryStream();
+                    }
 
                     try
                     {
@@ -136,6 +148,8 @@ public static partial class HashCalculator
                     }
                     catch (ExtractionFailedException entryEx)
                     {
+                        entryStream.Dispose();
+
                         // Individual entry is corrupted - log warning but do not send bug report for corrupt files
                         if (IsDiskFullError(entryEx))
                         {
@@ -158,6 +172,8 @@ public static partial class HashCalculator
                     }
                     catch (SharpSevenZipException entryEx)
                     {
+                        entryStream.Dispose();
+
                         // Internal error extracting individual entry - log warning but do not send bug report for corrupt files
                         if (IsDiskFullError(entryEx))
                         {
@@ -187,6 +203,8 @@ public static partial class HashCalculator
                         crc32, md5, sha1, sha256,
                         cancellationToken,
                         bugReportService).ConfigureAwait(false);
+
+                    entryStream.Dispose();
 
                     if (gameFile != null)
                     {

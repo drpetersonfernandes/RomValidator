@@ -50,27 +50,27 @@ public class TempDirectoryHelperTests
     }
 
     [Fact]
-    public void CleanupTempDirectoryDeletesDirectory()
+    public async Task CleanupTempDirectoryDeletesDirectory()
     {
         // Arrange
         var tempDir = TempDirectoryHelper.CreateTempDirectory("cleanup_test");
         Assert.True(Directory.Exists(tempDir));
 
         // Act
-        TempDirectoryHelper.CleanupTempDirectory(tempDir);
+        await TempDirectoryHelper.CleanupTempDirectoryAsync(tempDir);
 
         // Assert
         Assert.False(Directory.Exists(tempDir));
     }
 
     [Fact]
-    public void CleanupTempDirectoryNonExistentDirectoryDoesNotThrow()
+    public Task CleanupTempDirectoryNonExistentDirectoryDoesNotThrow()
     {
         // Arrange
         var nonExistentDir = Path.Combine(Path.GetTempPath(), $"nonexistent_{Guid.NewGuid():N}");
 
         // Act & Assert - should not throw
-        TempDirectoryHelper.CleanupTempDirectory(nonExistentDir);
+        return TempDirectoryHelper.CleanupTempDirectoryAsync(nonExistentDir);
     }
 
     [Fact]
@@ -174,7 +174,7 @@ public class TempDirectoryHelperTests
     }
 
     [Fact]
-    public void CleanupAllTrackedDirectoriesRemovesRemainingDirectories()
+    public async Task CleanupAllTrackedDirectoriesRemovesRemainingDirectories()
     {
         // Arrange - create directories but do not clean them up individually
         var dir1 = TempDirectoryHelper.CreateTempDirectory("tracked1");
@@ -183,7 +183,7 @@ public class TempDirectoryHelperTests
         Assert.True(Directory.Exists(dir2));
 
         // Act
-        TempDirectoryHelper.CleanupAllTrackedDirectories();
+        await TempDirectoryHelper.CleanupAllTrackedDirectoriesAsync();
 
         // Assert
         Assert.False(Directory.Exists(dir1));
