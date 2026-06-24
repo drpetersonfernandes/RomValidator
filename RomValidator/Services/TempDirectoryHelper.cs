@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.IO;
+using System.Runtime.InteropServices;
 using SharpSevenZip;
 
 namespace RomValidator.Services;
@@ -29,8 +30,14 @@ public static class TempDirectoryHelper
         return tempDir;
     }
 
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern bool MoveFileEx(string lpExistingFileName, string? lpNewFileName, uint dwFlags);
+
+    private const uint MoveFileDelayUntilReboot = 0x4;
+
     /// <summary>
-    /// Safely deletes a temporary directory, logging any errors instead of throwing.
+    /// Safely deletes a temporary directory with retry logic, individual file fallback,
+    /// and scheduled reboot cleanup as last resort. Logs errors instead of throwing.
     /// </summary>
     /// <param name="tempDir">Path to the temporary directory to delete.</param>
     public static void CleanupTempDirectory(string tempDir)
@@ -39,7 +46,7 @@ public static class TempDirectoryHelper
         {
             if (Directory.Exists(tempDir))
             {
-                Directory.Delete(tempDir, true);
+                DeleteDirectoryWithRetry(tempDir);
             }
         }
         catch (Exception ex)
@@ -52,6 +59,81 @@ public static class TempDirectoryHelper
             {
                 TrackedDirectories.Remove(tempDir);
             }
+        }
+    }
+
+    private static void DeleteDirectoryWithRetry(string path)
+    {
+        var delayMs = 100;
+        const int maxRetries = 5;
+
+        for (var attempt = 1; attempt <= maxRetries; attempt++)
+        {
+            try
+            {
+                Directory.Delete(path, true);
+                return;
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                if (attempt < maxRetries)
+                {
+                    Thread.Sleep(delayMs);
+                    delayMs *= 2;
+                }
+            }
+        }
+
+        FallbackCleanup(path);
+    }
+
+    private static void FallbackCleanup(string path)
+    {
+        try
+        {
+            TryDeleteFilesIndividually(path);
+        }
+        catch
+        {
+            // Continue with reboot scheduling even if individual deletes fail
+        }
+
+        try
+        {
+            Directory.Delete(path, true);
+        }
+        catch
+        {
+            // Still locked — schedule removal on next reboot
+            ScheduleDeleteOnReboot(path);
+        }
+    }
+
+    private static void TryDeleteFilesIndividually(string path)
+    {
+        foreach (var file in Directory.GetFiles(path, "*", SearchOption.AllDirectories))
+        {
+            try
+            {
+                File.SetAttributes(file, FileAttributes.Normal);
+                File.Delete(file);
+            }
+            catch
+            {
+                ScheduleDeleteOnReboot(file);
+            }
+        }
+    }
+
+    private static void ScheduleDeleteOnReboot(string path)
+    {
+        try
+        {
+            MoveFileEx(path, null, MoveFileDelayUntilReboot);
+        }
+        catch
+        {
+            // Best-effort; nothing left to do
         }
     }
 
