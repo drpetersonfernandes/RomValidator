@@ -1,6 +1,5 @@
 using System.Globalization;
 using System.IO;
-using System.Runtime.InteropServices;
 using SharpSevenZip;
 
 namespace RomValidator.Services;
@@ -12,6 +11,9 @@ public static class TempDirectoryHelper
 {
     private static readonly HashSet<string> TrackedDirectories = [];
     private static readonly object TrackLock = new();
+    private static readonly HashSet<string> PendingBackgroundRetries = [];
+    private static readonly object RetryLock = new();
+    private static Timer? _backgroundRetryTimer;
 
     /// <summary>
     /// Creates a temporary directory with a unique name.
@@ -30,14 +32,9 @@ public static class TempDirectoryHelper
         return tempDir;
     }
 
-    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
-    private static extern bool MoveFileEx(string lpExistingFileName, string? lpNewFileName, uint dwFlags);
-
-    private const uint MoveFileDelayUntilReboot = 0x4;
-
     /// <summary>
-    /// Safely deletes a temporary directory with retry logic, individual file fallback,
-    /// and scheduled reboot cleanup as last resort. Logs errors instead of throwing.
+    /// Safely deletes a temporary directory with retry logic and background fallback.
+    /// Logs warnings instead of throwing on failure.
     /// </summary>
     /// <param name="tempDir">Path to the temporary directory to delete.</param>
     public static async Task CleanupTempDirectoryAsync(string tempDir)
@@ -51,7 +48,8 @@ public static class TempDirectoryHelper
         }
         catch (Exception ex)
         {
-            LoggerService.LogError("Cleanup", $"Failed to delete temp directory '{tempDir}': {ex.Message}");
+            LoggerService.LogWarning("Cleanup", $"Failed to delete temp directory '{tempDir}': {ex.Message}");
+            ScheduleBackgroundRetry(tempDir);
         }
         finally
         {
@@ -64,8 +62,8 @@ public static class TempDirectoryHelper
 
     private static async Task DeleteDirectoryWithRetryAsync(string path)
     {
-        var delayMs = 100;
-        const int maxRetries = 5;
+        var delayMs = 200;
+        const int maxRetries = 8;
 
         for (var attempt = 1; attempt <= maxRetries; attempt++)
         {
@@ -79,7 +77,7 @@ public static class TempDirectoryHelper
                 if (attempt < maxRetries)
                 {
                     await Task.Delay(delayMs);
-                    delayMs *= 2;
+                    delayMs = Math.Min(delayMs * 2, 10000);
                 }
             }
         }
@@ -89,34 +87,29 @@ public static class TempDirectoryHelper
 
     private static Task FallbackCleanupAsync(string path)
     {
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
+
         try
         {
-            try
-            {
-                TryDeleteFilesIndividually(path);
-            }
-            catch
-            {
-                // Continue with reboot scheduling even if individual deletes fail
-            }
-
-            try
-            {
-                Directory.Delete(path, true);
-                return Task.CompletedTask;
-            }
-            catch
-            {
-                // Still locked — schedule removal on next reboot
-                ScheduleDeleteOnReboot(path);
-            }
-
-            return Task.CompletedTask;
+            TryDeleteFilesIndividually(path);
         }
-        catch (Exception exception)
+        catch
         {
-            return Task.FromException(exception);
+            // Continue even if individual deletes fail
         }
+
+        try
+        {
+            Directory.Delete(path, true);
+        }
+        catch
+        {
+            LoggerService.LogWarning("Cleanup", $"Could not fully delete '{path}'. Scheduling background retries.");
+            ScheduleBackgroundRetry(path);
+        }
+
+        return Task.CompletedTask;
     }
 
     private static void TryDeleteFilesIndividually(string path)
@@ -130,20 +123,61 @@ public static class TempDirectoryHelper
             }
             catch
             {
-                ScheduleDeleteOnReboot(file);
+                // Will be retried by background mechanism
             }
         }
     }
 
-    private static void ScheduleDeleteOnReboot(string path)
+    private static void ScheduleBackgroundRetry(string path)
     {
-        try
+        lock (RetryLock)
         {
-            MoveFileEx(path, null, MoveFileDelayUntilReboot);
+            if (!PendingBackgroundRetries.Add(path) && _backgroundRetryTimer != null) return;
+
+            _backgroundRetryTimer ??= new Timer(BackgroundRetryCallback, null, TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(30));
         }
-        catch
+    }
+
+    private static async void BackgroundRetryCallback(object? state)
+    {
+        List<string> snapshot;
+        lock (RetryLock)
         {
-            // Best-effort; nothing left to do
+            snapshot = [..PendingBackgroundRetries];
+        }
+
+        foreach (var path in snapshot)
+        {
+            try
+            {
+                if (!Directory.Exists(path))
+                {
+                    lock (RetryLock) { PendingBackgroundRetries.Remove(path); }
+                    continue;
+                }
+
+                GC.Collect();
+                GC.WaitForPendingFinalizers();
+
+                TryDeleteFilesIndividually(path);
+                Directory.Delete(path, true);
+
+                lock (RetryLock) { PendingBackgroundRetries.Remove(path); }
+                LoggerService.LogInfo("Cleanup", $"Background retry successfully deleted '{path}'.");
+            }
+            catch
+            {
+                // Will retry on next timer tick
+            }
+        }
+
+        lock (RetryLock)
+        {
+            if (PendingBackgroundRetries.Count == 0)
+            {
+                _backgroundRetryTimer?.Dispose();
+                _backgroundRetryTimer = null;
+            }
         }
     }
 
