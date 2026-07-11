@@ -1,8 +1,10 @@
+using System.Globalization;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Threading;
 using RomValidator.Services;
+using Serilog;
 using SharpSevenZip;
 
 namespace RomValidator;
@@ -14,6 +16,7 @@ public partial class App
 {
     private BugReportService? _bugReportService;
     private ApplicationStatsService? _applicationStatsService;
+    private BugReportSink? _bugReportSink;
     private static CancellationTokenSource? _globalCancellationTokenSource;
 
     /// <summary>
@@ -30,6 +33,9 @@ public partial class App
 
         // Initialize bug report service first so we can report any initialization issues
         InitializeBugReportService();
+
+        // Initialize Serilog logging (depends on BugReportService for the custom sink)
+        InitializeLogging();
 
         // Initialize application stats service
         InitializeApplicationStatsService();
@@ -72,7 +78,7 @@ public partial class App
     /// Initializes the SharpSevenZip native library path based on system architecture.
     /// Supports win-x64 and win-arm64.
     /// </summary>
-    private void InitializeSevenZipLibrary()
+    private static void InitializeSevenZipLibrary()
     {
         try
         {
@@ -103,15 +109,10 @@ public partial class App
                 var errorMessage = $"7z DLL not found for {architectureName} architecture at: {libraryPath}";
                 System.Diagnostics.Debug.WriteLine($"Critical Error: {errorMessage}");
 
-                // Log the error
-                LoggerService.LogError("MissingSevenZipDll", errorMessage);
-
-                // Report to developer via bug report service (it may be null if not initialized yet)
-                if (_bugReportService != null)
-                {
-                    var missingDllException = new FileNotFoundException(errorMessage, libraryPath);
-                    _ = _bugReportService.SendBugReportAsync("Missing 7z DLL", missingDllException, "The 7z native library DLL is missing from the application installation");
-                }
+                // Log the error as an exception so the full details are forwarded to the
+                // bug report API through the Serilog sink.
+                var missingDllException = new FileNotFoundException(errorMessage, libraryPath);
+                LoggerService.LogException("MissingSevenZipDll", missingDllException, "The 7z native library DLL is missing from the application installation");
 
                 // Show user-friendly error dialog
                 ShowMissingSevenZipDllDialog(libraryPath, architectureName);
@@ -166,6 +167,47 @@ public partial class App
         {
             // If we can't create the bug report service, log to debug output
             System.Diagnostics.Debug.WriteLine($"Failed to initialize BugReportService: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Initializes Serilog logging with Debug, File, and BugReport sinks.
+    /// Error and Fatal events are forwarded to the bug report API via the custom sink.
+    /// </summary>
+    private void InitializeLogging()
+    {
+        try
+        {
+            var logFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "RomValidator.log");
+
+            var loggerConfig = new LoggerConfiguration()
+                .MinimumLevel.Debug()
+                .Enrich.FromLogContext()
+                .WriteTo.Debug(
+                    outputTemplate: "[{Timestamp:yyyy-MM-dd HH:mm:ss.fff}] {Level:u3} [{Component}] {Message:lj}{NewLine}{Exception}",
+                    formatProvider: CultureInfo.InvariantCulture)
+                .WriteTo.File(
+                    logFilePath,
+                    outputTemplate: "[{Timestamp:yyyy-MM-dd HH:mm:ss.fff}] {Level:u3} [{Component}] {Message:lj}{NewLine}{Exception}",
+                    formatProvider: CultureInfo.InvariantCulture,
+                    rollingInterval: RollingInterval.Day,
+                    retainedFileCountLimit: 7,
+                    shared: true);
+
+            // Forward Error+ events to the bug report API through the custom sink
+            if (_bugReportService != null)
+            {
+                _bugReportSink = new BugReportSink(_bugReportService);
+                loggerConfig = loggerConfig.WriteTo.Sink(_bugReportSink, Serilog.Events.LogEventLevel.Error);
+            }
+
+            var logger = loggerConfig.CreateLogger();
+            Log.Logger = logger;
+            LoggerService.Initialize(logger);
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Failed to initialize Serilog logging: {ex.Message}");
         }
     }
 
@@ -231,23 +273,17 @@ public partial class App
     /// <summary>
     /// Handles unhandled exceptions from the UI thread (Dispatcher).
     /// </summary>
-    private void OnDispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
+    private static void OnDispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
     {
         e.Handled = true; // Prevent application from crashing
 
         try
         {
             var ex = e.Exception;
-            const string context = "Global Dispatcher Exception";
 
-            // Log the error locally first
-            LoggerService.LogError("GlobalDispatcherException", $"Unhandled exception in UI thread: {ex.Message}");
-
-            // Send bug report
-            if (_bugReportService != null)
-            {
-                _ = _bugReportService.SendBugReportAsync(context, ex, "Unhandled exception in UI/Dispatcher thread");
-            }
+            // Log the exception. LoggerService routes Error+ events through Serilog's
+            // BugReportSink, which forwards the full details to the bug report API.
+            LoggerService.LogException("GlobalDispatcherException", ex, "Unhandled exception in UI/Dispatcher thread");
 
             // Show user-friendly error message
             ShowFatalErrorDialog(ex, "An error occurred in the application. The error has been reported.");
@@ -262,23 +298,16 @@ public partial class App
     /// <summary>
     /// Handles unhandled exceptions from non-UI threads (AppDomain).
     /// </summary>
-    private void OnAppDomainUnhandledException(object sender, UnhandledExceptionEventArgs e)
+    private static void OnAppDomainUnhandledException(object sender, UnhandledExceptionEventArgs e)
     {
         try
         {
             if (e.ExceptionObject is Exception ex)
             {
-                const string context = "Global AppDomain Exception";
                 var isTerminating = e.IsTerminating ? "Application will terminate" : "Application continuing";
 
-                // Log the error locally first
-                LoggerService.LogError("GlobalAppDomainException", $"Unhandled exception in non-UI thread: {ex.Message}. {isTerminating}");
-
-                // Send bug report
-                if (_bugReportService != null)
-                {
-                    _ = _bugReportService.SendBugReportAsync(context, ex, $"Unhandled exception in non-UI thread. {isTerminating}");
-                }
+                // Log the exception (forwarded to the bug report API via the Serilog sink)
+                LoggerService.LogException("GlobalAppDomainException", ex, $"Unhandled exception in non-UI thread. {isTerminating}");
 
                 // If the application is terminating, show a fatal error dialog
                 if (e.IsTerminating)
@@ -297,21 +326,14 @@ public partial class App
     /// <summary>
     /// Handles unobserved task exceptions (TaskScheduler).
     /// </summary>
-    private void OnUnobservedTaskException(object? sender, UnobservedTaskExceptionEventArgs e)
+    private static void OnUnobservedTaskException(object? sender, UnobservedTaskExceptionEventArgs e)
     {
         try
         {
             var ex = e.Exception;
-            const string context = "Global Task Exception";
 
-            // Log the error locally first
-            LoggerService.LogError("GlobalTaskException", $"Unobserved task exception: {ex.Message}");
-
-            // Send bug report
-            if (_bugReportService != null)
-            {
-                _ = _bugReportService.SendBugReportAsync(context, ex, "Unobserved task exception from TaskScheduler");
-            }
+            // Log the exception (forwarded to the bug report API via the Serilog sink)
+            LoggerService.LogException("GlobalTaskException", ex, "Unobserved task exception from TaskScheduler");
 
             // Mark as observed to prevent application crash
             e.SetObserved();
@@ -402,6 +424,16 @@ public partial class App
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"Error disposing global cancellation token source: {ex.Message}");
+        }
+
+        try
+        {
+            // Flush and close Serilog to ensure all buffered log entries are written
+            Log.CloseAndFlush();
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Error closing Serilog logger: {ex.Message}");
         }
 
         base.OnExit(e);

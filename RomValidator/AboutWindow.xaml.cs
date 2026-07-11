@@ -24,7 +24,14 @@ public partial class AboutWindow
 
     private void CloseButton_Click(object sender, RoutedEventArgs e)
     {
-        Close();
+        try
+        {
+            Close();
+        }
+        catch (Exception ex)
+        {
+            LoggerService.LogException("AboutWindow", ex, "Error closing About window");
+        }
     }
 
     private void Hyperlink_RequestNavigate(object sender, RequestNavigateEventArgs e)

@@ -59,14 +59,22 @@ public partial class GenerateDatPage : IDisposable
 
     private void SelectFolderButton_Click(object sender, RoutedEventArgs e)
     {
-        var folderDialog = new OpenFolderDialog { Title = "Select folder to hash", Multiselect = false };
-        if (folderDialog.ShowDialog() != true || string.IsNullOrEmpty(folderDialog.FolderName)) return;
+        try
+        {
+            var folderDialog = new OpenFolderDialog { Title = "Select folder to hash", Multiselect = false };
+            if (folderDialog.ShowDialog() != true || string.IsNullOrEmpty(folderDialog.FolderName)) return;
 
-        ResetPage();
-        FolderTextBox.Text = folderDialog.FolderName;
-        NameTextBox.Text = new DirectoryInfo(folderDialog.FolderName).Name;
-        StartButton.IsEnabled = true;
-        _mainWindow.UpdateStatusBarMessage($"Folder selected: {folderDialog.FolderName}");
+            ResetPage();
+            FolderTextBox.Text = folderDialog.FolderName;
+            NameTextBox.Text = new DirectoryInfo(folderDialog.FolderName).Name;
+            StartButton.IsEnabled = true;
+            _mainWindow.UpdateStatusBarMessage($"Folder selected: {folderDialog.FolderName}");
+        }
+        catch (Exception ex)
+        {
+            LoggerService.LogException("GenerateDatPage", ex, "Error selecting folder");
+            _ = _mainWindow.BugReportService.SendBugReportAsync("Error selecting folder in GenerateDatPage", ex);
+        }
     }
 
     private async void StartButton_ClickAsync(object sender, RoutedEventArgs e)
@@ -209,12 +217,19 @@ public partial class GenerateDatPage : IDisposable
 
     private void StopButton_Click(object sender, RoutedEventArgs e)
     {
-        lock (_ctsLock)
+        try
         {
-            _cts?.Cancel();
-        }
+            lock (_ctsLock)
+            {
+                _cts?.Cancel();
+            }
 
-        StopButton.IsEnabled = false;
+            StopButton.IsEnabled = false;
+        }
+        catch (Exception ex)
+        {
+            LoggerService.LogException("GenerateDatPage", ex, "Error stopping operation");
+        }
     }
 
     private async Task HashFilesAsync(string folderPath, IProgress<GameFile> progress, CancellationToken cancellationToken)
@@ -281,8 +296,12 @@ public partial class GenerateDatPage : IDisposable
             {
                 if (gameFile.ErrorMessage != null)
                 {
-                    // Log error to bug report service or UI
-                    if (!string.Equals(gameFile.ErrorMessage, "File is locked or access denied after retries", StringComparison.Ordinal))
+                    // Log error to bug report service or UI.
+                    // Skip errors that are caused by the user's file or environment
+                    // (corrupt/unsupported archives, cloud-only placeholders, locked files)
+                    // as these are not application bugs.
+                    if (!gameFile.IsUserError &&
+                        !string.Equals(gameFile.ErrorMessage, "File is locked or access denied after retries", StringComparison.Ordinal))
                     {
                         _ = _mainWindow.BugReportService.SendBugReportAsync($"Error hashing file {filePath}: {gameFile.ErrorMessage}", null, null, cancellationToken);
                     }
@@ -498,7 +517,14 @@ public partial class GenerateDatPage : IDisposable
 
     private void ResetButton_Click(object sender, RoutedEventArgs e)
     {
-        ResetPage();
+        try
+        {
+            ResetPage();
+        }
+        catch (Exception ex)
+        {
+            LoggerService.LogException("GenerateDatPage", ex, "Error resetting page");
+        }
     }
 
     /// <summary>
@@ -506,28 +532,35 @@ public partial class GenerateDatPage : IDisposable
     /// </summary>
     public void ResetPage()
     {
-        lock (_ctsLock)
+        try
         {
-            _uiUpdateTimer?.Stop();
-            lock (_uiUpdateBuffer)
+            lock (_ctsLock)
             {
-                _uiUpdateBuffer.Clear();
+                _uiUpdateTimer?.Stop();
+                lock (_uiUpdateBuffer)
+                {
+                    _uiUpdateBuffer.Clear();
+                }
+
+                _cts?.Cancel();
+                _cts?.Dispose();
+                _cts = null;
             }
 
-            _cts?.Cancel();
-            _cts?.Dispose();
-            _cts = null;
+            ClearAll();
+            FolderTextBox.Text = string.Empty;
+            NameTextBox.Text = string.Empty;
+            DescriptionTextBox.Text = string.Empty;
+            AuthorTextBox.Text = string.Empty;
+            StartButton.IsEnabled = false;
+            StopButton.IsEnabled = false;
+            ExportDatButton.IsEnabled = false;
+            _mainWindow.UpdateStatusBarMessage("Ready to generate DAT file.");
         }
-
-        ClearAll();
-        FolderTextBox.Text = string.Empty;
-        NameTextBox.Text = string.Empty;
-        DescriptionTextBox.Text = string.Empty;
-        AuthorTextBox.Text = string.Empty;
-        StartButton.IsEnabled = false;
-        StopButton.IsEnabled = false;
-        ExportDatButton.IsEnabled = false;
-        _mainWindow.UpdateStatusBarMessage("Ready to generate DAT file.");
+        catch (Exception ex)
+        {
+            LoggerService.LogException("GenerateDatPage", ex, "Error during ResetPage");
+        }
     }
 
     private void ClearAll()
@@ -569,29 +602,36 @@ public partial class GenerateDatPage : IDisposable
     /// </summary>
     public void Dispose()
     {
-        // Stop and dispose timer properly
-        if (_uiUpdateTimer != null)
-        {
-            _uiUpdateTimer.Stop();
-            _uiUpdateTimer.Tick -= UIUpdateTimer_Tick;
-            _uiUpdateTimer = null;
-        }
-
-        // Clear UI buffer to release references
-        lock (_uiUpdateBuffer)
-        {
-            _uiUpdateBuffer.Clear();
-        }
-
-        // Cancel and dispose CTS with error handling
         try
         {
-            _cts?.Cancel();
-            _cts?.Dispose();
+            // Stop and dispose timer properly
+            if (_uiUpdateTimer != null)
+            {
+                _uiUpdateTimer.Stop();
+                _uiUpdateTimer.Tick -= UIUpdateTimer_Tick;
+                _uiUpdateTimer = null;
+            }
+
+            // Clear UI buffer to release references
+            lock (_uiUpdateBuffer)
+            {
+                _uiUpdateBuffer.Clear();
+            }
+
+            // Cancel and dispose CTS with error handling
+            try
+            {
+                _cts?.Cancel();
+                _cts?.Dispose();
+            }
+            catch (ObjectDisposedException)
+            {
+                // Already disposed, ignore
+            }
         }
-        catch (ObjectDisposedException)
+        catch (Exception ex)
         {
-            // Already disposed, ignore
+            LoggerService.LogException("GenerateDatPage", ex, "Error during Dispose");
         }
 
         GC.SuppressFinalize(this);

@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Windows;
+using RomValidator.Services;
 
 namespace RomValidator;
 
@@ -33,30 +34,44 @@ public partial class DuplicateFilesWindow
     /// <param name="customTitle">Optional custom title for the window.</param>
     public void SetDuplicateData(Dictionary<string, List<string>> hashToFilenames, string? customTitle = null)
     {
-        if (!string.IsNullOrEmpty(customTitle))
+        try
         {
-            Title = customTitle;
-        }
-
-        var duplicateGroups = new ObservableCollection<DuplicateGroup>();
-        foreach (var kvp in hashToFilenames)
-        {
-            if (kvp.Value.Count > 1)
+            if (!string.IsNullOrEmpty(customTitle))
             {
-                duplicateGroups.Add(new DuplicateGroup
-                {
-                    Hash = kvp.Key,
-                    Filenames = string.Join(", ", kvp.Value)
-                });
+                Title = customTitle;
             }
-        }
 
-        DuplicateCountText.Text = $"{duplicateGroups.Count} duplicate group(s) found";
-        DuplicateListView.ItemsSource = duplicateGroups;
+            var duplicateGroups = new ObservableCollection<DuplicateGroup>();
+            foreach (var kvp in hashToFilenames)
+            {
+                if (kvp.Value.Count > 1)
+                {
+                    duplicateGroups.Add(new DuplicateGroup
+                    {
+                        Hash = kvp.Key,
+                        Filenames = string.Join(", ", kvp.Value)
+                    });
+                }
+            }
+
+            DuplicateCountText.Text = $"{duplicateGroups.Count} duplicate group(s) found";
+            DuplicateListView.ItemsSource = duplicateGroups;
+        }
+        catch (Exception ex)
+        {
+            LoggerService.LogException("DuplicateFilesWindow", ex, "Error populating duplicate file data");
+        }
     }
 
     private void CloseButton_Click(object sender, RoutedEventArgs e)
     {
-        Close();
+        try
+        {
+            Close();
+        }
+        catch (Exception ex)
+        {
+            LoggerService.LogException("DuplicateFilesWindow", ex, "Error closing Duplicate Files window");
+        }
     }
 }

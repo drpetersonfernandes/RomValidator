@@ -138,7 +138,7 @@ public static class TempDirectoryHelper
         }
     }
 
-    private static async void BackgroundRetryCallback(object? state)
+    private static void BackgroundRetryCallback(object? state)
     {
         List<string> snapshot;
         lock (RetryLock)

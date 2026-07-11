@@ -30,6 +30,14 @@ public class GameFile
     public string? ErrorMessage { get; set; }
 
     /// <summary>
+    /// Gets or sets a value indicating whether the error is caused by the user's file or
+    /// environment (e.g. a corrupted archive, an unsupported format, or a cloud-only
+    /// placeholder) rather than an application bug. When true, the error should be shown
+    /// to the user but must not be sent as a bug report.
+    /// </summary>
+    public bool IsUserError { get; set; }
+
+    /// <summary>
     /// Gets or sets the original archive file name if this file was extracted from an archive.
     /// This is used to properly track the container filename vs the internal ROM filename.
     /// </summary>

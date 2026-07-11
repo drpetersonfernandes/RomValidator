@@ -36,9 +36,6 @@ public partial class MainWindow : IDisposable
         BugReportService = ((App)Application.Current).GetBugReportService()
             ?? throw new InvalidOperationException("BugReportService must be initialized before MainWindow.");
 
-        // Connect the bug report service to the logger for automated error reporting
-        LoggerService.SetBugReportService(BugReportService);
-
         VersionChecker = new GitHubVersionChecker("drpetersonfernandes", "RomValidator", BugReportService);
 
         // Initialize Pages
@@ -112,37 +109,72 @@ public partial class MainWindow : IDisposable
 
     private void ValidateRoms_Click(object sender, RoutedEventArgs e)
     {
-        if (!Equals(MainContentFrame.Content, _validatePage))
+        try
         {
-            MainContentFrame.Navigate(_validatePage);
-            UpdateActivePageIndicator(_validatePage);
+            if (!Equals(MainContentFrame.Content, _validatePage))
+            {
+                MainContentFrame.Navigate(_validatePage);
+                UpdateActivePageIndicator(_validatePage);
+            }
+        }
+        catch (Exception ex)
+        {
+            LoggerService.LogException("MainWindow", ex, "Error navigating to Validate page");
         }
     }
 
     private void GenerateDat_Click(object sender, RoutedEventArgs e)
     {
-        if (!Equals(MainContentFrame.Content, _generateDatPage))
+        try
         {
-            MainContentFrame.Navigate(_generateDatPage);
-            UpdateActivePageIndicator(_generateDatPage);
+            if (!Equals(MainContentFrame.Content, _generateDatPage))
+            {
+                MainContentFrame.Navigate(_generateDatPage);
+                UpdateActivePageIndicator(_generateDatPage);
+            }
+        }
+        catch (Exception ex)
+        {
+            LoggerService.LogException("MainWindow", ex, "Error navigating to Generate DAT page");
         }
     }
 
     private void About_Click(object sender, RoutedEventArgs e)
     {
-        var aboutWindow = new AboutWindow(BugReportService) { Owner = this };
-        aboutWindow.ShowDialog();
+        try
+        {
+            var aboutWindow = new AboutWindow(BugReportService) { Owner = this };
+            aboutWindow.ShowDialog();
+        }
+        catch (Exception ex)
+        {
+            LoggerService.LogException("MainWindow", ex, "Error opening About window");
+        }
     }
 
     private void Exit_Click(object sender, RoutedEventArgs e)
     {
-        Close();
+        try
+        {
+            Close();
+        }
+        catch (Exception ex)
+        {
+            LoggerService.LogException("MainWindow", ex, "Error closing application");
+        }
     }
 
     private void Window_Closing(object sender, CancelEventArgs e)
     {
-        // Don't cancel the closing event, just ensure proper cleanup
-        Dispose();
+        try
+        {
+            // Don't cancel the closing event, just ensure proper cleanup
+            Dispose();
+        }
+        catch (Exception ex)
+        {
+            LoggerService.LogException("MainWindow", ex, "Error during window closing");
+        }
     }
 
     /// <summary>

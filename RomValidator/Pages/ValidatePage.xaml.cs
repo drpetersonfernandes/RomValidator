@@ -46,18 +46,25 @@ public partial class ValidatePage : IDisposable
     public ValidatePage(MainWindow mainWindow)
     {
         _mainWindow = mainWindow;
-        InitializeComponent();
-        SetupCheckboxHandlers();
-        DisplayInstructions();
-        ClearDatInfoDisplay();
-        _mainWindow.UpdateStatusBarMessage("Ready.");
-        _ = CheckForUpdatesOnStartupAsync().ContinueWith(static t =>
+        try
         {
-            if (t.IsFaulted)
+            InitializeComponent();
+            SetupCheckboxHandlers();
+            DisplayInstructions();
+            ClearDatInfoDisplay();
+            _mainWindow.UpdateStatusBarMessage("Ready.");
+            _ = CheckForUpdatesOnStartupAsync().ContinueWith(static t =>
             {
-                LoggerService.LogError("Startup", $"Update check failed: {t.Exception?.InnerException?.Message}");
-            }
-        }, TaskContinuationOptions.OnlyOnFaulted);
+                if (t.IsFaulted)
+                {
+                    LoggerService.LogError("Startup", $"Update check failed: {t.Exception?.InnerException?.Message}");
+                }
+            }, TaskContinuationOptions.OnlyOnFaulted);
+        }
+        catch (Exception ex)
+        {
+            LoggerService.LogException("ValidatePage", ex, "Error initializing ValidatePage");
+        }
     }
 
     private void SetupCheckboxHandlers()
@@ -745,6 +752,24 @@ public partial class ValidatePage : IDisposable
                 return false;
             }
 
+            // 2b. Check for known binary file signatures (e.g. a ROM/disc image renamed or
+            // mistakenly selected as a DAT). These are user-input mistakes, not app bugs,
+            // so we detect them early and do NOT send a bug report.
+            var binaryFormat = DetectKnownBinaryFormat(datFilePreview);
+            if (binaryFormat != null)
+            {
+                var errorMsg = "Incompatible file format.\n\n" +
+                               "This application only supports No-Intro XML DAT files.\n\n" +
+                               $"The selected file appears to be a binary {binaryFormat} file, not a text-based XML DAT file.\n\n" +
+                               "Please select a valid No-Intro XML DAT file from https://no-intro.org/";
+                LogMessage($"Error: {errorMsg}");
+
+                ShowIncompatibleDatFileError(errorMsg);
+                ClearRomDatabase();
+                _mainWindow.UpdateStatusBarMessage($"{binaryFormat} files are not supported.");
+                return false;
+            }
+
             // 3. Scan the first several lines to detect incompatible formats (ClrMamePro, MAME, etc.)
             var isClrMameProFormat = false;
             var isMameFormat = false;
@@ -1001,7 +1026,13 @@ public partial class ValidatePage : IDisposable
                                 $"Error: {xmlEx.Message}\n\n" +
                                 $"Line: {xmlEx.LineNumber}, Position: {xmlEx.LinePosition}\n\n" +
                                 $"File Preview:\n{datFilePreview}";
-            _ = _mainWindow.BugReportService.SendBugReportAsync(detailedError, xmlEx);
+
+            // Only report genuinely malformed XML. Binary files (e.g. disc images renamed
+            // to .dat) are user-input mistakes, not application bugs, so skip the report.
+            if (DetectKnownBinaryFormat(datFilePreview) == null && !LooksLikeBinaryContent(datFilePreview))
+            {
+                _ = _mainWindow.BugReportService.SendBugReportAsync(detailedError, xmlEx);
+            }
 
             ShowIncompatibleDatFileError(errorMsg);
             ClearRomDatabase(); // Clear stale data from previous valid DAT (Issue 10 fix)
@@ -1038,6 +1069,59 @@ public partial class ValidatePage : IDisposable
     {
         MessageBox.Show(_mainWindow, message, "Incompatible DAT File Format",
             MessageBoxButton.OK, MessageBoxImage.Warning);
+    }
+
+    /// <summary>
+    /// Detects whether the given file preview matches a known binary file signature
+    /// (e.g. a disc/ROM image mistakenly selected as a DAT file). Returns a friendly
+    /// format name if recognized, otherwise null.
+    /// </summary>
+    private static string? DetectKnownBinaryFormat(string? preview)
+    {
+        if (string.IsNullOrEmpty(preview)) return null;
+
+        // MAME CHD compressed hunks of data - header starts with "MComprHD"
+        if (preview.StartsWith("MComprHD", StringComparison.Ordinal)) return "CHD disc image";
+
+        // RIFF containers (e.g. some WAV/AVI/webp) and common ROM/disc signatures
+        if (preview.StartsWith("RIFF", StringComparison.Ordinal)) return "RIFF binary";
+        if (preview.StartsWith("7z\u00BC\u00AF'\u001C", StringComparison.Ordinal)) return "7-Zip archive";
+        if (preview.StartsWith("Rar!", StringComparison.Ordinal)) return "RAR archive";
+        if (preview.StartsWith("\u001F\u008B", StringComparison.Ordinal)) return "GZIP archive";
+        if (preview.StartsWith("\u0089PNG", StringComparison.Ordinal)) return "PNG image";
+        if (preview.StartsWith("%PDF", StringComparison.Ordinal)) return "PDF document";
+        if (preview.StartsWith("NES\u001A", StringComparison.Ordinal)) return "NES ROM";
+
+        return null;
+    }
+
+    /// <summary>
+    /// Heuristically determines whether the file preview is binary rather than text,
+    /// by checking for a high proportion of NUL / non-printable control characters.
+    /// Used to avoid reporting binary files as XML parsing bugs.
+    /// </summary>
+    private static bool LooksLikeBinaryContent(string? preview)
+    {
+        if (string.IsNullOrEmpty(preview)) return false;
+
+        var sampleLength = Math.Min(preview.Length, 512);
+        if (sampleLength == 0) return false;
+
+        var controlCount = 0;
+        for (var i = 0; i < sampleLength; i++)
+        {
+            var c = preview[i];
+            // NUL bytes almost never appear in valid text/XML DAT files
+            if (c == '\0') return true;
+
+            // Count non-whitespace control characters
+            if (char.IsControl(c) && c != '\r' && c != '\n' && c != '\t')
+            {
+                controlCount++;
+            }
+        }
+
+        return controlCount > sampleLength / 10;
     }
 
     private async Task<(Rom? Rom, string HashType)> FindRomByHashAsync(string filePath, CancellationToken token)
@@ -1337,12 +1421,20 @@ public partial class ValidatePage : IDisposable
 
     private void BrowseRomsFolderButton_Click(object sender, RoutedEventArgs e)
     {
-        var dialog = new OpenFolderDialog { Title = "Select the folder containing your ROM files" };
-        if (dialog.ShowDialog() != true) return;
+        try
+        {
+            var dialog = new OpenFolderDialog { Title = "Select the folder containing your ROM files" };
+            if (dialog.ShowDialog() != true) return;
 
-        RomsFolderTextBox.Text = dialog.FolderName;
-        LogMessage($"ROMs folder selected: {dialog.FolderName}");
-        _mainWindow.UpdateStatusBarMessage($"ROMs folder selected: {Path.GetFileName(dialog.FolderName)}");
+            RomsFolderTextBox.Text = dialog.FolderName;
+            LogMessage($"ROMs folder selected: {dialog.FolderName}");
+            _mainWindow.UpdateStatusBarMessage($"ROMs folder selected: {Path.GetFileName(dialog.FolderName)}");
+        }
+        catch (Exception ex)
+        {
+            LoggerService.LogException("ValidatePage", ex, "Error selecting ROMs folder");
+            _ = _mainWindow.BugReportService.SendBugReportAsync("Error selecting ROMs folder in ValidatePage", ex);
+        }
     }
 
     private async void BrowseDatFileButton_ClickAsync(object sender, RoutedEventArgs e)
@@ -1382,13 +1474,20 @@ public partial class ValidatePage : IDisposable
 
     private void CancelButton_Click(object sender, RoutedEventArgs e)
     {
-        lock (_ctsLock)
+        try
         {
-            _cts?.Cancel();
-        }
+            lock (_ctsLock)
+            {
+                _cts?.Cancel();
+            }
 
-        LogMessage("Cancellation requested. Finishing current operations...");
-        _mainWindow.UpdateStatusBarMessage("Validation canceled.");
+            LogMessage("Cancellation requested. Finishing current operations...");
+            _mainWindow.UpdateStatusBarMessage("Validation canceled.");
+        }
+        catch (Exception ex)
+        {
+            LoggerService.LogException("ValidatePage", ex, "Error cancelling validation");
+        }
     }
 
     private void SetControlsState(bool enabled)
@@ -1543,10 +1642,17 @@ public partial class ValidatePage : IDisposable
     /// </summary>
     public void Dispose()
     {
-        lock (_ctsLock)
+        try
         {
-            _cts?.Cancel(); // Cancel any ongoing operation
-            _cts?.Dispose();
+            lock (_ctsLock)
+            {
+                _cts?.Cancel(); // Cancel any ongoing operation
+                _cts?.Dispose();
+            }
+        }
+        catch (Exception ex)
+        {
+            LoggerService.LogException("ValidatePage", ex, "Error during Dispose");
         }
 
         GC.SuppressFinalize(this);

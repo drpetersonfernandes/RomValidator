@@ -83,8 +83,16 @@ public class GitHubVersionChecker : IDisposable
         }
         catch (HttpRequestException httpEx)
         {
+            // Network/SSL/TLS failures are environmental (no connectivity, proxy, or an
+            // outdated OS that cannot negotiate a modern TLS handshake). These are not
+            // application bugs, so log locally but do not send a bug report.
             LoggerService.LogError("GitHubVersionChecker", $"HTTP request error checking for updates: {httpEx.Message}");
-            _ = _bugReportService?.SendBugReportAsync("HTTP error checking for updates from GitHub.", httpEx);
+            return (false, null, null);
+        }
+        catch (TaskCanceledException tcEx)
+        {
+            // Request timed out or was cancelled - also an environmental/connectivity issue.
+            LoggerService.LogError("GitHubVersionChecker", $"Update check timed out or was cancelled: {tcEx.Message}");
             return (false, null, null);
         }
         catch (Exception ex)
