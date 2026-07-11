@@ -80,4 +80,70 @@ public class DatafileSerializationTests
         var datafile = new Datafile();
         Assert.Contains("no-intro.org", datafile.SchemaLocation);
     }
+
+    [Fact]
+    public void DatafileDefaultGamesListIsEmpty()
+    {
+        // Arrange & Act
+        var datafile = new Datafile();
+
+        // Assert
+        Assert.NotNull(datafile.Games);
+        Assert.Empty(datafile.Games);
+    }
+
+    [Fact]
+    public void DatafileDefaultHeaderIsNull()
+    {
+        // Arrange & Act
+        var datafile = new Datafile();
+
+        // Assert
+        Assert.Null(datafile.Header);
+    }
+
+    [Fact]
+    public void DatafileWithMultipleGamesSerializesCorrectly()
+    {
+        // Arrange
+        var original = new Datafile
+        {
+            Header = new Header
+            {
+                Name = "Test System",
+                Description = "Test",
+                Version = "1.0",
+                Author = "Tester"
+            },
+            Games =
+            [
+                new Game
+                {
+                    Name = "Game One",
+                    Roms = [new Rom { Name = "game1.rom", Size = 1024 }]
+                },
+                new Game
+                {
+                    Name = "Game Two",
+                    Roms = [new Rom { Name = "game2.rom", Size = 2048 }]
+                }
+            ]
+        };
+
+        var serializer = new XmlSerializer(typeof(Datafile));
+
+        // Act
+        string xml;
+        using (var writer = new StringWriter())
+        {
+            serializer.Serialize(writer, original);
+            xml = writer.ToString();
+        }
+
+        // Assert
+        Assert.Contains("Game One", xml);
+        Assert.Contains("Game Two", xml);
+        Assert.Contains("game1.rom", xml);
+        Assert.Contains("game2.rom", xml);
+    }
 }

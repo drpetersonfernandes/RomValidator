@@ -65,4 +65,32 @@ public class RomTests
         Assert.Equal("verified", rom.Status);
         Assert.Equal("NES-SM-USA", rom.Serial);
     }
+
+    [Theory]
+    [InlineData("9223372036854775807", 9223372036854775807L)] // long.MaxValue
+    [InlineData("1000000000000", 1000000000000L)] // 1 TB-ish
+    [InlineData("-500", -500, "-500")] // Negative values parse successfully
+    [InlineData("0x10", 0, "0")] // Hex format not supported by TryParse
+    [InlineData("1e3", 0, "0")] // Scientific notation not supported
+    public void SizeStringParsingEdgeCases(string sizeString, long expectedSize, string? expectedSizeString = null)
+    {
+        // Arrange
+        var rom = new Rom { SizeString = sizeString };
+        expectedSizeString ??= expectedSize.ToString();
+
+        // Assert
+        Assert.Equal(expectedSize, rom.Size);
+        Assert.Equal(expectedSizeString, rom.SizeString);
+    }
+
+    [Fact]
+    public void RomSizeCanBeSetDirectlyAndReflectedInSizeString()
+    {
+        // Arrange
+        var rom = new Rom { Size = 8912896 };
+
+        // Assert
+        Assert.Equal(8912896, rom.Size);
+        Assert.Equal("8912896", rom.SizeString);
+    }
 }

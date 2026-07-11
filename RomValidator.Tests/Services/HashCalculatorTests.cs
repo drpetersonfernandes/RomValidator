@@ -24,4 +24,21 @@ public class HashCalculatorTests
         // Assert
         Assert.Equal(expected, result);
     }
+
+    [Theory]
+    [InlineData("archive.zipp", false)]
+    [InlineData("archive.zi", false)]
+    [InlineData(".zip", true)]
+    [InlineData("path/to/game.zip", true)]
+    [InlineData("C:\\Users\\test\\backup.7z", true)]
+    [InlineData("archive.ZIP.PART", false)]
+    [InlineData("game.nes.zip", true)]
+    public void IsArchiveFileHandlesEdgeCases(string fileName, bool expected)
+    {
+        // Act
+        var result = HashCalculator.IsArchiveFile(fileName);
+
+        // Assert
+        Assert.Equal(expected, result);
+    }
 }

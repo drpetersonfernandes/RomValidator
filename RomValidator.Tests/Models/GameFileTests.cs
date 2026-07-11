@@ -89,4 +89,48 @@ public class GameFileTests
         Assert.Equal(gameFile.Sha1, gameFile.Sha1.ToLowerInvariant());
         Assert.Equal(gameFile.Sha256, gameFile.Sha256.ToLowerInvariant());
     }
+
+    [Fact]
+    public void GameFileIsUserErrorDefaultsToFalse()
+    {
+        // Arrange & Act
+        var gameFile = new GameFile();
+
+        // Assert
+        Assert.False(gameFile.IsUserError);
+    }
+
+    [Fact]
+    public void GameFileIsUserErrorIsIndependentFromErrorMessage()
+    {
+        // Arrange
+        var gameFile = new GameFile
+        {
+            ErrorMessage = "Some error",
+            IsUserError = true
+        };
+
+        // Assert
+        Assert.True(gameFile.IsUserError);
+        Assert.NotNull(gameFile.ErrorMessage);
+    }
+
+    [Fact]
+    public void GameFileEmptyHashesAreEmptyStrings()
+    {
+        // Arrange & Act
+        var gameFile = new GameFile
+        {
+            Crc32 = "",
+            Md5 = "",
+            Sha1 = "",
+            Sha256 = ""
+        };
+
+        // Assert
+        Assert.Equal(string.Empty, gameFile.Crc32);
+        Assert.Equal(string.Empty, gameFile.Md5);
+        Assert.Equal(string.Empty, gameFile.Sha1);
+        Assert.Equal(string.Empty, gameFile.Sha256);
+    }
 }
