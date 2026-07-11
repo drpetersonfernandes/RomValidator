@@ -10,8 +10,8 @@ namespace RomValidator;
 public partial class MainWindow : IDisposable
 {
     // Cached brushes for UI consistency (PERF fix)
-    private static readonly SolidColorBrush SActiveBrush = new(Color.FromRgb(0xE0, 0xE0, 0xE0));
-    private static readonly SolidColorBrush SActiveBackgroundBrush = new(Color.FromRgb(0x2B, 0x8C, 0xFF));
+    private static readonly SolidColorBrush SActiveBrush = new(Color.FromRgb(0xF3, 0xF3, 0xF3));
+    private static readonly SolidColorBrush SActiveBackgroundBrush = new(Color.FromRgb(0x00, 0x78, 0xD4));
     private static readonly Brush SInactiveBrush = Brushes.Transparent;
 
     // Services
@@ -57,7 +57,7 @@ public partial class MainWindow : IDisposable
             ValidateRomsButton.Background = SActiveBackgroundBrush;
             GenerateDatButton.BorderThickness = new Thickness(0);
             GenerateDatButton.BorderBrush = SInactiveBrush;
-            GenerateDatButton.Background = (Brush)FindResource("AccentBlueBrush");
+            GenerateDatButton.Background = SInactiveBrush;
         }
         else if (Equals(activePage, _generateDatPage))
         {
@@ -66,7 +66,7 @@ public partial class MainWindow : IDisposable
             GenerateDatButton.Background = SActiveBackgroundBrush;
             ValidateRomsButton.BorderThickness = new Thickness(0);
             ValidateRomsButton.BorderBrush = SInactiveBrush;
-            ValidateRomsButton.Background = (Brush)FindResource("AccentBlueBrush");
+            ValidateRomsButton.Background = SInactiveBrush;
         }
     }
 

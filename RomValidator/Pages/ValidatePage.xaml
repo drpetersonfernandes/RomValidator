@@ -42,12 +42,15 @@
                 <TextBlock Text="Only No-Intro XML DAT files are supported." 
                            Style="{StaticResource FormHintTextBlockStyle}"/>
 
-                <StackPanel Margin="0,15,0,0" Orientation="Vertical">
-                    <CheckBox x:Name="MoveSuccessCheckBox" Content="Move successful items to '_success' folder" IsChecked="True" VerticalAlignment="Center" Margin="5" ToolTip="If checked, valid ROMs will be moved to the '_success' subfolder"/>
-                    <CheckBox x:Name="MoveFailedCheckBox" Content="Move failed/unknown items to '_fail' folder" IsChecked="True" Margin="5" VerticalAlignment="Center" ToolTip="If checked, invalid or unknown ROMs will be moved to the '_fail' subfolder"/>
-                    <CheckBox x:Name="DeleteFailedCheckBox" Content="Permanently delete failed/unknown files (⚠️ irreversible)" IsChecked="False" Margin="5" VerticalAlignment="Center" Style="{StaticResource DangerousCheckBoxStyle}" ToolTip="If checked, invalid or unknown ROMs will be permanently deleted from disk. This action cannot be undone!"/>
-                    <CheckBox x:Name="RenameMatchedFilesCheckBox" Content="Automatically rename files when hash matches but filename differs" IsChecked="True" Margin="5" VerticalAlignment="Center" ToolTip="If checked, files with matching hashes but different names will be renamed to match the DAT entry"/>
-                </StackPanel>
+                <Expander Header="Validation Options" IsExpanded="True" Margin="0,15,0,0"
+                          ToolTip="Show or hide validation options to free up space for the log">
+                    <StackPanel Margin="0,10,0,0" Orientation="Vertical">
+                        <CheckBox x:Name="MoveSuccessCheckBox" Content="Move successful items to '_success' folder" IsChecked="True" VerticalAlignment="Center" Margin="5" ToolTip="If checked, valid ROMs will be moved to the '_success' subfolder"/>
+                        <CheckBox x:Name="MoveFailedCheckBox" Content="Move failed/unknown items to '_fail' folder" IsChecked="True" Margin="5" VerticalAlignment="Center" ToolTip="If checked, invalid or unknown ROMs will be moved to the '_fail' subfolder"/>
+                        <CheckBox x:Name="DeleteFailedCheckBox" Content="Permanently delete failed/unknown files (⚠️ irreversible)" IsChecked="False" Margin="5" VerticalAlignment="Center" Style="{StaticResource DangerousCheckBoxStyle}" ToolTip="If checked, invalid or unknown ROMs will be permanently deleted from disk. This action cannot be undone!"/>
+                        <CheckBox x:Name="RenameMatchedFilesCheckBox" Content="Automatically rename files when hash matches but filename differs" IsChecked="True" Margin="5" VerticalAlignment="Center" ToolTip="If checked, files with matching hashes but different names will be renamed to match the DAT entry"/>
+                    </StackPanel>
+                </Expander>
 
                 <StackPanel Margin="0,15,0,0" Orientation="Horizontal" HorizontalAlignment="Center">
                      <Button x:Name="StartValidationButton" Content="Start Validation" Click="StartValidationButton_ClickAsync" Style="{StaticResource StartButtonStyle}" ToolTip="Begin validating ROMs against the DAT file"/>
@@ -117,37 +120,37 @@
             </Border>
             <Border Grid.Column="1" Style="{StaticResource StatsPanelBorderStyle}" ToolTip="Number of successfully validated files">
                 <StackPanel Orientation="Vertical" HorizontalAlignment="Center">
-                    <TextBlock Text="Success:" Style="{StaticResource StatsCategoryTextBlockStyle}" Foreground="{StaticResource SuccessGreenTextBrush}"/>
+                    <TextBlock Text="Success:" Style="{StaticResource StatsCategorySuccessTextBlockStyle}"/>
                     <TextBlock x:Name="SuccessValue" Text="0" Style="{StaticResource StatsValueTextBlockStyle}"/>
                 </StackPanel>
             </Border>
             <Border Grid.Column="2" Style="{StaticResource StatsPanelBorderStyle}" ToolTip="Number of files that failed validation">
                 <StackPanel Orientation="Vertical" HorizontalAlignment="Center">
-                    <TextBlock Text="Failed:" Style="{StaticResource StatsCategoryTextBlockStyle}" Foreground="{StaticResource ErrorRedTextBrush}"/>
+                    <TextBlock Text="Failed:" Style="{StaticResource StatsCategoryFailedTextBlockStyle}"/>
                     <TextBlock x:Name="FailedValue" Text="0" Style="{StaticResource StatsValueTextBlockStyle}"/>
                 </StackPanel>
             </Border>
             <Border Grid.Column="3" Style="{StaticResource StatsPanelBorderStyle}" ToolTip="Number of unknown files (not in DAT)">
                 <StackPanel Orientation="Vertical" HorizontalAlignment="Center">
-                    <TextBlock Text="Unknown:" Style="{StaticResource StatsCategoryTextBlockStyle}" Foreground="{StaticResource WarningGoldenrodTextBrush}"/>
+                    <TextBlock Text="Unknown:" Style="{StaticResource StatsCategoryWarningTextBlockStyle}"/>
                     <TextBlock x:Name="UnknownValue" Text="0" Style="{StaticResource StatsValueTextBlockStyle}"/>
                 </StackPanel>
             </Border>
             <Border Grid.Column="4" Style="{StaticResource StatsPanelBorderStyle}" ToolTip="Number of files that were renamed to match the DAT entry">
                 <StackPanel Orientation="Vertical" HorizontalAlignment="Center">
-                    <TextBlock Text="Renamed:" Style="{StaticResource StatsCategoryTextBlockStyle}" Foreground="{StaticResource InfoBlueTextBrush}"/>
+                    <TextBlock Text="Renamed:" Style="{StaticResource StatsCategoryRenamedTextBlockStyle}"/>
                     <TextBlock x:Name="RenamedValue" Text="0" Style="{StaticResource StatsValueTextBlockStyle}"/>
                 </StackPanel>
             </Border>
             <Border Grid.Column="5" Style="{StaticResource StatsPanelBorderStyle}" ToolTip="Number of files that were permanently deleted">
                 <StackPanel Orientation="Vertical" HorizontalAlignment="Center">
-                    <TextBlock Text="Deleted:" Style="{StaticResource StatsCategoryTextBlockStyle}" Foreground="{StaticResource DarkRedBrush}"/>
+                    <TextBlock Text="Deleted:" Style="{StaticResource StatsCategoryDeletedTextBlockStyle}"/>
                     <TextBlock x:Name="DeletedValue" Text="0" Style="{StaticResource StatsValueTextBlockStyle}"/>
                 </StackPanel>
             </Border>
             <Border Grid.Column="6" Style="{StaticResource StatsPanelBorderStyle}" ToolTip="Number of duplicate files (hash matches but destination already exists)">
                 <StackPanel Orientation="Vertical" HorizontalAlignment="Center">
-                    <TextBlock Text="Duplicates:" Style="{StaticResource StatsCategoryTextBlockStyle}" Foreground="{StaticResource WarningGoldenrodTextBrush}"/>
+                    <TextBlock Text="Duplicates:" Style="{StaticResource StatsCategoryWarningTextBlockStyle}"/>
                     <TextBlock x:Name="DuplicateValue" Text="0" Style="{StaticResource StatsValueTextBlockStyle}"/>
                 </StackPanel>
             </Border>

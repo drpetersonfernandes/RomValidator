@@ -18,7 +18,7 @@
         </Grid.RowDefinitions>
 
         <!-- Header with application title and navigation buttons -->
-        <Border Grid.Row="0" Background="{StaticResource PrimaryBlueBrush}" Padding="15">
+        <Border Grid.Row="0" Style="{StaticResource MainHeaderBorderStyle}">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
@@ -42,11 +42,10 @@
         <!-- Main content frame -->
         <Frame Grid.Row="1"
                Name="MainContentFrame"
-               NavigationUIVisibility="Hidden"
-               Background="{StaticResource WindowBackgroundBrush}" />
+               NavigationUIVisibility="Hidden" />
 
         <!-- Status bar -->
-        <StatusBar Grid.Row="2" Background="{StaticResource StatusBarGrayBrush}" Padding="5">
+        <StatusBar Grid.Row="2">
             <StatusBarItem ToolTip="Current application status">
                 <TextBlock x:Name="StatusBarMessageTextBlock" Text="Ready." />
             </StatusBarItem>

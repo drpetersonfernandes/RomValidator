@@ -47,6 +47,7 @@
       <PackageReference Include="Serilog.Sinks.Debug" Version="3.0.0" />
       <PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
       <PackageReference Include="SharpSevenZip" Version="2.0.109" />
+      <PackageReference Include="WPF-UI" Version="4.3.0" />
     </ItemGroup>
 
     <!-- Ensure 7z native libraries are copied to output directory with correct naming for each architecture -->

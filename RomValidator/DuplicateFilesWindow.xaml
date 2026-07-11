@@ -24,7 +24,7 @@
         
         <TextBlock Grid.Row="0" Text="Duplicate Files Detected" Style="{StaticResource DuplicateWindowHeaderTextBlockStyle}" />
         
-        <Border Grid.Row="1" Background="{StaticResource DuplicateWarningBackgroundBrush}" BorderBrush="{StaticResource DuplicateWarningBorderBrush}" BorderThickness="1" CornerRadius="3" Padding="10" Margin="0,0,0,15">
+        <Border Grid.Row="1" Style="{StaticResource DuplicateWarningBorderStyle}" Margin="0,0,0,15">
             <StackPanel>
                 <TextBlock Text="Warning: Duplicate ROMs detected in the input folder!" Style="{StaticResource DuplicateWarningTitleTextBlockStyle}" />
                 <TextBlock Text="These are the same ROM data stored under different filenames." Margin="0,5,0,0" />
@@ -32,14 +32,14 @@
             </StackPanel>
         </Border>
         
-        <Border Grid.Row="2" BorderBrush="{StaticResource StatusBarGrayBrush}" BorderThickness="1" CornerRadius="3" Margin="0,0,0,15">
+        <Border Grid.Row="2" Style="{StaticResource DuplicateListContainerBorderStyle}" Margin="0,0,0,15">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
                 
-                <Border Grid.Row="0" Background="{StaticResource LightBackgroundBrush}" BorderBrush="{StaticResource StatusBarGrayBrush}" BorderThickness="0,0,0,1" Padding="10">
+                <Border Grid.Row="0" Style="{StaticResource DuplicateListHeaderBorderStyle}">
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto" />
