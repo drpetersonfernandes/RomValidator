@@ -48,10 +48,10 @@
                     <GridView>
                         <GridViewColumn Header="Filename" Width="250"><GridViewColumn.CellTemplate><DataTemplate DataType="models:GameFile"><TextBlock Text="{Binding FileName}" TextTrimming="CharacterEllipsis" ToolTip="{Binding FileName}" /></DataTemplate></GridViewColumn.CellTemplate></GridViewColumn>
                         <GridViewColumn Header="Size" Width="100"><GridViewColumn.CellTemplate><DataTemplate DataType="models:GameFile"><TextBlock Text="{Binding FileSize, StringFormat='{}{0:N0}'}" TextAlignment="Right" /></DataTemplate></GridViewColumn.CellTemplate></GridViewColumn>
-                        <GridViewColumn Header="CRC32" Width="80"><GridViewColumn.CellTemplate><DataTemplate DataType="models:GameFile"><TextBlock Text="{Binding Crc32}" FontFamily="Consolas, Courier New, Lucida Console" ToolTip="{Binding ErrorMessage}" /></DataTemplate></GridViewColumn.CellTemplate></GridViewColumn>
-                        <GridViewColumn Header="MD5" Width="240"><GridViewColumn.CellTemplate><DataTemplate DataType="models:GameFile"><TextBlock Text="{Binding Md5}" FontFamily="Consolas, Courier New, Lucida Console" ToolTip="{Binding ErrorMessage}" /></DataTemplate></GridViewColumn.CellTemplate></GridViewColumn>
-                        <GridViewColumn Header="SHA1" Width="280"><GridViewColumn.CellTemplate><DataTemplate DataType="models:GameFile"><TextBlock Text="{Binding Sha1}" FontFamily="Consolas, Courier New, Lucida Console" ToolTip="{Binding ErrorMessage}" /></DataTemplate></GridViewColumn.CellTemplate></GridViewColumn>
-                        <GridViewColumn Header="SHA256" Width="450"><GridViewColumn.CellTemplate><DataTemplate DataType="models:GameFile"><TextBlock Text="{Binding Sha256}" FontFamily="Consolas, Courier New, Lucida Console" ToolTip="{Binding ErrorMessage}" /></DataTemplate></GridViewColumn.CellTemplate></GridViewColumn>
+                        <GridViewColumn Header="CRC32" Width="80"><GridViewColumn.CellTemplate><DataTemplate DataType="models:GameFile"><TextBlock Text="{Binding Crc32}" Style="{StaticResource MonospaceTextBlockStyle}" ToolTip="{Binding ErrorMessage}" /></DataTemplate></GridViewColumn.CellTemplate></GridViewColumn>
+                        <GridViewColumn Header="MD5" Width="240"><GridViewColumn.CellTemplate><DataTemplate DataType="models:GameFile"><TextBlock Text="{Binding Md5}" Style="{StaticResource MonospaceTextBlockStyle}" ToolTip="{Binding ErrorMessage}" /></DataTemplate></GridViewColumn.CellTemplate></GridViewColumn>
+                        <GridViewColumn Header="SHA1" Width="280"><GridViewColumn.CellTemplate><DataTemplate DataType="models:GameFile"><TextBlock Text="{Binding Sha1}" Style="{StaticResource MonospaceTextBlockStyle}" ToolTip="{Binding ErrorMessage}" /></DataTemplate></GridViewColumn.CellTemplate></GridViewColumn>
+                        <GridViewColumn Header="SHA256" Width="450"><GridViewColumn.CellTemplate><DataTemplate DataType="models:GameFile"><TextBlock Text="{Binding Sha256}" Style="{StaticResource MonospaceTextBlockStyle}" ToolTip="{Binding ErrorMessage}" /></DataTemplate></GridViewColumn.CellTemplate></GridViewColumn>
                     </GridView>
                 </ListView.View>
             </ListView>
@@ -64,7 +64,7 @@
             <Border Grid.Column="0" Style="{StaticResource ProgressBarContainerStyle}" ToolTip="Overall hashing progress">
                 <Grid>
                     <ProgressBar Name="HashProgressBar" Style="{StaticResource StandardProgressBarStyle}" />
-                    <TextBlock Name="ProgressText" HorizontalAlignment="Center" VerticalAlignment="Center" FontWeight="SemiBold" />
+                    <TextBlock Name="ProgressText" Style="{StaticResource ProgressTextBlockStyle}" />
                 </Grid>
             </Border>
             <TextBlock Grid.Column="1" Name="FileCountText" Text="No files processed" Margin="10,0,0,0" VerticalAlignment="Center" />
@@ -74,7 +74,7 @@
             <Button Name="StartButton" Content="Start Hashing" Style="{StaticResource StartButtonStyle}" Click="StartButton_ClickAsync" IsEnabled="False" ToolTip="Begin hashing files in the selected folder" />
             <Button Name="StopButton" Content="Stop" Style="{StaticResource CancelButtonStyle}" Click="StopButton_Click" IsEnabled="False" ToolTip="Cancel the hashing operation" />
             <Button Content="Reset" Style="{StaticResource DownloadButtonStyle}" Click="ResetButton_Click" ToolTip="Clear all data and start over" />
-            <Button Name="ExportDatButton" Content="Export DAT" Style="{StaticResource ActionButtonStyle}" Background="{StaticResource InfoPurpleBrush}" Click="ExportDatButton_ClickAsync" IsEnabled="False" ToolTip="Export the results to a DAT file" />
+            <Button Name="ExportDatButton" Content="Export DAT" Style="{StaticResource PurpleActionButtonStyle}" Click="ExportDatButton_ClickAsync" IsEnabled="False" ToolTip="Export the results to a DAT file" />
         </UniformGrid>
     </Grid>
 </Page>

@@ -4,60 +4,157 @@
              StartupUri="MainWindow.xaml">
     <Application.Resources>
         <!-- ============================================ -->
-        <!-- COLORS                                       -->
+        <!-- COLORS - Professional Dark Theme             -->
         <!-- ============================================ -->
-        
+
+        <!-- Background Colors -->
+        <SolidColorBrush x:Key="WindowBackgroundBrush" Color="#1E1E1E" />
+        <SolidColorBrush x:Key="SurfaceBrush" Color="#2D2D2D" />
+        <SolidColorBrush x:Key="SurfaceRaisedBrush" Color="#363636" />
+        <SolidColorBrush x:Key="SurfaceLightBrush" Color="#252525" />
+
         <!-- Primary Blue Colors -->
-        <SolidColorBrush x:Key="PrimaryBlueBrush" Color="#1976D2" />
-        <SolidColorBrush x:Key="AccentBlueBrush" Color="#2979FF" />
-        <SolidColorBrush x:Key="HoverBlueBrush" Color="#1E88E5" />
-        <SolidColorBrush x:Key="PressedBlueBrush" Color="#1565C0" />
-        
+        <SolidColorBrush x:Key="PrimaryBlueBrush" Color="#0078D4" />
+        <SolidColorBrush x:Key="AccentBlueBrush" Color="#0078D4" />
+        <SolidColorBrush x:Key="HoverBlueBrush" Color="#2B8CFF" />
+        <SolidColorBrush x:Key="PressedBlueBrush" Color="#005A9E" />
+
         <!-- Status Colors -->
         <SolidColorBrush x:Key="SuccessGreenBrush" Color="#4CAF50" />
         <SolidColorBrush x:Key="SuccessGreenHoverBrush" Color="#43A047" />
         <SolidColorBrush x:Key="SuccessGreenPressedBrush" Color="#388E3C" />
-        
+
         <SolidColorBrush x:Key="ErrorRedBrush" Color="#F44336" />
         <SolidColorBrush x:Key="ErrorRedHoverBrush" Color="#E53935" />
         <SolidColorBrush x:Key="ErrorRedPressedBrush" Color="#D32F2F" />
-        <SolidColorBrush x:Key="DarkRedBrush" Color="DarkRed" />
-        
+        <SolidColorBrush x:Key="DarkRedBrush" Color="#CF6679" />
+
         <SolidColorBrush x:Key="WarningOrangeBrush" Color="#FF9800" />
         <SolidColorBrush x:Key="WarningOrangeHoverBrush" Color="#FB8C00" />
         <SolidColorBrush x:Key="WarningOrangePressedBrush" Color="#F57C00" />
-        
-        <SolidColorBrush x:Key="InfoPurpleBrush" Color="#9C27B0" />
-        
+
+        <SolidColorBrush x:Key="InfoPurpleBrush" Color="#BB86FC" />
+
         <!-- Neutral Colors -->
-        <SolidColorBrush x:Key="NeutralGrayBrush" Color="#607D8B" />
-        <SolidColorBrush x:Key="BorderGrayBrush" Color="#BDBDBD" />
-        <SolidColorBrush x:Key="LightBackgroundBrush" Color="#F5F5F5" />
-        <SolidColorBrush x:Key="StatusBarGrayBrush" Color="#E0E0E0" />
-        <SolidColorBrush x:Key="GrayTextBrush" Color="Gray" />
-        <SolidColorBrush x:Key="DarkGrayTextBrush" Color="#424242" />
-        
+        <SolidColorBrush x:Key="NeutralGrayBrush" Color="#505050" />
+        <SolidColorBrush x:Key="NeutralGrayHoverBrush" Color="#606060" />
+        <SolidColorBrush x:Key="BorderGrayBrush" Color="#404040" />
+        <SolidColorBrush x:Key="LightBackgroundBrush" Color="#252525" />
+        <SolidColorBrush x:Key="StatusBarGrayBrush" Color="#333333" />
+        <SolidColorBrush x:Key="GrayTextBrush" Color="#888888" />
+        <SolidColorBrush x:Key="DarkGrayTextBrush" Color="#B0B0B0" />
+
         <!-- Background Colors -->
         <SolidColorBrush x:Key="WhiteBrush" Color="White" />
         <SolidColorBrush x:Key="BlackBrush" Color="Black" />
-        <SolidColorBrush x:Key="HoverBackgroundBrush" Color="#E3F2FD" />
-        
+        <SolidColorBrush x:Key="HoverBackgroundBrush" Color="#3C3C3C" />
+
+        <!-- Text Colors -->
+        <SolidColorBrush x:Key="PrimaryTextBrush" Color="#E0E0E0" />
+        <SolidColorBrush x:Key="SecondaryTextBrush" Color="#A0A0A0" />
+
         <!-- Text Colors for Stats -->
-        <SolidColorBrush x:Key="SuccessGreenTextBrush" Color="#008000" />
-        <SolidColorBrush x:Key="ErrorRedTextBrush" Color="#FF0000" />
-        <SolidColorBrush x:Key="WarningGoldenrodTextBrush" Color="#DAA520" />
-        <SolidColorBrush x:Key="InfoBlueTextBrush" Color="#0000FF" />
+        <SolidColorBrush x:Key="SuccessGreenTextBrush" Color="#4CAF50" />
+        <SolidColorBrush x:Key="ErrorRedTextBrush" Color="#FF6B6B" />
+        <SolidColorBrush x:Key="WarningGoldenrodTextBrush" Color="#FFB347" />
+        <SolidColorBrush x:Key="InfoBlueTextBrush" Color="#64B5F6" />
 
         <!-- Duplicate Window Colors -->
-        <SolidColorBrush x:Key="DuplicateWarningBackgroundBrush" Color="#FFF3E0" />
-        <SolidColorBrush x:Key="DuplicateWarningBorderBrush" Color="#FFCC80" />
-        <SolidColorBrush x:Key="DuplicateWarningTextBrush" Color="#E65100" />
-        <SolidColorBrush x:Key="DuplicateWindowCloseButtonBackgroundBrush" Color="#FF2196F3" />
+        <SolidColorBrush x:Key="DuplicateWarningBackgroundBrush" Color="#332900" />
+        <SolidColorBrush x:Key="DuplicateWarningBorderBrush" Color="#5C4300" />
+        <SolidColorBrush x:Key="DuplicateWarningTextBrush" Color="#FFB347" />
+        <SolidColorBrush x:Key="DuplicateWindowCloseButtonBackgroundBrush" Color="#0078D4" />
+
+        <!-- ============================================ -->
+        <!-- GLOBAL IMPLICIT STYLES                       -->
+        <!-- ============================================ -->
+
+        <Style TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{StaticResource PrimaryTextBrush}" />
+        </Style>
+
+        <Style TargetType="Label">
+            <Setter Property="Foreground" Value="{StaticResource PrimaryTextBrush}" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+
+        <Style TargetType="CheckBox">
+            <Setter Property="Foreground" Value="{StaticResource PrimaryTextBrush}" />
+        </Style>
+
+        <Style TargetType="RadioButton">
+            <Setter Property="Foreground" Value="{StaticResource PrimaryTextBrush}" />
+        </Style>
+
+        <Style TargetType="StatusBar">
+            <Setter Property="Background" Value="{StaticResource StatusBarGrayBrush}" />
+        </Style>
+
+        <Style TargetType="StatusBarItem">
+            <Setter Property="Foreground" Value="{StaticResource PrimaryTextBrush}" />
+        </Style>
+
+        <Style TargetType="ScrollBar">
+            <Setter Property="Background" Value="{StaticResource SurfaceBrush}" />
+            <Setter Property="Width" Value="10" />
+        </Style>
+
+        <Style TargetType="GridViewColumnHeader">
+            <Setter Property="Background" Value="{StaticResource SurfaceRaisedBrush}" />
+            <Setter Property="Foreground" Value="{StaticResource PrimaryTextBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource BorderGrayBrush}" />
+            <Setter Property="BorderThickness" Value="0,0,0,1" />
+            <Setter Property="Padding" Value="8,6" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="GridViewColumnHeader">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                Padding="{TemplateBinding Padding}">
+                            <Grid>
+                                <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                                  VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                                  RecognizesAccessKey="True" />
+                                <Thumb x:Name="PART_HeaderGripper"
+                                       HorizontalAlignment="Right"
+                                       Width="4"
+                                       Margin="0,0,-2,0"
+                                       Cursor="SizeWE"
+                                       Background="Transparent" />
+                            </Grid>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="{StaticResource HoverBackgroundBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter Property="Background" Value="{StaticResource BorderGrayBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style TargetType="ListViewItem">
+            <Setter Property="Foreground" Value="{StaticResource PrimaryTextBrush}" />
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
+
+        <Style TargetType="ListView">
+            <Setter Property="Background" Value="{StaticResource SurfaceBrush}" />
+            <Setter Property="Foreground" Value="{StaticResource PrimaryTextBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource BorderGrayBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+        </Style>
 
         <!-- ============================================ -->
         <!-- BUTTON STYLES                                -->
         <!-- ============================================ -->
-        
+
         <!-- Menu Button Style (MainWindow) -->
         <Style x:Key="MenuButtonStyle" TargetType="Button">
             <Setter Property="Padding" Value="12,8" />
@@ -67,6 +164,7 @@
             <Setter Property="FontSize" Value="14" />
             <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Cursor" Value="Hand" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
@@ -99,6 +197,7 @@
             <Setter Property="BorderThickness" Value="0" />
             <Setter Property="Foreground" Value="{StaticResource WhiteBrush}" />
             <Setter Property="Background" Value="{StaticResource AccentBlueBrush}" />
+            <Setter Property="Cursor" Value="Hand" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
@@ -113,7 +212,7 @@
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsEnabled" Value="False">
                                 <Setter Property="Background" Value="{StaticResource BorderGrayBrush}" />
-                                <Setter Property="Opacity" Value="0.7" />
+                                <Setter Property="Opacity" Value="0.5" />
                             </Trigger>
                             <Trigger Property="IsMouseOver" Value="True">
                                 <Setter Property="Background" Value="{StaticResource HoverBlueBrush}" />
@@ -175,14 +274,16 @@
         <!-- ============================================ -->
         <!-- TEXTBOX STYLES                               -->
         <!-- ============================================ -->
-        
+
         <!-- Custom TextBox Style -->
         <Style x:Key="CustomTextBoxStyle" TargetType="TextBox">
             <Setter Property="Padding" Value="10,8" />
             <Setter Property="FontSize" Value="13" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="BorderBrush" Value="{StaticResource BorderGrayBrush}" />
-            <Setter Property="Background" Value="{StaticResource WhiteBrush}" />
+            <Setter Property="Background" Value="{StaticResource SurfaceBrush}" />
+            <Setter Property="Foreground" Value="{StaticResource PrimaryTextBrush}" />
+            <Setter Property="CaretBrush" Value="{StaticResource PrimaryTextBrush}" />
             <Setter Property="VerticalContentAlignment" Value="Center" />
             <Setter Property="IsReadOnlyCaretVisible" Value="True" />
         </Style>
@@ -190,15 +291,16 @@
         <!-- ============================================ -->
         <!-- LISTVIEW STYLES                              -->
         <!-- ============================================ -->
-        
+
         <!-- Alternating ListViewItem Style -->
         <Style x:Key="AlternatingListViewItemStyle" TargetType="ListViewItem">
             <Setter Property="Padding" Value="10,5" />
             <Setter Property="BorderThickness" Value="0,0,0,1" />
-            <Setter Property="BorderBrush" Value="{StaticResource StatusBarGrayBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource BorderGrayBrush}" />
+            <Setter Property="Foreground" Value="{StaticResource PrimaryTextBrush}" />
             <Style.Triggers>
                 <Trigger Property="ItemsControl.AlternationIndex" Value="0">
-                    <Setter Property="Background" Value="{StaticResource WhiteBrush}" />
+                    <Setter Property="Background" Value="{StaticResource SurfaceBrush}" />
                 </Trigger>
                 <Trigger Property="ItemsControl.AlternationIndex" Value="1">
                     <Setter Property="Background" Value="{StaticResource LightBackgroundBrush}" />
@@ -206,19 +308,23 @@
                 <Trigger Property="IsMouseOver" Value="True">
                     <Setter Property="Background" Value="{StaticResource HoverBackgroundBrush}" />
                 </Trigger>
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="Background" Value="{StaticResource AccentBlueBrush}" />
+                    <Setter Property="Foreground" Value="{StaticResource WhiteBrush}" />
+                </Trigger>
             </Style.Triggers>
         </Style>
 
         <!-- ============================================ -->
         <!-- BORDER STYLES                                -->
         <!-- ============================================ -->
-        
+
         <!-- Standard Card Border Style -->
         <Style x:Key="CardBorderStyle" TargetType="Border">
             <Setter Property="BorderBrush" Value="{StaticResource BorderGrayBrush}" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="CornerRadius" Value="4" />
-            <Setter Property="Background" Value="{StaticResource WhiteBrush}" />
+            <Setter Property="Background" Value="{StaticResource SurfaceBrush}" />
         </Style>
 
         <!-- Option Card Border Style (for radio button options) -->
@@ -227,7 +333,7 @@
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="CornerRadius" Value="4" />
             <Setter Property="Padding" Value="15" />
-            <Setter Property="Background" Value="{StaticResource WhiteBrush}" />
+            <Setter Property="Background" Value="{StaticResource SurfaceBrush}" />
             <Setter Property="Cursor" Value="Hand" />
         </Style>
 
@@ -238,6 +344,7 @@
             <Setter Property="CornerRadius" Value="4" />
             <Setter Property="Padding" Value="15" />
             <Setter Property="Margin" Value="10" />
+            <Setter Property="Background" Value="{StaticResource SurfaceBrush}" />
         </Style>
 
         <!-- Progress Bar Container Border Style -->
@@ -255,18 +362,19 @@
             <Setter Property="Margin" Value="2" />
             <Setter Property="Padding" Value="8" />
             <Setter Property="CornerRadius" Value="4" />
+            <Setter Property="Background" Value="{StaticResource SurfaceBrush}" />
         </Style>
 
         <!-- ============================================ -->
         <!-- TEXTBLOCK STYLES                             -->
         <!-- ============================================ -->
-        
+
         <!-- Header TextBlock Style -->
         <Style x:Key="HeaderTextBlockStyle" TargetType="TextBlock">
             <Setter Property="FontSize" Value="22" />
             <Setter Property="FontWeight" Value="Bold" />
             <Setter Property="Margin" Value="0,0,0,15" />
-            <Setter Property="Foreground" Value="{StaticResource PrimaryBlueBrush}" />
+            <Setter Property="Foreground" Value="{StaticResource AccentBlueBrush}" />
         </Style>
 
         <!-- SubHeader TextBlock Style -->
@@ -274,19 +382,21 @@
             <Setter Property="FontSize" Value="18" />
             <Setter Property="FontWeight" Value="Bold" />
             <Setter Property="Margin" Value="0,0,0,10" />
-            <Setter Property="Foreground" Value="{StaticResource PrimaryBlueBrush}" />
+            <Setter Property="Foreground" Value="{StaticResource AccentBlueBrush}" />
         </Style>
 
         <!-- Label TextBlock Style -->
         <Style x:Key="LabelTextBlockStyle" TargetType="TextBlock">
             <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Foreground" Value="{StaticResource PrimaryTextBrush}" />
         </Style>
 
         <!-- Option Title TextBlock Style -->
         <Style x:Key="OptionTitleTextBlockStyle" TargetType="TextBlock">
             <Setter Property="FontWeight" Value="Bold" />
             <Setter Property="FontSize" Value="14" />
+            <Setter Property="Foreground" Value="{StaticResource PrimaryTextBrush}" />
         </Style>
 
         <!-- Option Description TextBlock Style -->
@@ -306,11 +416,11 @@
         <!-- ============================================ -->
         <!-- PROGRESSBAR STYLE                            -->
         <!-- ============================================ -->
-        
+
         <!-- Standard ProgressBar Style -->
         <Style x:Key="StandardProgressBarStyle" TargetType="ProgressBar">
             <Setter Property="Height" Value="24" />
-            <Setter Property="Background" Value="{StaticResource WhiteBrush}" />
+            <Setter Property="Background" Value="{StaticResource SurfaceBrush}" />
             <Setter Property="Foreground" Value="{StaticResource SuccessGreenBrush}" />
             <Setter Property="BorderThickness" Value="0" />
         </Style>
@@ -318,33 +428,36 @@
         <!-- ============================================ -->
         <!-- GRIDSPLITTER STYLE                           -->
         <!-- ============================================ -->
-        
+
         <!-- Standard GridSplitter Style -->
         <Style x:Key="StandardGridSplitterStyle" TargetType="GridSplitter">
             <Setter Property="HorizontalAlignment" Value="Stretch" />
             <Setter Property="VerticalAlignment" Value="Stretch" />
-            <Setter Property="Background" Value="{StaticResource StatusBarGrayBrush}" />
+            <Setter Property="Background" Value="{StaticResource BorderGrayBrush}" />
             <Setter Property="ShowsPreview" Value="True" />
+            <Setter Property="Width" Value="5" />
         </Style>
 
         <!-- ============================================ -->
         <!-- DUPLICATE WINDOW STYLES                      -->
         <!-- ============================================ -->
-        
+
         <!-- Duplicate Window Header TextBlock Style -->
         <Style x:Key="DuplicateWindowHeaderTextBlockStyle" TargetType="TextBlock">
             <Setter Property="FontSize" Value="16" />
             <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="Margin" Value="0,0,0,10" />
+            <Setter Property="Foreground" Value="{StaticResource PrimaryTextBrush}" />
         </Style>
-        
+
         <!-- Duplicate Window Label TextBlock Style -->
         <Style x:Key="DuplicateWindowLabelTextBlockStyle" TargetType="TextBlock">
             <Setter Property="FontSize" Value="12" />
             <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Foreground" Value="{StaticResource PrimaryTextBrush}" />
         </Style>
-        
+
         <!-- Duplicate Window Close Button Style -->
         <Style x:Key="DuplicateWindowCloseButtonStyle" TargetType="Button">
             <Setter Property="Padding" Value="15,5" />
@@ -363,6 +476,106 @@
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
+        </Style>
+
+        <!-- ============================================ -->
+        <!-- APPLICATION-SPECIFIC NAMED STYLES            -->
+        <!-- ============================================ -->
+
+        <!-- App Title TextBlock (MainWindow header) -->
+        <Style x:Key="AppTitleTextBlockStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="20" />
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="Foreground" Value="{StaticResource WhiteBrush}" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Margin" Value="0,0,30,0" />
+        </Style>
+
+        <!-- Menu Button Variants -->
+        <Style x:Key="MenuButtonPurpleStyle" BasedOn="{StaticResource MenuButtonStyle}" TargetType="Button">
+            <Setter Property="Background" Value="{StaticResource InfoPurpleBrush}" />
+        </Style>
+
+        <Style x:Key="MenuButtonGrayStyle" BasedOn="{StaticResource MenuButtonStyle}" TargetType="Button">
+            <Setter Property="Background" Value="{StaticResource NeutralGrayBrush}" />
+        </Style>
+
+        <!-- Purple Action Button (for Export DAT) -->
+        <Style x:Key="PurpleActionButtonStyle" BasedOn="{StaticResource ActionButtonStyle}" TargetType="Button">
+            <Setter Property="Background" Value="{StaticResource InfoPurpleBrush}" />
+        </Style>
+
+        <!-- Form Hint TextBlock ("Only No-Intro...") -->
+        <Style x:Key="FormHintTextBlockStyle" TargetType="TextBlock">
+            <Setter Property="FontStyle" Value="Italic" />
+            <Setter Property="Foreground" Value="{StaticResource GrayTextBrush}" />
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="Margin" Value="155,0,0,5" />
+        </Style>
+
+        <!-- Dangerous CheckBox (delete option) -->
+        <Style x:Key="DangerousCheckBoxStyle" TargetType="CheckBox" BasedOn="{StaticResource {x:Type CheckBox}}">
+            <Setter Property="Foreground" Value="{StaticResource ErrorRedBrush}" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+
+        <!-- Log Viewer TextBox (monospace, dark bg) -->
+        <Style x:Key="LogViewerTextBoxStyle" TargetType="TextBox">
+            <Setter Property="FontFamily" Value="Consolas, Courier New, Lucida Console" />
+            <Setter Property="Background" Value="{StaticResource SurfaceBrush}" />
+            <Setter Property="Foreground" Value="{StaticResource PrimaryTextBrush}" />
+            <Setter Property="AcceptsReturn" Value="True" />
+            <Setter Property="VerticalScrollBarVisibility" Value="Auto" />
+            <Setter Property="HorizontalScrollBarVisibility" Value="Auto" />
+            <Setter Property="IsReadOnly" Value="True" />
+        </Style>
+
+        <!-- Section Title ("DAT File Information") -->
+        <Style x:Key="SectionTitleTextBlockStyle" TargetType="TextBlock">
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="Margin" Value="0,0,0,10" />
+        </Style>
+
+        <!-- DAT Info Field Label -->
+        <Style x:Key="DatFieldLabelTextBlockStyle" TargetType="TextBlock">
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Margin" Value="0,0,5,5" />
+        </Style>
+
+        <!-- DAT Info Field Value -->
+        <Style x:Key="DatFieldValueTextBlockStyle" TargetType="TextBlock">
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="Margin" Value="0,0,0,5" />
+        </Style>
+
+        <!-- Stats Panel Category Label -->
+        <Style x:Key="StatsCategoryTextBlockStyle" TargetType="TextBlock">
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+        </Style>
+
+        <!-- Stats Panel Value Label -->
+        <Style x:Key="StatsValueTextBlockStyle" TargetType="TextBlock">
+            <Setter Property="HorizontalAlignment" Value="Center" />
+        </Style>
+
+        <!-- Progress Overlay Text -->
+        <Style x:Key="ProgressTextBlockStyle" TargetType="TextBlock">
+            <Setter Property="HorizontalAlignment" Value="Center" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+
+        <!-- Monospace Text (hash values) -->
+        <Style x:Key="MonospaceTextBlockStyle" TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="Consolas, Courier New, Lucida Console" />
+        </Style>
+
+        <!-- Duplicate Warning Title -->
+        <Style x:Key="DuplicateWarningTitleTextBlockStyle" TargetType="TextBlock">
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="Foreground" Value="{StaticResource DuplicateWarningTextBrush}" />
         </Style>
     </Application.Resources>
 </Application>

@@ -9,7 +9,8 @@
         Width="800"
         WindowStartupLocation="CenterOwner"
         ResizeMode="CanResizeWithGrip"
-        WindowStyle="SingleBorderWindow">
+        WindowStyle="SingleBorderWindow"
+        Background="{StaticResource WindowBackgroundBrush}">
     
 
     
@@ -25,7 +26,7 @@
         
         <Border Grid.Row="1" Background="{StaticResource DuplicateWarningBackgroundBrush}" BorderBrush="{StaticResource DuplicateWarningBorderBrush}" BorderThickness="1" CornerRadius="3" Padding="10" Margin="0,0,0,15">
             <StackPanel>
-                <TextBlock Text="Warning: Duplicate ROMs detected in the input folder!" FontWeight="Bold" Foreground="{StaticResource DuplicateWarningTextBrush}" />
+                <TextBlock Text="Warning: Duplicate ROMs detected in the input folder!" Style="{StaticResource DuplicateWarningTitleTextBlockStyle}" />
                 <TextBlock Text="These are the same ROM data stored under different filenames." Margin="0,5,0,0" />
                 <TextBlock Text="Consider removing duplicates before exporting the DAT file." Margin="0,2,0,0" />
             </StackPanel>

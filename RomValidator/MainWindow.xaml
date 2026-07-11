@@ -6,7 +6,9 @@
         mc:Ignorable="d"
         Title="ROM Validator" Height="720" Width="1200" MinHeight="600" MinWidth="900"
         WindowStartupLocation="CenterScreen"
-        Closing="Window_Closing">
+        Background="{StaticResource WindowBackgroundBrush}"
+        Closing="Window_Closing"
+        PreviewKeyDown="Window_PreviewKeyDown">
 
     <Grid>
         <Grid.RowDefinitions>
@@ -25,14 +27,14 @@
                 </Grid.ColumnDefinitions>
 
                 <StackPanel Grid.Column="0" Orientation="Horizontal">
-                    <TextBlock Text="ROM Validator" FontSize="20" FontWeight="Bold" Foreground="{StaticResource WhiteBrush}" VerticalAlignment="Center" Margin="0,0,30,0" />
+                    <TextBlock Text="ROM Validator" Style="{StaticResource AppTitleTextBlockStyle}" />
                     <Button x:Name="ValidateRomsButton" Content="Validate ROMs" Click="ValidateRoms_Click" Style="{StaticResource MenuButtonStyle}" ToolTip="Validate ROMs against a DAT file" />
                     <Button x:Name="GenerateDatButton" Content="Generate DAT" Click="GenerateDat_Click" Style="{StaticResource MenuButtonStyle}" ToolTip="Generate a DAT file from a folder of ROMs" />
                 </StackPanel>
 
                 <StackPanel Grid.Column="2" Orientation="Horizontal">
-                    <Button Content="About" Click="About_Click" Style="{StaticResource MenuButtonStyle}" Background="{StaticResource InfoPurpleBrush}" ToolTip="View application information" />
-                    <Button Content="Exit" Click="Exit_Click" Style="{StaticResource MenuButtonStyle}" Background="{StaticResource NeutralGrayBrush}" ToolTip="Close the application" />
+                    <Button Content="About" Click="About_Click" Style="{StaticResource MenuButtonPurpleStyle}" ToolTip="View application information" />
+                    <Button Content="Exit" Click="Exit_Click" Style="{StaticResource MenuButtonGrayStyle}" ToolTip="Close the application" />
                 </StackPanel>
             </Grid>
         </Border>
@@ -41,7 +43,7 @@
         <Frame Grid.Row="1"
                Name="MainContentFrame"
                NavigationUIVisibility="Hidden"
-               Background="{StaticResource LightBackgroundBrush}" />
+               Background="{StaticResource WindowBackgroundBrush}" />
 
         <!-- Status bar -->
         <StatusBar Grid.Row="2" Background="{StaticResource StatusBarGrayBrush}" Padding="5">

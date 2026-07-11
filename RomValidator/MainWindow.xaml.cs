@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Windows;
+using System.Windows.Input;
 using System.Windows.Media;
 using RomValidator.Pages;
 using RomValidator.Services;
@@ -9,8 +10,8 @@ namespace RomValidator;
 public partial class MainWindow : IDisposable
 {
     // Cached brushes for UI consistency (PERF fix)
-    private static readonly SolidColorBrush SActiveBrush = new(Colors.White);
-    private static readonly SolidColorBrush SActiveBackgroundBrush = new(Color.FromRgb(0x1E, 0x88, 0xE5));
+    private static readonly SolidColorBrush SActiveBrush = new(Color.FromRgb(0xE0, 0xE0, 0xE0));
+    private static readonly SolidColorBrush SActiveBackgroundBrush = new(Color.FromRgb(0x2B, 0x8C, 0xFF));
     private static readonly Brush SInactiveBrush = Brushes.Transparent;
 
     // Services
@@ -161,6 +162,23 @@ public partial class MainWindow : IDisposable
         catch (Exception ex)
         {
             LoggerService.LogException("MainWindow", ex, "Error closing application");
+        }
+    }
+
+    private void Window_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+    {
+        try
+        {
+            if (e.Key == Key.F8)
+            {
+                e.Handled = true;
+                var filePath = ScreenshotService.CaptureWindowScreenshot(this);
+                _ = UpdateStatusBarMessageAsync($"Screenshot saved: {filePath}");
+            }
+        }
+        catch (Exception ex)
+        {
+            LoggerService.LogException("MainWindow", ex, "Error capturing screenshot");
         }
     }
 
