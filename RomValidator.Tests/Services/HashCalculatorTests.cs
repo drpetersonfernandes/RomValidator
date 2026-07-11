@@ -30,7 +30,7 @@ public class HashCalculatorTests
     [InlineData("archive.zi", false)]
     [InlineData(".zip", true)]
     [InlineData("path/to/game.zip", true)]
-    [InlineData("C:\\Users\\test\\backup.7z", true)]
+    [InlineData(@"C:\Users\test\backup.7z", true)]
     [InlineData("archive.ZIP.PART", false)]
     [InlineData("game.nes.zip", true)]
     public void IsArchiveFileHandlesEdgeCases(string fileName, bool expected)

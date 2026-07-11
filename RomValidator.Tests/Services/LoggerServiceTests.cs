@@ -42,6 +42,7 @@ public class LoggerServiceTests
     public void LogExceptionWithNullContextDoesNotThrow()
     {
         // Act & Assert
+        // ReSharper disable once NotResolvedInText
         var testException = new ArgumentNullException("param");
         var exception = Record.Exception(() => LoggerService.LogException("TestComponent", testException));
         Assert.Null(exception);
